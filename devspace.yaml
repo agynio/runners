@@ -26,6 +26,19 @@ functions:
     else
       echo "WARNING: ArgoCD Application 'runners' not found in argocd namespace."
     fi
+  wait_for_runners_deployment: |-
+    echo "Waiting for runners deployment to exist..."
+    ELAPSED=0
+    while ! kubectl get deployment runners -n ${RUNNERS_NAMESPACE} >/dev/null 2>&1; do
+      sleep 5
+      ELAPSED=$((ELAPSED + 5))
+      if [ "$ELAPSED" -ge 300 ]; then
+        echo "ERROR: runners deployment not found after 300s"
+        exit 1
+      fi
+      echo "Still waiting for runners deployment... (${ELAPSED}s)"
+    done
+    echo "Runners deployment found."
   patch_deployment: |-
     echo "Patching runners deployment for DevSpace..."
     kubectl patch deployment runners -n ${RUNNERS_NAMESPACE} --type strategic --patch "$(cat <<'EOF'
@@ -148,6 +161,7 @@ pipelines:
     run: |-
       trap 'echo "Restoring ArgoCD sync..."; restore_argocd_sync' EXIT
       disable_argocd_sync
+      wait_for_runners_deployment
       patch_deployment
       if [ "$(get_flag "watch")" == "true" ]; then
         start_dev --disable-pod-replace runners
@@ -161,6 +175,7 @@ pipelines:
   deploy:
     run: |-
       disable_argocd_sync
+      wait_for_runners_deployment
       patch_deployment
       start_dev --disable-pod-replace runners-deploy
       wait_for_runners
