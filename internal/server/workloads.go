@@ -217,10 +217,6 @@ func (s *Server) ListWorkloads(ctx context.Context, req *runnersv1.ListWorkloads
 }
 
 func (s *Server) insertWorkload(ctx context.Context, input workloadInsertInput) (workloadRecord, error) {
-	containersJSON := input.ContainersJSON
-	if len(containersJSON) == 0 {
-		containersJSON = []byte("[]")
-	}
 	row := s.pool.QueryRow(ctx,
 		fmt.Sprintf(`INSERT INTO workloads (id, runner_id, thread_id, agent_id, organization_id, status, containers, ziti_identity_id)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -231,7 +227,7 @@ func (s *Server) insertWorkload(ctx context.Context, input workloadInsertInput) 
 		input.AgentID,
 		input.OrganizationID,
 		input.Status,
-		containersJSON,
+		input.ContainersJSON,
 		input.ZitiIdentityID,
 	)
 	workload, err := scanWorkload(row)
@@ -251,9 +247,6 @@ func (s *Server) insertWorkload(ctx context.Context, input workloadInsertInput) 
 }
 
 func (s *Server) updateWorkloadStatus(ctx context.Context, id uuid.UUID, statusValue string, containersJSON []byte) (workloadRecord, error) {
-	if len(containersJSON) == 0 {
-		containersJSON = []byte("[]")
-	}
 	row := s.pool.QueryRow(ctx,
 		fmt.Sprintf(`UPDATE workloads SET status = $1, containers = $2, updated_at = NOW() WHERE id = $3 RETURNING %s`, workloadColumns),
 		statusValue,
@@ -297,63 +290,14 @@ func (s *Server) deleteWorkload(ctx context.Context, id uuid.UUID) error {
 }
 
 func (s *Server) listWorkloadsByThread(ctx context.Context, threadID uuid.UUID, pageSize int32, pageToken string) ([]workloadRecord, string, error) {
-	limit := normalizePageSize(pageSize)
-	clauses := []string{fmt.Sprintf("thread_id = $1")}
+	clauses := []string{"thread_id = $1"}
 	args := []any{threadID}
-
-	if pageToken != "" {
-		afterID, err := decodePageToken(pageToken)
-		if err != nil {
-			return nil, "", InvalidPageToken(err)
-		}
-		clauses = append(clauses, fmt.Sprintf("id > $%d", len(args)+1))
-		args = append(args, afterID)
-	}
-
-	query := strings.Builder{}
-	query.WriteString(fmt.Sprintf("SELECT %s FROM workloads", workloadColumns))
-	query.WriteString(" WHERE ")
-	query.WriteString(strings.Join(clauses, " AND "))
-	query.WriteString(fmt.Sprintf(" ORDER BY id ASC LIMIT $%d", len(args)+1))
-	args = append(args, int(limit)+1)
-
-	rows, err := s.pool.Query(ctx, query.String(), args...)
-	if err != nil {
-		return nil, "", err
-	}
-	defer rows.Close()
-
-	workloads := make([]workloadRecord, 0, limit)
-	var (
-		lastID  uuid.UUID
-		hasMore bool
-	)
-	for rows.Next() {
-		if int32(len(workloads)) == limit {
-			hasMore = true
-			break
-		}
-		workload, err := scanWorkload(rows)
-		if err != nil {
-			return nil, "", err
-		}
-		workloads = append(workloads, workload)
-		lastID = workload.Meta.ID
-	}
-	if err := rows.Err(); err != nil {
-		return nil, "", err
-	}
-
-	nextToken := ""
-	if hasMore {
-		nextToken = encodePageToken(lastID)
-	}
-	return workloads, nextToken, nil
+	return listWithPagination(ctx, s.pool, fmt.Sprintf("SELECT %s FROM workloads", workloadColumns), clauses, args, pageSize, pageToken, scanWorkload, func(record workloadRecord) uuid.UUID {
+		return record.Meta.ID
+	})
 }
 
 func (s *Server) listWorkloads(ctx context.Context, statuses []string, pageSize int32, pageToken string) ([]workloadRecord, string, error) {
-	limit := normalizePageSize(pageSize)
-
 	var (
 		clauses []string
 		args    []any
@@ -362,56 +306,9 @@ func (s *Server) listWorkloads(ctx context.Context, statuses []string, pageSize 
 		clauses = append(clauses, fmt.Sprintf("status = ANY($%d)", len(args)+1))
 		args = append(args, pgtype.FlatArray[string](statuses))
 	}
-	if pageToken != "" {
-		afterID, err := decodePageToken(pageToken)
-		if err != nil {
-			return nil, "", InvalidPageToken(err)
-		}
-		clauses = append(clauses, fmt.Sprintf("id > $%d", len(args)+1))
-		args = append(args, afterID)
-	}
-
-	query := strings.Builder{}
-	query.WriteString(fmt.Sprintf("SELECT %s FROM workloads", workloadColumns))
-	if len(clauses) > 0 {
-		query.WriteString(" WHERE ")
-		query.WriteString(strings.Join(clauses, " AND "))
-	}
-	query.WriteString(fmt.Sprintf(" ORDER BY id ASC LIMIT $%d", len(args)+1))
-	args = append(args, int(limit)+1)
-
-	rows, err := s.pool.Query(ctx, query.String(), args...)
-	if err != nil {
-		return nil, "", err
-	}
-	defer rows.Close()
-
-	workloads := make([]workloadRecord, 0, limit)
-	var (
-		lastID  uuid.UUID
-		hasMore bool
-	)
-	for rows.Next() {
-		if int32(len(workloads)) == limit {
-			hasMore = true
-			break
-		}
-		workload, err := scanWorkload(rows)
-		if err != nil {
-			return nil, "", err
-		}
-		workloads = append(workloads, workload)
-		lastID = workload.Meta.ID
-	}
-	if err := rows.Err(); err != nil {
-		return nil, "", err
-	}
-
-	nextToken := ""
-	if hasMore {
-		nextToken = encodePageToken(lastID)
-	}
-	return workloads, nextToken, nil
+	return listWithPagination(ctx, s.pool, fmt.Sprintf("SELECT %s FROM workloads", workloadColumns), clauses, args, pageSize, pageToken, scanWorkload, func(record workloadRecord) uuid.UUID {
+		return record.Meta.ID
+	})
 }
 
 func scanWorkload(row pgx.Row) (workloadRecord, error) {
@@ -432,9 +329,6 @@ func scanWorkload(row pgx.Row) (workloadRecord, error) {
 		&workload.Meta.UpdatedAt,
 	); err != nil {
 		return workloadRecord{}, err
-	}
-	if len(containersData) == 0 {
-		containersData = []byte("[]")
 	}
 	if err := json.Unmarshal(containersData, &workload.Containers); err != nil {
 		return workloadRecord{}, err

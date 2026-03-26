@@ -180,9 +180,6 @@ func (s *Server) ValidateServiceToken(ctx context.Context, req *runnersv1.Valida
 
 func (s *Server) writeRunnerAuthorization(ctx context.Context, runnerID uuid.UUID, organizationID *uuid.UUID) error {
 	tuple := runnerAuthorizationTuple(runnerID, organizationID)
-	if tuple == nil {
-		return status.Error(codes.Internal, "authorization tuple unavailable")
-	}
 	if _, err := s.authorizationClient.Write(ctx, &authorizationv1.WriteRequest{Writes: []*authorizationv1.TupleKey{tuple}}); err != nil {
 		return status.Errorf(codes.Internal, "authorization write: %v", err)
 	}
@@ -191,9 +188,6 @@ func (s *Server) writeRunnerAuthorization(ctx context.Context, runnerID uuid.UUI
 
 func (s *Server) cleanupRunnerAuthorization(ctx context.Context, runnerID uuid.UUID, organizationID *uuid.UUID) {
 	tuple := runnerAuthorizationTuple(runnerID, organizationID)
-	if tuple == nil {
-		return
-	}
 	_, _ = s.authorizationClient.Write(ctx, &authorizationv1.WriteRequest{Deletes: []*authorizationv1.TupleKey{tuple}})
 }
 
@@ -273,8 +267,6 @@ func (s *Server) getRunnerByServiceTokenHash(ctx context.Context, tokenHash stri
 }
 
 func (s *Server) listRunners(ctx context.Context, organizationID *uuid.UUID, pageSize int32, pageToken string) ([]runnerRecord, string, error) {
-	limit := normalizePageSize(pageSize)
-
 	var (
 		clauses []string
 		args    []any
@@ -283,56 +275,9 @@ func (s *Server) listRunners(ctx context.Context, organizationID *uuid.UUID, pag
 		clauses = append(clauses, fmt.Sprintf("(organization_id = $%d OR organization_id IS NULL)", len(args)+1))
 		args = append(args, *organizationID)
 	}
-	if pageToken != "" {
-		afterID, err := decodePageToken(pageToken)
-		if err != nil {
-			return nil, "", InvalidPageToken(err)
-		}
-		clauses = append(clauses, fmt.Sprintf("id > $%d", len(args)+1))
-		args = append(args, afterID)
-	}
-
-	query := strings.Builder{}
-	query.WriteString(fmt.Sprintf("SELECT %s FROM runners", runnerColumns))
-	if len(clauses) > 0 {
-		query.WriteString(" WHERE ")
-		query.WriteString(strings.Join(clauses, " AND "))
-	}
-	query.WriteString(fmt.Sprintf(" ORDER BY id ASC LIMIT $%d", len(args)+1))
-	args = append(args, int(limit)+1)
-
-	rows, err := s.pool.Query(ctx, query.String(), args...)
-	if err != nil {
-		return nil, "", err
-	}
-	defer rows.Close()
-
-	runners := make([]runnerRecord, 0, limit)
-	var (
-		lastID  uuid.UUID
-		hasMore bool
-	)
-	for rows.Next() {
-		if int32(len(runners)) == limit {
-			hasMore = true
-			break
-		}
-		runner, err := scanRunner(rows)
-		if err != nil {
-			return nil, "", err
-		}
-		runners = append(runners, runner)
-		lastID = runner.Meta.ID
-	}
-	if err := rows.Err(); err != nil {
-		return nil, "", err
-	}
-
-	nextToken := ""
-	if hasMore {
-		nextToken = encodePageToken(lastID)
-	}
-	return runners, nextToken, nil
+	return listWithPagination(ctx, s.pool, fmt.Sprintf("SELECT %s FROM runners", runnerColumns), clauses, args, pageSize, pageToken, scanRunner, func(record runnerRecord) uuid.UUID {
+		return record.Meta.ID
+	})
 }
 
 func (s *Server) deleteRunner(ctx context.Context, id uuid.UUID) error {

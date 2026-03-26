@@ -1,4 +1,4 @@
-# Runners Service
+# Runners
 
 The Runners service manages runner registrations and workload runtime state.
 

@@ -81,6 +81,29 @@ functions:
                   type: RuntimeDefault
     EOF
     )"
+  wait_for_runners: |-
+    echo "Waiting for runners deployment to roll out..."
+    kubectl rollout status deployment/runners \
+      -n ${RUNNERS_NAMESPACE} --timeout=120s
+
+    echo "Waiting for runners source sync and process start..."
+    ELAPSED=0
+    LABEL_SELECTOR="app.kubernetes.io/name=runners,app.kubernetes.io/instance=runners"
+    until kubectl logs -n ${RUNNERS_NAMESPACE} -l "${LABEL_SELECTOR}" --tail=200 2>/dev/null | \
+      grep -q "runners: ready"; do
+      sleep 5
+      ELAPSED=$((ELAPSED + 5))
+      if [ "$ELAPSED" -ge 600 ]; then
+        echo "ERROR: runners ready log not found within 600s" >&2
+        echo "Diagnostic pod list:" >&2
+        kubectl get pods -n ${RUNNERS_NAMESPACE} -l "${LABEL_SELECTOR}" -o wide >&2 || true
+        echo "Diagnostic logs (tail 200):" >&2
+        kubectl logs -n ${RUNNERS_NAMESPACE} -l "${LABEL_SELECTOR}" --tail=200 >&2 || true
+        exit 1
+      fi
+      echo "  still waiting... (${ELAPSED}s)"
+    done
+    echo "Runners is running from source."
 
 deployments:
   e2e-runner:
@@ -140,6 +163,7 @@ pipelines:
       disable_argocd_sync
       patch_deployment
       start_dev --disable-pod-replace runners-deploy
+      wait_for_runners
       echo "Deploy complete. Runners is running from source."
 
   test-e2e:

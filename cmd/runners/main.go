@@ -77,6 +77,7 @@ func run() error {
 
 	errCh := make(chan error, 1)
 	go func() {
+		log.Print("runners: ready")
 		if err := grpcServer.Serve(listener); err != nil {
 			errCh <- err
 		}
