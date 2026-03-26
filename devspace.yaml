@@ -81,6 +81,22 @@ functions:
                   type: RuntimeDefault
     EOF
     )"
+  wait_for_runners_deployment: |-
+    echo "Waiting for runners deployment to be created..."
+    ELAPSED=0
+    until kubectl get deployment runners -n ${RUNNERS_NAMESPACE} >/dev/null 2>&1; do
+      sleep 5
+      ELAPSED=$((ELAPSED + 5))
+      if [ "$ELAPSED" -ge 300 ]; then
+        echo "ERROR: runners deployment not found within 300s" >&2
+        exit 1
+      fi
+      echo "  still waiting... (${ELAPSED}s)"
+    done
+
+    echo "Waiting for runners deployment to roll out..."
+    kubectl rollout status deployment/runners \
+      -n ${RUNNERS_NAMESPACE} --timeout=120s
 
 deployments:
   e2e-runner:
@@ -124,6 +140,7 @@ pipelines:
         description: "Keep DevSpace running and stream logs"
     run: |-
       trap 'echo "Restoring ArgoCD sync..."; restore_argocd_sync' EXIT
+      wait_for_runners_deployment
       disable_argocd_sync
       patch_deployment
       if [ "$(get_flag "watch")" == "true" ]; then
@@ -137,6 +154,7 @@ pipelines:
 
   deploy:
     run: |-
+      wait_for_runners_deployment
       disable_argocd_sync
       patch_deployment
       start_dev --disable-pod-replace runners-deploy
