@@ -75,6 +75,26 @@ functions:
               volumeMounts:
                 - name: data
                   mountPath: /opt/app/data
+              livenessProbe:
+                tcpSocket:
+                  port: 50051
+                initialDelaySeconds: 120
+                periodSeconds: 10
+                timeoutSeconds: 1
+                failureThreshold: 6
+              readinessProbe:
+                tcpSocket:
+                  port: 50051
+                initialDelaySeconds: 120
+                periodSeconds: 10
+                timeoutSeconds: 1
+                failureThreshold: 3
+              startupProbe:
+                tcpSocket:
+                  port: 50051
+                initialDelaySeconds: 10
+                periodSeconds: 5
+                failureThreshold: 60
               resources:
                 requests:
                   cpu: 500m
