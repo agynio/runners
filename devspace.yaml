@@ -60,41 +60,27 @@ functions:
                 - sh
                 - -c
                 - |
-                  set -eu
+                  set -eux
                   elapsed=0
                   while [ ! -f /opt/app/data/go.mod ]; do
                     sleep 1; elapsed=$((elapsed + 1))
-                    [ "$elapsed" -ge 120 ] && { echo "ERROR: sync timeout" >&2; exit 1; }
+                    [ "$elapsed" -ge 300 ] && { echo "ERROR: sync timeout" >&2; exit 1; }
                   done
+                  echo "Files synced, starting buf generate..."
+                  ls -la /opt/app/data/
                   buf generate buf.build/agynio/api \
                     --include-imports \
                     --path agynio/api/runners/v1 \
                     --path agynio/api/identity/v1 \
                     --path agynio/api/authorization/v1
+                  echo "buf generate complete, starting go run..."
                   exec go run ./cmd/runners
               volumeMounts:
                 - name: data
                   mountPath: /opt/app/data
-              livenessProbe:
-                tcpSocket:
-                  port: 50051
-                initialDelaySeconds: 120
-                periodSeconds: 10
-                timeoutSeconds: 1
-                failureThreshold: 6
-              readinessProbe:
-                tcpSocket:
-                  port: 50051
-                initialDelaySeconds: 120
-                periodSeconds: 10
-                timeoutSeconds: 1
-                failureThreshold: 3
-              startupProbe:
-                tcpSocket:
-                  port: 50051
-                initialDelaySeconds: 10
-                periodSeconds: 5
-                failureThreshold: 60
+              livenessProbe: null
+              readinessProbe: null
+              startupProbe: null
               resources:
                 requests:
                   cpu: 500m
@@ -132,6 +118,10 @@ functions:
         kubectl get pods -n ${RUNNERS_NAMESPACE} -l "${LABEL_SELECTOR}" -o wide >&2 || true
         echo "Diagnostic logs (tail 200):" >&2
         kubectl logs -n ${RUNNERS_NAMESPACE} -l "${LABEL_SELECTOR}" --tail=200 >&2 || true
+        echo "Diagnostic previous logs (tail 200):" >&2
+        kubectl logs -n ${RUNNERS_NAMESPACE} -l "${LABEL_SELECTOR}" --tail=200 --previous >&2 || true
+        echo "Diagnostic pod describe:" >&2
+        kubectl describe pods -n ${RUNNERS_NAMESPACE} -l "${LABEL_SELECTOR}" >&2 || true
         exit 1
       fi
       echo "  still waiting... (${ELAPSED}s)"
