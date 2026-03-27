@@ -64,7 +64,7 @@ functions:
                   elapsed=0
                   while [ ! -f /opt/app/data/go.mod ]; do
                     sleep 1; elapsed=$((elapsed + 1))
-                    [ "$elapsed" -ge 120 ] && { echo "ERROR: sync timeout" >&2; exit 1; }
+                    [ "$elapsed" -ge 300 ] && { echo "ERROR: sync timeout" >&2; exit 1; }
                   done
                   buf generate buf.build/agynio/api \
                     --include-imports \
@@ -75,26 +75,9 @@ functions:
               volumeMounts:
                 - name: data
                   mountPath: /opt/app/data
-              livenessProbe:
-                tcpSocket:
-                  port: 50051
-                initialDelaySeconds: 120
-                periodSeconds: 10
-                timeoutSeconds: 1
-                failureThreshold: 6
-              readinessProbe:
-                tcpSocket:
-                  port: 50051
-                initialDelaySeconds: 120
-                periodSeconds: 10
-                timeoutSeconds: 1
-                failureThreshold: 3
-              startupProbe:
-                tcpSocket:
-                  port: 50051
-                initialDelaySeconds: 10
-                periodSeconds: 5
-                failureThreshold: 60
+              livenessProbe: null
+              readinessProbe: null
+              startupProbe: null
               resources:
                 requests:
                   cpu: 500m
