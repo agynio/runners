@@ -10,6 +10,7 @@ import (
 	authorizationv1 "github.com/agynio/runners/.gen/go/agynio/api/authorization/v1"
 	identityv1 "github.com/agynio/runners/.gen/go/agynio/api/identity/v1"
 	runnersv1 "github.com/agynio/runners/.gen/go/agynio/api/runners/v1"
+	zitimanagementv1 "github.com/agynio/runners/.gen/go/agynio/api/ziti_management/v1"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -29,24 +30,27 @@ const (
 // Server implements the RunnersService gRPC API.
 type Server struct {
 	runnersv1.UnimplementedRunnersServiceServer
-	pool                *pgxpool.Pool
-	identityClient      identityv1.IdentityServiceClient
-	authorizationClient authorizationv1.AuthorizationServiceClient
+	pool                 *pgxpool.Pool
+	identityClient       identityv1.IdentityServiceClient
+	authorizationClient  authorizationv1.AuthorizationServiceClient
+	zitiManagementClient zitimanagementv1.ZitiManagementServiceClient
 }
 
 // Options defines required inputs for constructing a Server.
 type Options struct {
-	Pool                *pgxpool.Pool
-	IdentityClient      identityv1.IdentityServiceClient
-	AuthorizationClient authorizationv1.AuthorizationServiceClient
+	Pool                 *pgxpool.Pool
+	IdentityClient       identityv1.IdentityServiceClient
+	AuthorizationClient  authorizationv1.AuthorizationServiceClient
+	ZitiManagementClient zitimanagementv1.ZitiManagementServiceClient
 }
 
 // New constructs a RunnersService server.
 func New(options Options) *Server {
 	return &Server{
-		pool:                options.Pool,
-		identityClient:      options.IdentityClient,
-		authorizationClient: options.AuthorizationClient,
+		pool:                 options.Pool,
+		identityClient:       options.IdentityClient,
+		authorizationClient:  options.AuthorizationClient,
+		zitiManagementClient: options.ZitiManagementClient,
 	}
 }
 

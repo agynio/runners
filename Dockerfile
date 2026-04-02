@@ -26,7 +26,8 @@ RUN buf generate buf.build/agynio/api \
     --include-imports \
     --path agynio/api/runners/v1 \
     --path agynio/api/identity/v1 \
-    --path agynio/api/authorization/v1
+    --path agynio/api/authorization/v1 \
+    --path agynio/api/ziti_management/v1
 
 COPY . .
 

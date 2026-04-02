@@ -10,6 +10,7 @@ import (
 	authorizationv1 "github.com/agynio/runners/.gen/go/agynio/api/authorization/v1"
 	identityv1 "github.com/agynio/runners/.gen/go/agynio/api/identity/v1"
 	runnersv1 "github.com/agynio/runners/.gen/go/agynio/api/runners/v1"
+	zitimanagementv1 "github.com/agynio/runners/.gen/go/agynio/api/ziti_management/v1"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -23,26 +24,32 @@ const (
 	runnerStatusEnrolled = "enrolled"
 	runnerStatusOffline  = "offline"
 
-	runnerColumns = `id, name, organization_id, identity_id, status, labels, created_at, updated_at`
+	runnerColumns = `id, name, organization_id, identity_id, status, labels, openziti_service_name, ziti_identity_id, ziti_service_id, created_at, updated_at`
 )
 
 type runnerRecord struct {
-	Meta           entityMeta
-	Name           string
-	OrganizationID *uuid.UUID
-	IdentityID     uuid.UUID
-	Status         string
-	Labels         map[string]string
+	Meta                entityMeta
+	Name                string
+	OrganizationID      *uuid.UUID
+	IdentityID          uuid.UUID
+	Status              string
+	Labels              map[string]string
+	OpenZitiServiceName string
+	ZitiIdentityID      string
+	ZitiServiceID       string
 }
 
 type runnerInsertInput struct {
-	ID               uuid.UUID
-	Name             string
-	OrganizationID   *uuid.UUID
-	IdentityID       uuid.UUID
-	ServiceTokenHash string
-	Status           string
-	Labels           map[string]string
+	ID                  uuid.UUID
+	Name                string
+	OrganizationID      *uuid.UUID
+	IdentityID          uuid.UUID
+	ServiceTokenHash    string
+	Status              string
+	Labels              map[string]string
+	OpenZitiServiceName string
+	ZitiIdentityID      string
+	ZitiServiceID       string
 }
 
 type runnerUpdateInput struct {
@@ -77,27 +84,44 @@ func (s *Server) RegisterRunner(ctx context.Context, req *runnersv1.RegisterRunn
 		return nil, status.Errorf(codes.Internal, "register identity: %v", err)
 	}
 
+	zitiResp, err := s.zitiManagementClient.CreateRunnerIdentity(ctx, &zitimanagementv1.CreateRunnerIdentityRequest{
+		RunnerId:       runnerID.String(),
+		RoleAttributes: []string{"runners"},
+	})
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "create runner ziti identity: %v", err)
+	}
+	zitiIdentityID := zitiResp.GetZitiIdentityId()
+	zitiServiceID := zitiResp.GetZitiServiceId()
+	zitiServiceName := zitiResp.GetZitiServiceName()
+
 	if err := s.writeRunnerAuthorization(ctx, runnerID, organizationID); err != nil {
+		s.cleanupRunnerZitiIdentity(ctx, zitiIdentityID, zitiServiceID)
 		return nil, err
 	}
 
 	token, tokenHash, err := generateServiceToken()
 	if err != nil {
 		s.cleanupRunnerAuthorization(ctx, runnerID, organizationID)
+		s.cleanupRunnerZitiIdentity(ctx, zitiIdentityID, zitiServiceID)
 		return nil, status.Errorf(codes.Internal, "generate service token: %v", err)
 	}
 
 	runner, err := s.insertRunner(ctx, runnerInsertInput{
-		ID:               runnerID,
-		Name:             name,
-		OrganizationID:   organizationID,
-		IdentityID:       runnerID,
-		ServiceTokenHash: tokenHash,
-		Status:           runnerStatusPending,
-		Labels:           labels,
+		ID:                  runnerID,
+		Name:                name,
+		OrganizationID:      organizationID,
+		IdentityID:          runnerID,
+		ServiceTokenHash:    tokenHash,
+		Status:              runnerStatusPending,
+		Labels:              labels,
+		OpenZitiServiceName: zitiServiceName,
+		ZitiIdentityID:      zitiIdentityID,
+		ZitiServiceID:       zitiServiceID,
 	})
 	if err != nil {
 		s.cleanupRunnerAuthorization(ctx, runnerID, organizationID)
+		s.cleanupRunnerZitiIdentity(ctx, zitiIdentityID, zitiServiceID)
 		return nil, toStatusError(err)
 	}
 
@@ -199,6 +223,7 @@ func (s *Server) DeleteRunner(ctx context.Context, req *runnersv1.DeleteRunnerRe
 		return nil, toStatusError(err)
 	}
 
+	s.cleanupRunnerZitiIdentity(ctx, runner.ZitiIdentityID, runner.ZitiServiceID)
 	s.cleanupRunnerAuthorization(ctx, runner.IdentityID, runner.OrganizationID)
 
 	if err := s.deleteRunner(ctx, id); err != nil {
@@ -243,6 +268,13 @@ func (s *Server) cleanupRunnerAuthorization(ctx context.Context, runnerID uuid.U
 	_, _ = s.authorizationClient.Write(ctx, &authorizationv1.WriteRequest{Deletes: []*authorizationv1.TupleKey{tuple}})
 }
 
+func (s *Server) cleanupRunnerZitiIdentity(ctx context.Context, zitiIdentityID, zitiServiceID string) {
+	_, _ = s.zitiManagementClient.DeleteRunnerIdentity(ctx, &zitimanagementv1.DeleteRunnerIdentityRequest{
+		ZitiIdentityId: zitiIdentityID,
+		ZitiServiceId:  zitiServiceID,
+	})
+}
+
 func runnerAuthorizationTuple(runnerID uuid.UUID, organizationID *uuid.UUID) *authorizationv1.TupleKey {
 	if organizationID != nil {
 		return &authorizationv1.TupleKey{
@@ -264,8 +296,8 @@ func (s *Server) insertRunner(ctx context.Context, input runnerInsertInput) (run
 		return runnerRecord{}, err
 	}
 	row := s.pool.QueryRow(ctx,
-		fmt.Sprintf(`INSERT INTO runners (id, name, organization_id, identity_id, service_token_hash, status, labels)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+		fmt.Sprintf(`INSERT INTO runners (id, name, organization_id, identity_id, service_token_hash, status, labels, openziti_service_name, ziti_identity_id, ziti_service_id)
+	        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         RETURNING %s`, runnerColumns),
 		input.ID,
 		input.Name,
@@ -274,6 +306,9 @@ func (s *Server) insertRunner(ctx context.Context, input runnerInsertInput) (run
 		input.ServiceTokenHash,
 		input.Status,
 		labelsJSON,
+		input.OpenZitiServiceName,
+		input.ZitiIdentityID,
+		input.ZitiServiceID,
 	)
 	runner, err := scanRunner(row)
 	if err != nil {
@@ -442,6 +477,9 @@ func scanRunner(row pgx.Row) (runnerRecord, error) {
 		&runner.IdentityID,
 		&runner.Status,
 		&labelsData,
+		&runner.OpenZitiServiceName,
+		&runner.ZitiIdentityID,
+		&runner.ZitiServiceID,
 		&runner.Meta.CreatedAt,
 		&runner.Meta.UpdatedAt,
 	); err != nil {
