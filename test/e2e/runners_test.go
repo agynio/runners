@@ -238,12 +238,15 @@ func TestUpdateRunner(t *testing.T) {
 		t.Fatalf("UpdateRunner name+labels did not update labels")
 	}
 
-	updateResp, err = runnerClient.UpdateRunner(ctx, &runnersv1.UpdateRunnerRequest{Id: runnerID, Labels: map[string]string{}})
-	if err != nil {
-		t.Fatalf("UpdateRunner clear labels failed: %v", err)
+	_, err = runnerClient.UpdateRunner(ctx, &runnersv1.UpdateRunnerRequest{Id: runnerID, Labels: map[string]string{}})
+	if err == nil {
+		t.Fatal("expected InvalidArgument for empty labels (proto3 empty map omitted)")
 	}
-	if len(updateResp.GetRunner().GetLabels()) != 0 {
-		t.Fatalf("UpdateRunner did not clear labels")
+	if status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("expected InvalidArgument for empty labels, got %v", err)
+	}
+	if status.Convert(err).Message() != "at least one field must be provided" {
+		t.Fatalf("unexpected error message for empty labels: %v", status.Convert(err).Message())
 	}
 
 	missingName := "missing"
