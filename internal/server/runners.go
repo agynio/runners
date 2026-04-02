@@ -118,7 +118,7 @@ func (s *Server) UpdateRunner(ctx context.Context, req *runnersv1.UpdateRunnerRe
 	if req.Name != nil {
 		trimmed := strings.TrimSpace(req.GetName())
 		if trimmed == "" {
-			return nil, status.Error(codes.InvalidArgument, "name must be provided")
+			return nil, status.Error(codes.InvalidArgument, "name must not be empty")
 		}
 		update.Name = &trimmed
 	}

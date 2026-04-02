@@ -4,6 +4,7 @@ package e2e
 
 import (
 	"context"
+	"reflect"
 	"testing"
 	"time"
 
@@ -19,8 +20,13 @@ func TestRunnerLifecycle(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
 
+	registerLabels := map[string]string{
+		"region": "test",
+		"tier":   "e2e",
+	}
 	registerResp, err := runnerClient.RegisterRunner(ctx, &runnersv1.RegisterRunnerRequest{
-		Name: "e2e-runner",
+		Name:   "e2e-runner",
+		Labels: registerLabels,
 	})
 	if err != nil {
 		t.Fatalf("RegisterRunner failed: %v", err)
@@ -33,6 +39,9 @@ func TestRunnerLifecycle(t *testing.T) {
 	runnerID := runner.GetMeta().GetId()
 	if runnerID == "" {
 		t.Fatal("runner ID missing")
+	}
+	if !reflect.DeepEqual(runner.GetLabels(), registerLabels) {
+		t.Fatalf("RegisterRunner returned unexpected labels")
 	}
 	token := registerResp.GetServiceToken()
 	if token == "" {
@@ -154,6 +163,125 @@ func TestRunnerLifecycle(t *testing.T) {
 
 	if _, err := runnerClient.DeleteRunner(ctx, &runnersv1.DeleteRunnerRequest{Id: runnerID}); err != nil {
 		t.Fatalf("DeleteRunner failed: %v", err)
+	}
+}
+
+func TestUpdateRunner(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+
+	registerLabels := map[string]string{
+		"a": "1",
+		"b": "2",
+	}
+	registerResp, err := runnerClient.RegisterRunner(ctx, &runnersv1.RegisterRunnerRequest{
+		Name:   "update-runner",
+		Labels: registerLabels,
+	})
+	if err != nil {
+		t.Fatalf("RegisterRunner failed: %v", err)
+	}
+
+	runner := registerResp.GetRunner()
+	if runner == nil || runner.GetMeta() == nil {
+		t.Fatal("runner metadata missing")
+	}
+	runnerID := runner.GetMeta().GetId()
+	if runnerID == "" {
+		t.Fatal("runner ID missing")
+	}
+
+	t.Cleanup(func() {
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), testTimeout)
+		defer cleanupCancel()
+		_, _ = runnerClient.DeleteRunner(cleanupCtx, &runnersv1.DeleteRunnerRequest{Id: runnerID})
+	})
+
+	updatedName := "update-runner-name"
+	updateResp, err := runnerClient.UpdateRunner(ctx, &runnersv1.UpdateRunnerRequest{Id: runnerID, Name: &updatedName})
+	if err != nil {
+		t.Fatalf("UpdateRunner name failed: %v", err)
+	}
+	if updateResp.GetRunner().GetName() != updatedName {
+		t.Fatalf("UpdateRunner name did not update")
+	}
+	if !reflect.DeepEqual(updateResp.GetRunner().GetLabels(), registerLabels) {
+		t.Fatalf("UpdateRunner name changed labels unexpectedly")
+	}
+
+	labelsOnly := map[string]string{"c": "3"}
+	updateResp, err = runnerClient.UpdateRunner(ctx, &runnersv1.UpdateRunnerRequest{Id: runnerID, Labels: labelsOnly})
+	if err != nil {
+		t.Fatalf("UpdateRunner labels failed: %v", err)
+	}
+	if updateResp.GetRunner().GetName() != updatedName {
+		t.Fatalf("UpdateRunner labels changed name unexpectedly")
+	}
+	if !reflect.DeepEqual(updateResp.GetRunner().GetLabels(), labelsOnly) {
+		t.Fatalf("UpdateRunner labels did not replace labels")
+	}
+
+	updatedBothName := "update-runner-both"
+	updatedBothLabels := map[string]string{"env": "prod"}
+	updateResp, err = runnerClient.UpdateRunner(ctx, &runnersv1.UpdateRunnerRequest{
+		Id:     runnerID,
+		Name:   &updatedBothName,
+		Labels: updatedBothLabels,
+	})
+	if err != nil {
+		t.Fatalf("UpdateRunner name+labels failed: %v", err)
+	}
+	if updateResp.GetRunner().GetName() != updatedBothName {
+		t.Fatalf("UpdateRunner name+labels did not update name")
+	}
+	if !reflect.DeepEqual(updateResp.GetRunner().GetLabels(), updatedBothLabels) {
+		t.Fatalf("UpdateRunner name+labels did not update labels")
+	}
+
+	updateResp, err = runnerClient.UpdateRunner(ctx, &runnersv1.UpdateRunnerRequest{Id: runnerID, Labels: map[string]string{}})
+	if err != nil {
+		t.Fatalf("UpdateRunner clear labels failed: %v", err)
+	}
+	if len(updateResp.GetRunner().GetLabels()) != 0 {
+		t.Fatalf("UpdateRunner did not clear labels")
+	}
+
+	missingName := "missing"
+	_, err = runnerClient.UpdateRunner(ctx, &runnersv1.UpdateRunnerRequest{Id: uuid.NewString(), Name: &missingName})
+	if err == nil {
+		t.Fatal("expected NotFound for missing runner")
+	}
+	if status.Code(err) != codes.NotFound {
+		t.Fatalf("expected NotFound for missing runner, got %v", err)
+	}
+
+	invalidName := "invalid"
+	_, err = runnerClient.UpdateRunner(ctx, &runnersv1.UpdateRunnerRequest{Id: "", Name: &invalidName})
+	if err == nil {
+		t.Fatal("expected InvalidArgument for empty id")
+	}
+	if status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("expected InvalidArgument for empty id, got %v", err)
+	}
+
+	emptyName := "   "
+	_, err = runnerClient.UpdateRunner(ctx, &runnersv1.UpdateRunnerRequest{Id: runnerID, Name: &emptyName})
+	if err == nil {
+		t.Fatal("expected InvalidArgument for empty name")
+	}
+	if status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("expected InvalidArgument for empty name, got %v", err)
+	}
+	if status.Convert(err).Message() != "name must not be empty" {
+		t.Fatalf("unexpected error message for empty name: %v", status.Convert(err).Message())
+	}
+
+	_, err = runnerClient.UpdateRunner(ctx, &runnersv1.UpdateRunnerRequest{Id: runnerID})
+	if err == nil {
+		t.Fatal("expected InvalidArgument for missing fields")
+	}
+	if status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("expected InvalidArgument for missing fields, got %v", err)
 	}
 }
 
