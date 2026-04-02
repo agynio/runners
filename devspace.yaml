@@ -63,12 +63,14 @@ functions:
               livenessProbe:
                 exec:
                   command: ["true"]
+                tcpSocket: null
                 initialDelaySeconds: 120
                 periodSeconds: 30
                 failureThreshold: 100
               readinessProbe:
                 exec:
                   command: ["true"]
+                tcpSocket: null
                 initialDelaySeconds: 5
                 periodSeconds: 10
                 failureThreshold: 100
