@@ -7,17 +7,19 @@ import (
 )
 
 const (
-	defaultIdentityAddress      = "identity:50051"
-	defaultAuthorizationAddress = "authorization:50051"
-	defaultGRPCAddr             = ":50051"
+	defaultIdentityAddress       = "identity:50051"
+	defaultAuthorizationAddress  = "authorization:50051"
+	defaultZitiManagementAddress = "ziti-management:50051"
+	defaultGRPCAddr              = ":50051"
 )
 
 // Config captures runtime configuration derived from the environment.
 type Config struct {
-	DatabaseURL          string
-	IdentityAddress      string
-	AuthorizationAddress string
-	GRPCAddr             string
+	DatabaseURL           string
+	IdentityAddress       string
+	AuthorizationAddress  string
+	ZitiManagementAddress string
+	GRPCAddr              string
 }
 
 // Load reads configuration from environment variables, applying defaults when
@@ -32,6 +34,7 @@ func Load() (Config, error) {
 
 	cfg.IdentityAddress = readEnv("IDENTITY_ADDRESS", defaultIdentityAddress)
 	cfg.AuthorizationAddress = readEnv("AUTHORIZATION_ADDRESS", defaultAuthorizationAddress)
+	cfg.ZitiManagementAddress = readEnv("ZITI_MANAGEMENT_ADDRESS", defaultZitiManagementAddress)
 	cfg.GRPCAddr = readEnv("GRPC_ADDR", defaultGRPCAddr)
 
 	return cfg, nil

@@ -13,6 +13,7 @@ import (
 	authorizationv1 "github.com/agynio/runners/.gen/go/agynio/api/authorization/v1"
 	identityv1 "github.com/agynio/runners/.gen/go/agynio/api/identity/v1"
 	runnersv1 "github.com/agynio/runners/.gen/go/agynio/api/runners/v1"
+	zitimanagementv1 "github.com/agynio/runners/.gen/go/agynio/api/ziti_management/v1"
 	"github.com/agynio/runners/internal/config"
 	"github.com/agynio/runners/internal/db"
 	"github.com/agynio/runners/internal/server"
@@ -62,11 +63,18 @@ func run() error {
 	}
 	defer authorizationConn.Close()
 
+	zitiManagementConn, err := grpc.DialContext(ctx, cfg.ZitiManagementAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return fmt.Errorf("dial ziti management service: %w", err)
+	}
+	defer zitiManagementConn.Close()
+
 	grpcServer := grpc.NewServer()
 	runnersv1.RegisterRunnersServiceServer(grpcServer, server.New(server.Options{
-		Pool:                pool,
-		IdentityClient:      identityv1.NewIdentityServiceClient(identityConn),
-		AuthorizationClient: authorizationv1.NewAuthorizationServiceClient(authorizationConn),
+		Pool:                 pool,
+		IdentityClient:       identityv1.NewIdentityServiceClient(identityConn),
+		AuthorizationClient:  authorizationv1.NewAuthorizationServiceClient(authorizationConn),
+		ZitiManagementClient: zitimanagementv1.NewZitiManagementServiceClient(zitiManagementConn),
 	}))
 
 	listener, err := net.Listen("tcp", cfg.GRPCAddr)
