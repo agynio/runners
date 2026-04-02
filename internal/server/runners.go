@@ -77,13 +77,6 @@ func (s *Server) RegisterRunner(ctx context.Context, req *runnersv1.RegisterRunn
 
 	runnerID := uuid.New()
 
-	if _, err := s.identityClient.RegisterIdentity(ctx, &identityv1.RegisterIdentityRequest{
-		IdentityId:   runnerID.String(),
-		IdentityType: identityv1.IdentityType_IDENTITY_TYPE_RUNNER,
-	}); err != nil {
-		return nil, status.Errorf(codes.Internal, "register identity: %v", err)
-	}
-
 	zitiResp, err := s.zitiManagementClient.CreateRunnerIdentity(ctx, &zitimanagementv1.CreateRunnerIdentityRequest{
 		RunnerId:       runnerID.String(),
 		RoleAttributes: []string{"runners"},
@@ -94,6 +87,14 @@ func (s *Server) RegisterRunner(ctx context.Context, req *runnersv1.RegisterRunn
 	zitiIdentityID := zitiResp.GetZitiIdentityId()
 	zitiServiceID := zitiResp.GetZitiServiceId()
 	zitiServiceName := zitiResp.GetZitiServiceName()
+
+	if _, err := s.identityClient.RegisterIdentity(ctx, &identityv1.RegisterIdentityRequest{
+		IdentityId:   runnerID.String(),
+		IdentityType: identityv1.IdentityType_IDENTITY_TYPE_RUNNER,
+	}); err != nil {
+		s.cleanupRunnerZitiIdentity(ctx, zitiIdentityID, zitiServiceID)
+		return nil, status.Errorf(codes.Internal, "register identity: %v", err)
+	}
 
 	if err := s.writeRunnerAuthorization(ctx, runnerID, organizationID); err != nil {
 		s.cleanupRunnerZitiIdentity(ctx, zitiIdentityID, zitiServiceID)
