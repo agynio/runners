@@ -7,7 +7,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type scanFunc[T any] func(pgx.Row) (T, error)
@@ -15,7 +14,7 @@ type recordIDFunc[T any] func(T) uuid.UUID
 
 func listWithPagination[T any](
 	ctx context.Context,
-	pool *pgxpool.Pool,
+	pool dbPool,
 	baseQuery string,
 	clauses []string,
 	args []any,
