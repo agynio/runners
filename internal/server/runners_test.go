@@ -149,8 +149,8 @@ func TestEnrollRunnerSuccess(t *testing.T) {
 	if string(resp.GetIdentityJson()) != string(identityJSON) {
 		t.Fatalf("expected identity json %q, got %q", identityJSON, resp.GetIdentityJson())
 	}
-	if resp.GetIdentityId() != identityID.String() {
-		t.Fatalf("expected identity id %q, got %q", identityID.String(), resp.GetIdentityId())
+	if resp.GetIdentityId() != "ziti-id" {
+		t.Fatalf("expected identity id %q, got %q", "ziti-id", resp.GetIdentityId())
 	}
 
 	if gotReq == nil {
@@ -159,7 +159,7 @@ func TestEnrollRunnerSuccess(t *testing.T) {
 	if gotReq.GetRunnerId() != runnerID.String() {
 		t.Fatalf("expected runner id %q, got %q", runnerID.String(), gotReq.GetRunnerId())
 	}
-	if len(gotReq.GetRoleAttributes()) != 1 || gotReq.GetRoleAttributes()[0] != "runners" {
+	if len(gotReq.GetRoleAttributes()) != 1 || gotReq.GetRoleAttributes()[0] != zitiRunnerRoleAttribute {
 		t.Fatalf("unexpected role attributes: %v", gotReq.GetRoleAttributes())
 	}
 

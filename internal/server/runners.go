@@ -23,6 +23,8 @@ const (
 	runnerStatusEnrolled = "enrolled"
 	runnerStatusOffline  = "offline"
 
+	zitiRunnerRoleAttribute = "runners"
+
 	runnerColumns = `id, name, organization_id, identity_id, status, created_at, updated_at`
 )
 
@@ -193,7 +195,7 @@ func (s *Server) EnrollRunner(ctx context.Context, req *runnersv1.EnrollRunnerRe
 
 	zitiResp, err := s.zitiManagementClient.CreateRunnerIdentity(ctx, &zitimanagementv1.CreateRunnerIdentityRequest{
 		RunnerId:       runner.Meta.ID.String(),
-		RoleAttributes: []string{"runners"},
+		RoleAttributes: []string{zitiRunnerRoleAttribute},
 	})
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "create ziti identity: %v", err)
@@ -206,7 +208,7 @@ func (s *Server) EnrollRunner(ctx context.Context, req *runnersv1.EnrollRunnerRe
 	return &runnersv1.EnrollRunnerResponse{
 		IdentityJson: zitiResp.GetIdentityJson(),
 		ServiceName:  zitiResp.GetZitiServiceName(),
-		IdentityId:   runner.IdentityID.String(),
+		IdentityId:   zitiResp.GetZitiIdentityId(),
 	}, nil
 }
 
