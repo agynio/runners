@@ -9,6 +9,7 @@ import (
 	authorizationv1 "github.com/agynio/runners/.gen/go/agynio/api/authorization/v1"
 	identityv1 "github.com/agynio/runners/.gen/go/agynio/api/identity/v1"
 	runnersv1 "github.com/agynio/runners/.gen/go/agynio/api/runners/v1"
+	zitimanagementv1 "github.com/agynio/runners/.gen/go/agynio/api/ziti_management/v1"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -178,6 +179,37 @@ func (s *Server) ValidateServiceToken(ctx context.Context, req *runnersv1.Valida
 	return &runnersv1.ValidateServiceTokenResponse{Runner: protoRunner}, nil
 }
 
+func (s *Server) EnrollRunner(ctx context.Context, req *runnersv1.EnrollRunnerRequest) (*runnersv1.EnrollRunnerResponse, error) {
+	serviceToken := strings.TrimSpace(req.GetServiceToken())
+	if serviceToken == "" {
+		return nil, status.Error(codes.InvalidArgument, "service_token must be provided")
+	}
+
+	tokenHash := hashServiceToken(serviceToken)
+	runner, err := s.getRunnerByServiceTokenHash(ctx, tokenHash)
+	if err != nil {
+		return nil, toStatusError(err)
+	}
+
+	zitiResp, err := s.zitiManagementClient.CreateRunnerIdentity(ctx, &zitimanagementv1.CreateRunnerIdentityRequest{
+		RunnerId:       runner.Meta.ID.String(),
+		RoleAttributes: []string{"runners"},
+	})
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "create ziti identity: %v", err)
+	}
+
+	if err := s.updateRunnerStatus(ctx, runner.Meta.ID, runnerStatusEnrolled); err != nil {
+		return nil, toStatusError(err)
+	}
+
+	return &runnersv1.EnrollRunnerResponse{
+		IdentityJson: zitiResp.GetIdentityJson(),
+		ServiceName:  zitiResp.GetZitiServiceName(),
+		IdentityId:   runner.IdentityID.String(),
+	}, nil
+}
+
 func (s *Server) writeRunnerAuthorization(ctx context.Context, runnerID uuid.UUID, organizationID *uuid.UUID) error {
 	tuple := runnerAuthorizationTuple(runnerID, organizationID)
 	if _, err := s.authorizationClient.Write(ctx, &authorizationv1.WriteRequest{Writes: []*authorizationv1.TupleKey{tuple}}); err != nil {
@@ -282,6 +314,17 @@ func (s *Server) listRunners(ctx context.Context, organizationID *uuid.UUID, pag
 
 func (s *Server) deleteRunner(ctx context.Context, id uuid.UUID) error {
 	result, err := s.pool.Exec(ctx, `DELETE FROM runners WHERE id = $1`, id)
+	if err != nil {
+		return err
+	}
+	if result.RowsAffected() == 0 {
+		return NotFound("runner")
+	}
+	return nil
+}
+
+func (s *Server) updateRunnerStatus(ctx context.Context, id uuid.UUID, statusValue string) error {
+	result, err := s.pool.Exec(ctx, `UPDATE runners SET status = $1, updated_at = NOW() WHERE id = $2`, statusValue, id)
 	if err != nil {
 		return err
 	}
