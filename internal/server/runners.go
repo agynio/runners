@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -25,7 +26,7 @@ const (
 
 	zitiRunnerRoleAttribute = "runners"
 
-	runnerColumns = `id, name, organization_id, identity_id, status, created_at, updated_at`
+	runnerColumns = `id, name, organization_id, identity_id, status, labels, created_at, updated_at`
 )
 
 type runnerRecord struct {
@@ -34,6 +35,7 @@ type runnerRecord struct {
 	OrganizationID *uuid.UUID
 	IdentityID     uuid.UUID
 	Status         string
+	Labels         map[string]string
 }
 
 type runnerInsertInput struct {
@@ -43,12 +45,23 @@ type runnerInsertInput struct {
 	IdentityID       uuid.UUID
 	ServiceTokenHash string
 	Status           string
+	Labels           map[string]string
+}
+
+type runnerUpdateInput struct {
+	ID     uuid.UUID
+	Name   *string
+	Labels *map[string]string
 }
 
 func (s *Server) RegisterRunner(ctx context.Context, req *runnersv1.RegisterRunnerRequest) (*runnersv1.RegisterRunnerResponse, error) {
 	name := strings.TrimSpace(req.GetName())
 	if name == "" {
 		return nil, status.Error(codes.InvalidArgument, "name must be provided")
+	}
+	labels := req.GetLabels()
+	if labels == nil {
+		labels = map[string]string{}
 	}
 
 	var organizationID *uuid.UUID
@@ -86,6 +99,7 @@ func (s *Server) RegisterRunner(ctx context.Context, req *runnersv1.RegisterRunn
 		IdentityID:       runnerID,
 		ServiceTokenHash: tokenHash,
 		Status:           runnerStatusPending,
+		Labels:           labels,
 	})
 	if err != nil {
 		s.cleanupRunnerAuthorization(ctx, runnerID, organizationID)
@@ -113,6 +127,38 @@ func (s *Server) GetRunner(ctx context.Context, req *runnersv1.GetRunnerRequest)
 		return nil, status.Errorf(codes.Internal, "convert runner: %v", err)
 	}
 	return &runnersv1.GetRunnerResponse{Runner: protoRunner}, nil
+}
+
+func (s *Server) UpdateRunner(ctx context.Context, req *runnersv1.UpdateRunnerRequest) (*runnersv1.UpdateRunnerResponse, error) {
+	id, err := parseUUID(req.GetId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "id: %v", err)
+	}
+
+	var name *string
+	if req.Name != nil {
+		trimmed := strings.TrimSpace(req.GetName())
+		if trimmed == "" {
+			return nil, status.Error(codes.InvalidArgument, "name must be provided")
+		}
+		name = &trimmed
+	}
+
+	var labels *map[string]string
+	if req.Labels != nil {
+		value := req.Labels
+		labels = &value
+	}
+
+	runner, err := s.updateRunner(ctx, runnerUpdateInput{ID: id, Name: name, Labels: labels})
+	if err != nil {
+		return nil, toStatusError(err)
+	}
+	protoRunner, err := toProtoRunner(runner)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "convert runner: %v", err)
+	}
+	return &runnersv1.UpdateRunnerResponse{Runner: protoRunner}, nil
 }
 
 func (s *Server) ListRunners(ctx context.Context, req *runnersv1.ListRunnersRequest) (*runnersv1.ListRunnersResponse, error) {
@@ -241,16 +287,21 @@ func runnerAuthorizationTuple(runnerID uuid.UUID, organizationID *uuid.UUID) *au
 }
 
 func (s *Server) insertRunner(ctx context.Context, input runnerInsertInput) (runnerRecord, error) {
+	labelsJSON, err := json.Marshal(input.Labels)
+	if err != nil {
+		return runnerRecord{}, err
+	}
 	row := s.pool.QueryRow(ctx,
-		fmt.Sprintf(`INSERT INTO runners (id, name, organization_id, identity_id, service_token_hash, status)
-        VALUES ($1, $2, $3, $4, $5, $6)
-        RETURNING %s`, runnerColumns),
+		fmt.Sprintf(`INSERT INTO runners (id, name, organization_id, identity_id, service_token_hash, status, labels)
+	    VALUES ($1, $2, $3, $4, $5, $6, $7)
+	    RETURNING %s`, runnerColumns),
 		input.ID,
 		input.Name,
 		pgtype.UUID{Bytes: input.OrganizationIDBytes(), Valid: input.OrganizationID != nil},
 		input.IdentityID,
 		input.ServiceTokenHash,
 		input.Status,
+		labelsJSON,
 	)
 	runner, err := scanRunner(row)
 	if err != nil {
@@ -325,6 +376,37 @@ func (s *Server) deleteRunner(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
+func (s *Server) updateRunner(ctx context.Context, input runnerUpdateInput) (runnerRecord, error) {
+	labelsValue := pgtype.Text{Valid: false}
+	if input.Labels != nil {
+		labelsJSON, err := json.Marshal(*input.Labels)
+		if err != nil {
+			return runnerRecord{}, err
+		}
+		labelsValue = pgtype.Text{String: string(labelsJSON), Valid: true}
+	}
+
+	nameValue := pgtype.Text{Valid: false}
+	if input.Name != nil {
+		nameValue = pgtype.Text{String: *input.Name, Valid: true}
+	}
+
+	row := s.pool.QueryRow(ctx,
+		fmt.Sprintf(`UPDATE runners SET name = COALESCE($1, name), labels = COALESCE($2::jsonb, labels), updated_at = NOW() WHERE id = $3 RETURNING %s`, runnerColumns),
+		nameValue,
+		labelsValue,
+		input.ID,
+	)
+	runner, err := scanRunner(row)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return runnerRecord{}, NotFound("runner")
+		}
+		return runnerRecord{}, err
+	}
+	return runner, nil
+}
+
 func (s *Server) updateRunnerStatus(ctx context.Context, id uuid.UUID, statusValue string) error {
 	result, err := s.pool.Exec(ctx, `UPDATE runners SET status = $1, updated_at = NOW() WHERE id = $2`, statusValue, id)
 	if err != nil {
@@ -338,8 +420,9 @@ func (s *Server) updateRunnerStatus(ctx context.Context, id uuid.UUID, statusVal
 
 func scanRunner(row pgx.Row) (runnerRecord, error) {
 	var (
-		runner runnerRecord
-		orgID  pgtype.UUID
+		runner     runnerRecord
+		orgID      pgtype.UUID
+		labelsData []byte
 	)
 	if err := row.Scan(
 		&runner.Meta.ID,
@@ -347,10 +430,17 @@ func scanRunner(row pgx.Row) (runnerRecord, error) {
 		&orgID,
 		&runner.IdentityID,
 		&runner.Status,
+		&labelsData,
 		&runner.Meta.CreatedAt,
 		&runner.Meta.UpdatedAt,
 	); err != nil {
 		return runnerRecord{}, err
+	}
+	if err := json.Unmarshal(labelsData, &runner.Labels); err != nil {
+		return runnerRecord{}, err
+	}
+	if runner.Labels == nil {
+		runner.Labels = map[string]string{}
 	}
 	if orgID.Valid {
 		value := uuid.UUID(orgID.Bytes)
@@ -369,6 +459,7 @@ func toProtoRunner(record runnerRecord) (*runnersv1.Runner, error) {
 		Name:       record.Name,
 		IdentityId: record.IdentityID.String(),
 		Status:     status,
+		Labels:     record.Labels,
 	}
 	if record.OrganizationID != nil {
 		value := record.OrganizationID.String()
