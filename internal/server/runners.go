@@ -51,7 +51,7 @@ type runnerInsertInput struct {
 type runnerUpdateInput struct {
 	ID     uuid.UUID
 	Name   *string
-	Labels map[string]string
+	Labels *map[string]string
 }
 
 func (s *Server) RegisterRunner(ctx context.Context, req *runnersv1.RegisterRunnerRequest) (*runnersv1.RegisterRunnerResponse, error) {
@@ -144,9 +144,10 @@ func (s *Server) UpdateRunner(ctx context.Context, req *runnersv1.UpdateRunnerRe
 		name = &trimmed
 	}
 
-	labels := req.GetLabels()
-	if labels == nil {
-		labels = map[string]string{}
+	var labels *map[string]string
+	if req.Labels != nil {
+		value := req.Labels
+		labels = &value
 	}
 
 	runner, err := s.updateRunner(ctx, runnerUpdateInput{ID: id, Name: name, Labels: labels})
@@ -286,11 +287,7 @@ func runnerAuthorizationTuple(runnerID uuid.UUID, organizationID *uuid.UUID) *au
 }
 
 func (s *Server) insertRunner(ctx context.Context, input runnerInsertInput) (runnerRecord, error) {
-	labels := input.Labels
-	if labels == nil {
-		labels = map[string]string{}
-	}
-	labelsJSON, err := json.Marshal(labels)
+	labelsJSON, err := json.Marshal(input.Labels)
 	if err != nil {
 		return runnerRecord{}, err
 	}
@@ -380,13 +377,13 @@ func (s *Server) deleteRunner(ctx context.Context, id uuid.UUID) error {
 }
 
 func (s *Server) updateRunner(ctx context.Context, input runnerUpdateInput) (runnerRecord, error) {
-	labels := input.Labels
-	if labels == nil {
-		labels = map[string]string{}
-	}
-	labelsJSON, err := json.Marshal(labels)
-	if err != nil {
-		return runnerRecord{}, err
+	labelsValue := pgtype.Text{Valid: false}
+	if input.Labels != nil {
+		labelsJSON, err := json.Marshal(*input.Labels)
+		if err != nil {
+			return runnerRecord{}, err
+		}
+		labelsValue = pgtype.Text{String: string(labelsJSON), Valid: true}
 	}
 
 	nameValue := pgtype.Text{Valid: false}
@@ -395,9 +392,9 @@ func (s *Server) updateRunner(ctx context.Context, input runnerUpdateInput) (run
 	}
 
 	row := s.pool.QueryRow(ctx,
-		fmt.Sprintf(`UPDATE runners SET name = COALESCE($1, name), labels = $2, updated_at = NOW() WHERE id = $3 RETURNING %s`, runnerColumns),
+		fmt.Sprintf(`UPDATE runners SET name = COALESCE($1, name), labels = COALESCE($2::jsonb, labels), updated_at = NOW() WHERE id = $3 RETURNING %s`, runnerColumns),
 		nameValue,
-		labelsJSON,
+		labelsValue,
 		input.ID,
 	)
 	runner, err := scanRunner(row)

@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"reflect"
+	"maps"
 	"regexp"
 	"testing"
 	"time"
@@ -177,7 +177,7 @@ func TestRegisterRunnerPersistsLabels(t *testing.T) {
 	if resp.GetRunner().GetName() != "runner-1" {
 		t.Fatalf("expected runner name %q, got %q", "runner-1", resp.GetRunner().GetName())
 	}
-	if !reflect.DeepEqual(resp.GetRunner().GetLabels(), labels) {
+	if !maps.Equal(resp.GetRunner().GetLabels(), labels) {
 		t.Fatalf("expected labels %v, got %v", labels, resp.GetRunner().GetLabels())
 	}
 	if resp.GetServiceToken() == "" {
@@ -212,9 +212,9 @@ func TestUpdateRunnerUpdatesLabels(t *testing.T) {
 	rows := pgxmock.NewRows([]string{"id", "name", "organization_id", "identity_id", "status", "labels", "created_at", "updated_at"}).
 		AddRow(runnerID, "runner-updated", pgtype.UUID{Valid: false}, identityID, runnerStatusOffline, labelsJSON, now, now)
 
-	matcher := regexp.QuoteMeta(fmt.Sprintf(`UPDATE runners SET name = COALESCE($1, name), labels = $2, updated_at = NOW() WHERE id = $3 RETURNING %s`, runnerColumns))
+	matcher := regexp.QuoteMeta(fmt.Sprintf(`UPDATE runners SET name = COALESCE($1, name), labels = COALESCE($2::jsonb, labels), updated_at = NOW() WHERE id = $3 RETURNING %s`, runnerColumns))
 	mockPool.ExpectQuery(matcher).
-		WithArgs(pgtype.Text{String: "runner-updated", Valid: true}, labelsJSON, runnerID).
+		WithArgs(pgtype.Text{String: "runner-updated", Valid: true}, pgtype.Text{String: string(labelsJSON), Valid: true}, runnerID).
 		WillReturnRows(rows)
 
 	srv := New(Options{Pool: mockPool})
@@ -233,7 +233,7 @@ func TestUpdateRunnerUpdatesLabels(t *testing.T) {
 	if resp.GetRunner().GetName() != name {
 		t.Fatalf("expected runner name %q, got %q", name, resp.GetRunner().GetName())
 	}
-	if !reflect.DeepEqual(resp.GetRunner().GetLabels(), labels) {
+	if !maps.Equal(resp.GetRunner().GetLabels(), labels) {
 		t.Fatalf("expected labels %v, got %v", labels, resp.GetRunner().GetLabels())
 	}
 
