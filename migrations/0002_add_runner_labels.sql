@@ -1,0 +1,2 @@
+ALTER TABLE runners
+ADD COLUMN labels JSONB NOT NULL DEFAULT '{}'::jsonb;

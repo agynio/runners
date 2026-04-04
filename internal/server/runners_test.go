@@ -2,12 +2,16 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"regexp"
 	"testing"
 	"time"
 
+	authorizationv1 "github.com/agynio/runners/.gen/go/agynio/api/authorization/v1"
+	identityv1 "github.com/agynio/runners/.gen/go/agynio/api/identity/v1"
 	runnersv1 "github.com/agynio/runners/.gen/go/agynio/api/runners/v1"
 	zitimanagementv1 "github.com/agynio/runners/.gen/go/agynio/api/ziti_management/v1"
 	"github.com/google/uuid"
@@ -66,6 +70,178 @@ func (f fakeZitiManagementClient) ExtendIdentityLease(ctx context.Context, req *
 	return nil, status.Error(codes.Unimplemented, "not implemented")
 }
 
+type fakeIdentityClient struct {
+	registerIdentity func(ctx context.Context, req *identityv1.RegisterIdentityRequest) (*identityv1.RegisterIdentityResponse, error)
+}
+
+func (f fakeIdentityClient) RegisterIdentity(ctx context.Context, req *identityv1.RegisterIdentityRequest, opts ...grpc.CallOption) (*identityv1.RegisterIdentityResponse, error) {
+	if f.registerIdentity == nil {
+		return nil, status.Error(codes.Unimplemented, "not implemented")
+	}
+	return f.registerIdentity(ctx, req)
+}
+
+func (f fakeIdentityClient) GetIdentityType(ctx context.Context, req *identityv1.GetIdentityTypeRequest, opts ...grpc.CallOption) (*identityv1.GetIdentityTypeResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "not implemented")
+}
+
+func (f fakeIdentityClient) BatchGetIdentityTypes(ctx context.Context, req *identityv1.BatchGetIdentityTypesRequest, opts ...grpc.CallOption) (*identityv1.BatchGetIdentityTypesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "not implemented")
+}
+
+type fakeAuthorizationClient struct {
+	write func(ctx context.Context, req *authorizationv1.WriteRequest) (*authorizationv1.WriteResponse, error)
+}
+
+func (f fakeAuthorizationClient) Check(ctx context.Context, req *authorizationv1.CheckRequest, opts ...grpc.CallOption) (*authorizationv1.CheckResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "not implemented")
+}
+
+func (f fakeAuthorizationClient) BatchCheck(ctx context.Context, req *authorizationv1.BatchCheckRequest, opts ...grpc.CallOption) (*authorizationv1.BatchCheckResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "not implemented")
+}
+
+func (f fakeAuthorizationClient) Write(ctx context.Context, req *authorizationv1.WriteRequest, opts ...grpc.CallOption) (*authorizationv1.WriteResponse, error) {
+	if f.write == nil {
+		return nil, status.Error(codes.Unimplemented, "not implemented")
+	}
+	return f.write(ctx, req)
+}
+
+func (f fakeAuthorizationClient) Read(ctx context.Context, req *authorizationv1.ReadRequest, opts ...grpc.CallOption) (*authorizationv1.ReadResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "not implemented")
+}
+
+func (f fakeAuthorizationClient) ListObjects(ctx context.Context, req *authorizationv1.ListObjectsRequest, opts ...grpc.CallOption) (*authorizationv1.ListObjectsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "not implemented")
+}
+
+func (f fakeAuthorizationClient) ListUsers(ctx context.Context, req *authorizationv1.ListUsersRequest, opts ...grpc.CallOption) (*authorizationv1.ListUsersResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "not implemented")
+}
+
+func TestRegisterRunnerPersistsLabels(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("failed to create mock pool: %v", err)
+	}
+
+	labels := map[string]string{"type": "gpu", "region": "us-east-1"}
+	labelsJSON, err := json.Marshal(labels)
+	if err != nil {
+		t.Fatalf("failed to marshal labels: %v", err)
+	}
+
+	runnerID := uuid.New()
+	identityID := uuid.New()
+	now := time.Now().UTC()
+	rows := pgxmock.NewRows([]string{"id", "name", "organization_id", "identity_id", "status", "labels", "created_at", "updated_at"}).
+		AddRow(runnerID, "runner-1", pgtype.UUID{Valid: false}, identityID, runnerStatusPending, labelsJSON, now, now)
+
+	matcher := regexp.QuoteMeta(fmt.Sprintf("INSERT INTO runners (id, name, organization_id, identity_id, service_token_hash, status, labels)\n\t    VALUES ($1, $2, $3, $4, $5, $6, $7)\n\t    RETURNING %s", runnerColumns))
+	mockPool.ExpectQuery(matcher).
+		WithArgs(pgxmock.AnyArg(), "runner-1", pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), runnerStatusPending, labelsJSON).
+		WillReturnRows(rows)
+
+	var gotIdentityReq *identityv1.RegisterIdentityRequest
+	identityClient := fakeIdentityClient{
+		registerIdentity: func(ctx context.Context, req *identityv1.RegisterIdentityRequest) (*identityv1.RegisterIdentityResponse, error) {
+			gotIdentityReq = req
+			return &identityv1.RegisterIdentityResponse{}, nil
+		},
+	}
+	var gotWriteReq *authorizationv1.WriteRequest
+	authorizationClient := fakeAuthorizationClient{
+		write: func(ctx context.Context, req *authorizationv1.WriteRequest) (*authorizationv1.WriteResponse, error) {
+			gotWriteReq = req
+			return &authorizationv1.WriteResponse{}, nil
+		},
+	}
+
+	srv := New(Options{
+		Pool:                mockPool,
+		IdentityClient:      identityClient,
+		AuthorizationClient: authorizationClient,
+	})
+
+	resp, err := srv.RegisterRunner(context.Background(), &runnersv1.RegisterRunnerRequest{
+		Name:   "runner-1",
+		Labels: labels,
+	})
+	if err != nil {
+		t.Fatalf("RegisterRunner failed: %v", err)
+	}
+	if resp.GetRunner() == nil {
+		t.Fatal("expected runner in response")
+	}
+	if resp.GetRunner().GetName() != "runner-1" {
+		t.Fatalf("expected runner name %q, got %q", "runner-1", resp.GetRunner().GetName())
+	}
+	if !reflect.DeepEqual(resp.GetRunner().GetLabels(), labels) {
+		t.Fatalf("expected labels %v, got %v", labels, resp.GetRunner().GetLabels())
+	}
+	if resp.GetServiceToken() == "" {
+		t.Fatal("expected service token")
+	}
+	if gotIdentityReq == nil {
+		t.Fatal("expected RegisterIdentity to be called")
+	}
+	if gotWriteReq == nil {
+		t.Fatal("expected authorization Write to be called")
+	}
+
+	if err := mockPool.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestUpdateRunnerUpdatesLabels(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("failed to create mock pool: %v", err)
+	}
+
+	runnerID := uuid.New()
+	identityID := uuid.New()
+	labels := map[string]string{"env": "prod", "type": "cpu"}
+	labelsJSON, err := json.Marshal(labels)
+	if err != nil {
+		t.Fatalf("failed to marshal labels: %v", err)
+	}
+	now := time.Now().UTC()
+	rows := pgxmock.NewRows([]string{"id", "name", "organization_id", "identity_id", "status", "labels", "created_at", "updated_at"}).
+		AddRow(runnerID, "runner-updated", pgtype.UUID{Valid: false}, identityID, runnerStatusOffline, labelsJSON, now, now)
+
+	matcher := regexp.QuoteMeta(fmt.Sprintf(`UPDATE runners SET name = COALESCE($1, name), labels = $2, updated_at = NOW() WHERE id = $3 RETURNING %s`, runnerColumns))
+	mockPool.ExpectQuery(matcher).
+		WithArgs(pgtype.Text{String: "runner-updated", Valid: true}, labelsJSON, runnerID).
+		WillReturnRows(rows)
+
+	srv := New(Options{Pool: mockPool})
+	name := "runner-updated"
+	resp, err := srv.UpdateRunner(context.Background(), &runnersv1.UpdateRunnerRequest{
+		Id:     runnerID.String(),
+		Name:   &name,
+		Labels: labels,
+	})
+	if err != nil {
+		t.Fatalf("UpdateRunner failed: %v", err)
+	}
+	if resp.GetRunner() == nil {
+		t.Fatal("expected runner in response")
+	}
+	if resp.GetRunner().GetName() != name {
+		t.Fatalf("expected runner name %q, got %q", name, resp.GetRunner().GetName())
+	}
+	if !reflect.DeepEqual(resp.GetRunner().GetLabels(), labels) {
+		t.Fatalf("expected labels %v, got %v", labels, resp.GetRunner().GetLabels())
+	}
+
+	if err := mockPool.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
 func TestEnrollRunnerRequiresToken(t *testing.T) {
 	srv := New(Options{})
 
@@ -112,8 +288,9 @@ func TestEnrollRunnerSuccess(t *testing.T) {
 	runnerID := uuid.New()
 	identityID := uuid.New()
 	now := time.Now().UTC()
-	rows := pgxmock.NewRows([]string{"id", "name", "organization_id", "identity_id", "status", "created_at", "updated_at"}).
-		AddRow(runnerID, "runner-1", pgtype.UUID{Valid: false}, identityID, runnerStatusPending, now, now)
+	labelsJSON := []byte("{}")
+	rows := pgxmock.NewRows([]string{"id", "name", "organization_id", "identity_id", "status", "labels", "created_at", "updated_at"}).
+		AddRow(runnerID, "runner-1", pgtype.UUID{Valid: false}, identityID, runnerStatusPending, labelsJSON, now, now)
 
 	token := "enroll-token"
 	mockPool.ExpectQuery(matcher).WithArgs(hashServiceToken(token)).WillReturnRows(rows)
@@ -178,8 +355,9 @@ func TestEnrollRunnerZitiFailure(t *testing.T) {
 	runnerID := uuid.New()
 	identityID := uuid.New()
 	now := time.Now().UTC()
-	rows := pgxmock.NewRows([]string{"id", "name", "organization_id", "identity_id", "status", "created_at", "updated_at"}).
-		AddRow(runnerID, "runner-1", pgtype.UUID{Valid: false}, identityID, runnerStatusPending, now, now)
+	labelsJSON := []byte("{}")
+	rows := pgxmock.NewRows([]string{"id", "name", "organization_id", "identity_id", "status", "labels", "created_at", "updated_at"}).
+		AddRow(runnerID, "runner-1", pgtype.UUID{Valid: false}, identityID, runnerStatusPending, labelsJSON, now, now)
 
 	token := "bad-ziti"
 	mockPool.ExpectQuery(matcher).WithArgs(hashServiceToken(token)).WillReturnRows(rows)
