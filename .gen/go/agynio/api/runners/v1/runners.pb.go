@@ -304,8 +304,10 @@ type Runner struct {
 	IdentityId     string                 `protobuf:"bytes,4,opt,name=identity_id,json=identityId,proto3" json:"identity_id,omitempty"`
 	Status         RunnerStatus           `protobuf:"varint,5,opt,name=status,proto3,enum=agynio.api.runners.v1.RunnerStatus" json:"status,omitempty"`
 	Labels         map[string]string      `protobuf:"bytes,6,rep,name=labels,proto3" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// Per-runner OpenZiti service name (e.g. "runner-{id}")
+	OpenzitiServiceName string `protobuf:"bytes,7,opt,name=openziti_service_name,json=openzitiServiceName,proto3" json:"openziti_service_name,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *Runner) Reset() {
@@ -378,6 +380,13 @@ func (x *Runner) GetLabels() map[string]string {
 		return x.Labels
 	}
 	return nil
+}
+
+func (x *Runner) GetOpenzitiServiceName() string {
+	if x != nil {
+		return x.OpenzitiServiceName
+	}
+	return ""
 }
 
 type RegisterRunnerRequest struct {
@@ -1895,7 +1904,7 @@ const file_agynio_api_runners_v1_runners_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\xf1\x02\n" +
+	"updated_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\xa5\x03\n" +
 	"\x06Runner\x125\n" +
 	"\x04meta\x18\x01 \x01(\v2!.agynio.api.runners.v1.EntityMetaR\x04meta\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12,\n" +
@@ -1903,7 +1912,8 @@ const file_agynio_api_runners_v1_runners_proto_rawDesc = "" +
 	"\videntity_id\x18\x04 \x01(\tR\n" +
 	"identityId\x12;\n" +
 	"\x06status\x18\x05 \x01(\x0e2#.agynio.api.runners.v1.RunnerStatusR\x06status\x12A\n" +
-	"\x06labels\x18\x06 \x03(\v2).agynio.api.runners.v1.Runner.LabelsEntryR\x06labels\x1a9\n" +
+	"\x06labels\x18\x06 \x03(\v2).agynio.api.runners.v1.Runner.LabelsEntryR\x06labels\x122\n" +
+	"\x15openziti_service_name\x18\a \x01(\tR\x13openzitiServiceName\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\x12\n" +
