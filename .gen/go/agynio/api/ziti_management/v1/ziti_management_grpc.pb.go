@@ -21,6 +21,7 @@ const _ = grpc.SupportPackageIsVersion9
 const (
 	ZitiManagementService_CreateAgentIdentity_FullMethodName    = "/agynio.api.ziti_management.v1.ZitiManagementService/CreateAgentIdentity"
 	ZitiManagementService_CreateAppIdentity_FullMethodName      = "/agynio.api.ziti_management.v1.ZitiManagementService/CreateAppIdentity"
+	ZitiManagementService_CreateService_FullMethodName          = "/agynio.api.ziti_management.v1.ZitiManagementService/CreateService"
 	ZitiManagementService_DeleteIdentity_FullMethodName         = "/agynio.api.ziti_management.v1.ZitiManagementService/DeleteIdentity"
 	ZitiManagementService_DeleteAppIdentity_FullMethodName      = "/agynio.api.ziti_management.v1.ZitiManagementService/DeleteAppIdentity"
 	ZitiManagementService_CreateRunnerIdentity_FullMethodName   = "/agynio.api.ziti_management.v1.ZitiManagementService/CreateRunnerIdentity"
@@ -37,16 +38,21 @@ const (
 type ZitiManagementServiceClient interface {
 	// Orchestrator -> create OpenZiti identity for an agent, return enrollment JWT.
 	CreateAgentIdentity(ctx context.Context, in *CreateAgentIdentityRequest, opts ...grpc.CallOption) (*CreateAgentIdentityResponse, error)
-	// Apps Service -> create an OpenZiti identity and service for an app.
-	// Returns enrolled credentials and the service ID.
+	// Apps Service -> create and enroll an OpenZiti identity for an app. If a previous
+	// identity exists, deletes it first. Returns enrolled credentials.
 	CreateAppIdentity(ctx context.Context, in *CreateAppIdentityRequest, opts ...grpc.CallOption) (*CreateAppIdentityResponse, error)
+	// Runners Service, Apps Service -> create a per-runner or per-app OpenZiti service.
+	CreateService(ctx context.Context, in *CreateServiceRequest, opts ...grpc.CallOption) (*CreateServiceResponse, error)
 	// Orchestrator -> delete OpenZiti identity and its platform mapping.
 	DeleteIdentity(ctx context.Context, in *DeleteIdentityRequest, opts ...grpc.CallOption) (*DeleteIdentityResponse, error)
 	// Apps Service -> delete an app's OpenZiti identity and its associated service.
+	// Looked up by platform identity_id.
 	DeleteAppIdentity(ctx context.Context, in *DeleteAppIdentityRequest, opts ...grpc.CallOption) (*DeleteAppIdentityResponse, error)
-	// Runners Service -> create an OpenZiti identity and service for a runner.
+	// Runners Service -> create and enroll an OpenZiti identity for a runner. If a previous
+	// identity exists, deletes it first. Returns enrolled credentials.
 	CreateRunnerIdentity(ctx context.Context, in *CreateRunnerIdentityRequest, opts ...grpc.CallOption) (*CreateRunnerIdentityResponse, error)
 	// Runners Service -> delete a runner's OpenZiti identity and its associated service.
+	// Looked up by platform identity_id.
 	DeleteRunnerIdentity(ctx context.Context, in *DeleteRunnerIdentityRequest, opts ...grpc.CallOption) (*DeleteRunnerIdentityResponse, error)
 	// Orchestrator -> list all platform-managed identities (orphan reconciliation).
 	ListManagedIdentities(ctx context.Context, in *ListManagedIdentitiesRequest, opts ...grpc.CallOption) (*ListManagedIdentitiesResponse, error)
@@ -84,6 +90,16 @@ func (c *zitiManagementServiceClient) CreateAppIdentity(ctx context.Context, in 
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(CreateAppIdentityResponse)
 	err := c.cc.Invoke(ctx, ZitiManagementService_CreateAppIdentity_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *zitiManagementServiceClient) CreateService(ctx context.Context, in *CreateServiceRequest, opts ...grpc.CallOption) (*CreateServiceResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateServiceResponse)
+	err := c.cc.Invoke(ctx, ZitiManagementService_CreateService_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -176,16 +192,21 @@ func (c *zitiManagementServiceClient) ExtendIdentityLease(ctx context.Context, i
 type ZitiManagementServiceServer interface {
 	// Orchestrator -> create OpenZiti identity for an agent, return enrollment JWT.
 	CreateAgentIdentity(context.Context, *CreateAgentIdentityRequest) (*CreateAgentIdentityResponse, error)
-	// Apps Service -> create an OpenZiti identity and service for an app.
-	// Returns enrolled credentials and the service ID.
+	// Apps Service -> create and enroll an OpenZiti identity for an app. If a previous
+	// identity exists, deletes it first. Returns enrolled credentials.
 	CreateAppIdentity(context.Context, *CreateAppIdentityRequest) (*CreateAppIdentityResponse, error)
+	// Runners Service, Apps Service -> create a per-runner or per-app OpenZiti service.
+	CreateService(context.Context, *CreateServiceRequest) (*CreateServiceResponse, error)
 	// Orchestrator -> delete OpenZiti identity and its platform mapping.
 	DeleteIdentity(context.Context, *DeleteIdentityRequest) (*DeleteIdentityResponse, error)
 	// Apps Service -> delete an app's OpenZiti identity and its associated service.
+	// Looked up by platform identity_id.
 	DeleteAppIdentity(context.Context, *DeleteAppIdentityRequest) (*DeleteAppIdentityResponse, error)
-	// Runners Service -> create an OpenZiti identity and service for a runner.
+	// Runners Service -> create and enroll an OpenZiti identity for a runner. If a previous
+	// identity exists, deletes it first. Returns enrolled credentials.
 	CreateRunnerIdentity(context.Context, *CreateRunnerIdentityRequest) (*CreateRunnerIdentityResponse, error)
 	// Runners Service -> delete a runner's OpenZiti identity and its associated service.
+	// Looked up by platform identity_id.
 	DeleteRunnerIdentity(context.Context, *DeleteRunnerIdentityRequest) (*DeleteRunnerIdentityResponse, error)
 	// Orchestrator -> list all platform-managed identities (orphan reconciliation).
 	ListManagedIdentities(context.Context, *ListManagedIdentitiesRequest) (*ListManagedIdentitiesResponse, error)
@@ -213,6 +234,9 @@ func (UnimplementedZitiManagementServiceServer) CreateAgentIdentity(context.Cont
 }
 func (UnimplementedZitiManagementServiceServer) CreateAppIdentity(context.Context, *CreateAppIdentityRequest) (*CreateAppIdentityResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateAppIdentity not implemented")
+}
+func (UnimplementedZitiManagementServiceServer) CreateService(context.Context, *CreateServiceRequest) (*CreateServiceResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateService not implemented")
 }
 func (UnimplementedZitiManagementServiceServer) DeleteIdentity(context.Context, *DeleteIdentityRequest) (*DeleteIdentityResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeleteIdentity not implemented")
@@ -290,6 +314,24 @@ func _ZitiManagementService_CreateAppIdentity_Handler(srv interface{}, ctx conte
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ZitiManagementServiceServer).CreateAppIdentity(ctx, req.(*CreateAppIdentityRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ZitiManagementService_CreateService_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateServiceRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ZitiManagementServiceServer).CreateService(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ZitiManagementService_CreateService_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ZitiManagementServiceServer).CreateService(ctx, req.(*CreateServiceRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -452,6 +494,10 @@ var ZitiManagementService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CreateAppIdentity",
 			Handler:    _ZitiManagementService_CreateAppIdentity_Handler,
+		},
+		{
+			MethodName: "CreateService",
+			Handler:    _ZitiManagementService_CreateService_Handler,
 		},
 		{
 			MethodName: "DeleteIdentity",
