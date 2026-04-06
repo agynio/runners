@@ -26,6 +26,7 @@ import (
 type fakeZitiManagementClient struct {
 	createRunnerIdentity func(ctx context.Context, req *zitimanagementv1.CreateRunnerIdentityRequest) (*zitimanagementv1.CreateRunnerIdentityResponse, error)
 	createService        func(ctx context.Context, req *zitimanagementv1.CreateServiceRequest) (*zitimanagementv1.CreateServiceResponse, error)
+	deleteRunnerIdentity func(ctx context.Context, req *zitimanagementv1.DeleteRunnerIdentityRequest) (*zitimanagementv1.DeleteRunnerIdentityResponse, error)
 }
 
 func (f fakeZitiManagementClient) CreateAgentIdentity(ctx context.Context, req *zitimanagementv1.CreateAgentIdentityRequest, opts ...grpc.CallOption) (*zitimanagementv1.CreateAgentIdentityResponse, error) {
@@ -59,7 +60,10 @@ func (f fakeZitiManagementClient) CreateRunnerIdentity(ctx context.Context, req 
 }
 
 func (f fakeZitiManagementClient) DeleteRunnerIdentity(ctx context.Context, req *zitimanagementv1.DeleteRunnerIdentityRequest, opts ...grpc.CallOption) (*zitimanagementv1.DeleteRunnerIdentityResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "not implemented")
+	if f.deleteRunnerIdentity == nil {
+		return nil, status.Error(codes.Unimplemented, "not implemented")
+	}
+	return f.deleteRunnerIdentity(ctx, req)
 }
 
 func (f fakeZitiManagementClient) ListManagedIdentities(ctx context.Context, req *zitimanagementv1.ListManagedIdentitiesRequest, opts ...grpc.CallOption) (*zitimanagementv1.ListManagedIdentitiesResponse, error) {
@@ -404,6 +408,120 @@ func TestEnrollRunnerZitiFailure(t *testing.T) {
 	_, err = srv.EnrollRunner(context.Background(), &runnersv1.EnrollRunnerRequest{ServiceToken: token})
 	if status.Code(err) != codes.Internal {
 		t.Fatalf("expected Internal error, got %v", err)
+	}
+
+	if err := mockPool.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestDeleteRunnerCallsZitiCleanup(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("failed to create mock pool: %v", err)
+	}
+
+	query := fmt.Sprintf(`SELECT %s FROM runners WHERE id = $1`, runnerColumns)
+	deleteQuery := regexp.QuoteMeta(`DELETE FROM runners WHERE id = $1`)
+
+	runnerID := uuid.New()
+	identityID := uuid.New()
+	now := time.Now().UTC()
+	labelsJSON := []byte("{}")
+	zitiServiceID := "service-id"
+	zitiServiceName := "runner-service"
+	zitiIdentityID := "ziti-identity"
+	rows := pgxmock.NewRows([]string{"id", "name", "organization_id", "identity_id", "ziti_identity_id", "ziti_service_id", "ziti_service_name", "status", "labels", "created_at", "updated_at"}).
+		AddRow(runnerID, "runner-1", pgtype.UUID{Valid: false}, identityID, zitiIdentityID, zitiServiceID, zitiServiceName, runnerStatusOffline, labelsJSON, now, now)
+
+	mockPool.ExpectQuery(regexp.QuoteMeta(query)).WithArgs(runnerID).WillReturnRows(rows)
+	mockPool.ExpectExec(deleteQuery).WithArgs(runnerID).WillReturnResult(pgxmock.NewResult("DELETE", 1))
+
+	var gotDeleteReq *zitimanagementv1.DeleteRunnerIdentityRequest
+	zitiClient := fakeZitiManagementClient{
+		deleteRunnerIdentity: func(ctx context.Context, req *zitimanagementv1.DeleteRunnerIdentityRequest) (*zitimanagementv1.DeleteRunnerIdentityResponse, error) {
+			gotDeleteReq = req
+			return &zitimanagementv1.DeleteRunnerIdentityResponse{}, nil
+		},
+	}
+
+	authorizationClient := fakeAuthorizationClient{
+		write: func(ctx context.Context, req *authorizationv1.WriteRequest) (*authorizationv1.WriteResponse, error) {
+			return &authorizationv1.WriteResponse{}, nil
+		},
+	}
+
+	srv := New(Options{
+		Pool:                 mockPool,
+		AuthorizationClient:  authorizationClient,
+		ZitiManagementClient: zitiClient,
+	})
+
+	_, err = srv.DeleteRunner(context.Background(), &runnersv1.DeleteRunnerRequest{Id: runnerID.String()})
+	if err != nil {
+		t.Fatalf("DeleteRunner failed: %v", err)
+	}
+
+	if gotDeleteReq == nil {
+		t.Fatal("expected DeleteRunnerIdentity to be called")
+	}
+	if gotDeleteReq.GetIdentityId() != identityID.String() {
+		t.Fatalf("expected identity id %q, got %q", identityID.String(), gotDeleteReq.GetIdentityId())
+	}
+	if gotDeleteReq.GetZitiServiceId() != zitiServiceID {
+		t.Fatalf("expected ziti service id %q, got %q", zitiServiceID, gotDeleteReq.GetZitiServiceId())
+	}
+
+	if err := mockPool.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestDeleteRunnerBestEffortZitiFailure(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("failed to create mock pool: %v", err)
+	}
+
+	query := fmt.Sprintf(`SELECT %s FROM runners WHERE id = $1`, runnerColumns)
+	deleteQuery := regexp.QuoteMeta(`DELETE FROM runners WHERE id = $1`)
+
+	runnerID := uuid.New()
+	identityID := uuid.New()
+	now := time.Now().UTC()
+	labelsJSON := []byte("{}")
+	rows := pgxmock.NewRows([]string{"id", "name", "organization_id", "identity_id", "ziti_identity_id", "ziti_service_id", "ziti_service_name", "status", "labels", "created_at", "updated_at"}).
+		AddRow(runnerID, "runner-1", pgtype.UUID{Valid: false}, identityID, "ziti-identity", "service-id", "runner-service", runnerStatusOffline, labelsJSON, now, now)
+
+	mockPool.ExpectQuery(regexp.QuoteMeta(query)).WithArgs(runnerID).WillReturnRows(rows)
+	mockPool.ExpectExec(deleteQuery).WithArgs(runnerID).WillReturnResult(pgxmock.NewResult("DELETE", 1))
+
+	var gotDeleteReq *zitimanagementv1.DeleteRunnerIdentityRequest
+	zitiClient := fakeZitiManagementClient{
+		deleteRunnerIdentity: func(ctx context.Context, req *zitimanagementv1.DeleteRunnerIdentityRequest) (*zitimanagementv1.DeleteRunnerIdentityResponse, error) {
+			gotDeleteReq = req
+			return nil, errors.New("delete failure")
+		},
+	}
+
+	authorizationClient := fakeAuthorizationClient{
+		write: func(ctx context.Context, req *authorizationv1.WriteRequest) (*authorizationv1.WriteResponse, error) {
+			return &authorizationv1.WriteResponse{}, nil
+		},
+	}
+
+	srv := New(Options{
+		Pool:                 mockPool,
+		AuthorizationClient:  authorizationClient,
+		ZitiManagementClient: zitiClient,
+	})
+
+	_, err = srv.DeleteRunner(context.Background(), &runnersv1.DeleteRunnerRequest{Id: runnerID.String()})
+	if err != nil {
+		t.Fatalf("DeleteRunner failed: %v", err)
+	}
+	if gotDeleteReq == nil {
+		t.Fatal("expected DeleteRunnerIdentity to be called")
 	}
 
 	if err := mockPool.ExpectationsWereMet(); err != nil {

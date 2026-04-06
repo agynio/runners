@@ -96,6 +96,7 @@ func (s *Server) RegisterRunner(ctx context.Context, req *runnersv1.RegisterRunn
 		RoleAttributes: []string{zitiRunnerServiceRole},
 	})
 	if err != nil {
+		s.cleanupRunnerAuthorization(ctx, runnerID, organizationID)
 		return nil, status.Errorf(codes.Internal, "create ziti service: %v", err)
 	}
 
@@ -222,11 +223,13 @@ func (s *Server) DeleteRunner(ctx context.Context, req *runnersv1.DeleteRunnerRe
 		return nil, toStatusError(err)
 	}
 
-	if _, err := s.zitiManagementClient.DeleteRunnerIdentity(ctx, &zitimanagementv1.DeleteRunnerIdentityRequest{
-		IdentityId:    runner.IdentityID.String(),
-		ZitiServiceId: runner.ZitiServiceID,
-	}); err != nil {
-		log.Printf("delete runner identity: %v", err)
+	if runner.ZitiServiceID != "" || runner.ZitiIdentityID != "" {
+		if _, err := s.zitiManagementClient.DeleteRunnerIdentity(ctx, &zitimanagementv1.DeleteRunnerIdentityRequest{
+			IdentityId:    runner.IdentityID.String(),
+			ZitiServiceId: runner.ZitiServiceID,
+		}); err != nil {
+			log.Printf("delete runner identity: %v", err)
+		}
 	}
 
 	s.cleanupRunnerAuthorization(ctx, runner.IdentityID, runner.OrganizationID)
@@ -488,11 +491,12 @@ func toProtoRunner(record runnerRecord) (*runnersv1.Runner, error) {
 		return nil, err
 	}
 	runner := &runnersv1.Runner{
-		Meta:       toProtoEntityMeta(record.Meta),
-		Name:       record.Name,
-		IdentityId: record.IdentityID.String(),
-		Status:     status,
-		Labels:     record.Labels,
+		Meta:                toProtoEntityMeta(record.Meta),
+		Name:                record.Name,
+		IdentityId:          record.IdentityID.String(),
+		Status:              status,
+		Labels:              record.Labels,
+		OpenzitiServiceName: record.ZitiServiceName,
 	}
 	if record.OrganizationID != nil {
 		value := record.OrganizationID.String()
