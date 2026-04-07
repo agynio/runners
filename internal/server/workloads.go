@@ -201,7 +201,25 @@ func (s *Server) ListWorkloads(ctx context.Context, req *runnersv1.ListWorkloads
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "statuses: %v", err)
 	}
-	workloads, nextToken, err := s.listWorkloads(ctx, statuses, req.GetPageSize(), req.GetPageToken())
+	var organizationID *uuid.UUID
+	if req.OrganizationId != nil {
+		id, err := uuid.Parse(*req.OrganizationId)
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "organization_id: %v", err)
+		}
+		organizationID = &id
+	}
+
+	var runnerID *uuid.UUID
+	if req.RunnerId != nil {
+		id, err := uuid.Parse(*req.RunnerId)
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "runner_id: %v", err)
+		}
+		runnerID = &id
+	}
+
+	workloads, nextToken, err := s.listWorkloads(ctx, statuses, organizationID, runnerID, req.GetPageSize(), req.GetPageToken())
 	if err != nil {
 		var invalidToken *InvalidPageTokenError
 		if errors.As(err, &invalidToken) {
@@ -297,7 +315,7 @@ func (s *Server) listWorkloadsByThread(ctx context.Context, threadID uuid.UUID, 
 	})
 }
 
-func (s *Server) listWorkloads(ctx context.Context, statuses []string, pageSize int32, pageToken string) ([]workloadRecord, string, error) {
+func (s *Server) listWorkloads(ctx context.Context, statuses []string, organizationID *uuid.UUID, runnerID *uuid.UUID, pageSize int32, pageToken string) ([]workloadRecord, string, error) {
 	var (
 		clauses []string
 		args    []any
@@ -305,6 +323,14 @@ func (s *Server) listWorkloads(ctx context.Context, statuses []string, pageSize 
 	if len(statuses) > 0 {
 		clauses = append(clauses, fmt.Sprintf("status = ANY($%d)", len(args)+1))
 		args = append(args, pgtype.FlatArray[string](statuses))
+	}
+	if organizationID != nil {
+		clauses = append(clauses, fmt.Sprintf("organization_id = $%d", len(args)+1))
+		args = append(args, *organizationID)
+	}
+	if runnerID != nil {
+		clauses = append(clauses, fmt.Sprintf("runner_id = $%d", len(args)+1))
+		args = append(args, *runnerID)
 	}
 	return listWithPagination(ctx, s.pool, fmt.Sprintf("SELECT %s FROM workloads", workloadColumns), clauses, args, pageSize, pageToken, scanWorkload, func(record workloadRecord) uuid.UUID {
 		return record.Meta.ID
