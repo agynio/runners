@@ -203,20 +203,20 @@ func (s *Server) ListWorkloads(ctx context.Context, req *runnersv1.ListWorkloads
 	}
 	var organizationID *uuid.UUID
 	if req.OrganizationId != nil {
-		id, err := uuid.Parse(*req.OrganizationId)
+		parsed, err := parseUUID(req.GetOrganizationId())
 		if err != nil {
 			return nil, status.Errorf(codes.InvalidArgument, "organization_id: %v", err)
 		}
-		organizationID = &id
+		organizationID = &parsed
 	}
 
 	var runnerID *uuid.UUID
 	if req.RunnerId != nil {
-		id, err := uuid.Parse(*req.RunnerId)
+		parsed, err := parseUUID(req.GetRunnerId())
 		if err != nil {
 			return nil, status.Errorf(codes.InvalidArgument, "runner_id: %v", err)
 		}
-		runnerID = &id
+		runnerID = &parsed
 	}
 
 	workloads, nextToken, err := s.listWorkloads(ctx, statuses, organizationID, runnerID, req.GetPageSize(), req.GetPageToken())
