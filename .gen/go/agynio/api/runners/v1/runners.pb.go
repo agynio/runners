@@ -1782,12 +1782,14 @@ func (x *ListWorkloadsByThreadResponse) GetNextPageToken() string {
 }
 
 type ListWorkloadsRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	PageSize      int32                  `protobuf:"varint,1,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
-	PageToken     string                 `protobuf:"bytes,2,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
-	Statuses      []WorkloadStatus       `protobuf:"varint,3,rep,packed,name=statuses,proto3,enum=agynio.api.runners.v1.WorkloadStatus" json:"statuses,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	PageSize       int32                  `protobuf:"varint,1,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	PageToken      string                 `protobuf:"bytes,2,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
+	Statuses       []WorkloadStatus       `protobuf:"varint,3,rep,packed,name=statuses,proto3,enum=agynio.api.runners.v1.WorkloadStatus" json:"statuses,omitempty"`
+	OrganizationId *string                `protobuf:"bytes,4,opt,name=organization_id,json=organizationId,proto3,oneof" json:"organization_id,omitempty"`
+	RunnerId       *string                `protobuf:"bytes,5,opt,name=runner_id,json=runnerId,proto3,oneof" json:"runner_id,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *ListWorkloadsRequest) Reset() {
@@ -1839,6 +1841,20 @@ func (x *ListWorkloadsRequest) GetStatuses() []WorkloadStatus {
 		return x.Statuses
 	}
 	return nil
+}
+
+func (x *ListWorkloadsRequest) GetOrganizationId() string {
+	if x != nil && x.OrganizationId != nil {
+		return *x.OrganizationId
+	}
+	return ""
+}
+
+func (x *ListWorkloadsRequest) GetRunnerId() string {
+	if x != nil && x.RunnerId != nil {
+		return *x.RunnerId
+	}
+	return ""
 }
 
 type ListWorkloadsResponse struct {
@@ -2019,12 +2035,17 @@ const file_agynio_api_runners_v1_runners_proto_rawDesc = "" +
 	"page_token\x18\x03 \x01(\tR\tpageToken\"\x86\x01\n" +
 	"\x1dListWorkloadsByThreadResponse\x12=\n" +
 	"\tworkloads\x18\x01 \x03(\v2\x1f.agynio.api.runners.v1.WorkloadR\tworkloads\x12&\n" +
-	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\"\x95\x01\n" +
+	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\"\x87\x02\n" +
 	"\x14ListWorkloadsRequest\x12\x1b\n" +
 	"\tpage_size\x18\x01 \x01(\x05R\bpageSize\x12\x1d\n" +
 	"\n" +
 	"page_token\x18\x02 \x01(\tR\tpageToken\x12A\n" +
-	"\bstatuses\x18\x03 \x03(\x0e2%.agynio.api.runners.v1.WorkloadStatusR\bstatuses\"~\n" +
+	"\bstatuses\x18\x03 \x03(\x0e2%.agynio.api.runners.v1.WorkloadStatusR\bstatuses\x12,\n" +
+	"\x0forganization_id\x18\x04 \x01(\tH\x00R\x0eorganizationId\x88\x01\x01\x12 \n" +
+	"\trunner_id\x18\x05 \x01(\tH\x01R\brunnerId\x88\x01\x01B\x12\n" +
+	"\x10_organization_idB\f\n" +
+	"\n" +
+	"_runner_id\"~\n" +
 	"\x15ListWorkloadsResponse\x12=\n" +
 	"\tworkloads\x18\x01 \x03(\v2\x1f.agynio.api.runners.v1.WorkloadR\tworkloads\x12&\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken*\x7f\n" +
@@ -2190,6 +2211,7 @@ func file_agynio_api_runners_v1_runners_proto_init() {
 	file_agynio_api_runners_v1_runners_proto_msgTypes[2].OneofWrappers = []any{}
 	file_agynio_api_runners_v1_runners_proto_msgTypes[6].OneofWrappers = []any{}
 	file_agynio_api_runners_v1_runners_proto_msgTypes[8].OneofWrappers = []any{}
+	file_agynio_api_runners_v1_runners_proto_msgTypes[28].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
