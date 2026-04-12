@@ -4,13 +4,12 @@ package e2e
 
 import (
 	"context"
+	"reflect"
 	"testing"
 	"time"
 
 	runnersv1 "github.com/agynio/runners/.gen/go/agynio/api/runners/v1"
 	"github.com/google/uuid"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 const testTimeout = 60 * time.Second
@@ -19,8 +18,13 @@ func TestRunnerLifecycle(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
 
+	registerLabels := map[string]string{
+		"region": "test",
+		"tier":   "e2e",
+	}
 	registerResp, err := runnerClient.RegisterRunner(ctx, &runnersv1.RegisterRunnerRequest{
-		Name: "e2e-runner",
+		Name:   "e2e-runner",
+		Labels: registerLabels,
 	})
 	if err != nil {
 		t.Fatalf("RegisterRunner failed: %v", err)
@@ -33,6 +37,9 @@ func TestRunnerLifecycle(t *testing.T) {
 	runnerID := runner.GetMeta().GetId()
 	if runnerID == "" {
 		t.Fatal("runner ID missing")
+	}
+	if !reflect.DeepEqual(runner.GetLabels(), registerLabels) {
+		t.Fatalf("RegisterRunner returned unexpected labels")
 	}
 	token := registerResp.GetServiceToken()
 	if token == "" {
@@ -112,6 +119,10 @@ func TestRunnerLifecycle(t *testing.T) {
 		t.Fatalf("UpdateWorkloadStatus did not return running status")
 	}
 
+	if _, err := runnerClient.TouchWorkload(ctx, &runnersv1.TouchWorkloadRequest{Id: workloadID}); err != nil {
+		t.Fatalf("TouchWorkload failed: %v", err)
+	}
+
 	getResp, err := runnerClient.GetWorkload(ctx, &runnersv1.GetWorkloadRequest{Id: workloadID})
 	if err != nil {
 		t.Fatalf("GetWorkload failed: %v", err)
@@ -147,9 +158,15 @@ func TestRunnerLifecycle(t *testing.T) {
 		t.Fatalf("DeleteWorkload failed: %v", err)
 	}
 
-	_, err = runnerClient.GetWorkload(ctx, &runnersv1.GetWorkloadRequest{Id: workloadID})
-	if status.Code(err) != codes.NotFound {
-		t.Fatalf("expected NotFound after deleting workload, got %v", err)
+	deletedResp, err := runnerClient.GetWorkload(ctx, &runnersv1.GetWorkloadRequest{Id: workloadID})
+	if err != nil {
+		t.Fatalf("GetWorkload after delete failed: %v", err)
+	}
+	if deletedResp.GetWorkload().GetStatus() != runnersv1.WorkloadStatus_WORKLOAD_STATUS_STOPPED {
+		t.Fatalf("expected stopped status after delete")
+	}
+	if deletedResp.GetWorkload().GetRemovedAt() == nil {
+		t.Fatalf("expected removed_at after delete")
 	}
 
 	if _, err := runnerClient.DeleteRunner(ctx, &runnersv1.DeleteRunnerRequest{Id: runnerID}); err != nil {
