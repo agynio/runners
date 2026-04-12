@@ -22,6 +22,9 @@ const (
 	IdentityService_RegisterIdentity_FullMethodName      = "/agynio.api.identity.v1.IdentityService/RegisterIdentity"
 	IdentityService_GetIdentityType_FullMethodName       = "/agynio.api.identity.v1.IdentityService/GetIdentityType"
 	IdentityService_BatchGetIdentityTypes_FullMethodName = "/agynio.api.identity.v1.IdentityService/BatchGetIdentityTypes"
+	IdentityService_SetNickname_FullMethodName           = "/agynio.api.identity.v1.IdentityService/SetNickname"
+	IdentityService_RemoveNickname_FullMethodName        = "/agynio.api.identity.v1.IdentityService/RemoveNickname"
+	IdentityService_ResolveNickname_FullMethodName       = "/agynio.api.identity.v1.IdentityService/ResolveNickname"
 )
 
 // IdentityServiceClient is the client API for IdentityService service.
@@ -39,6 +42,13 @@ type IdentityServiceClient interface {
 	// BatchGetIdentityTypes returns known identity types for the requested IDs.
 	// Unknown identity IDs are omitted from the response.
 	BatchGetIdentityTypes(ctx context.Context, in *BatchGetIdentityTypesRequest, opts ...grpc.CallOption) (*BatchGetIdentityTypesResponse, error)
+	// SetNickname sets or updates the nickname for an identity within an org.
+	// Returns ALREADY_EXISTS if the nickname is already taken in the org.
+	SetNickname(ctx context.Context, in *SetNicknameRequest, opts ...grpc.CallOption) (*SetNicknameResponse, error)
+	// RemoveNickname deletes the nickname entry for an identity within an org.
+	RemoveNickname(ctx context.Context, in *RemoveNicknameRequest, opts ...grpc.CallOption) (*RemoveNicknameResponse, error)
+	// ResolveNickname resolves an @nickname within an org to its identity.
+	ResolveNickname(ctx context.Context, in *ResolveNicknameRequest, opts ...grpc.CallOption) (*ResolveNicknameResponse, error)
 }
 
 type identityServiceClient struct {
@@ -79,6 +89,36 @@ func (c *identityServiceClient) BatchGetIdentityTypes(ctx context.Context, in *B
 	return out, nil
 }
 
+func (c *identityServiceClient) SetNickname(ctx context.Context, in *SetNicknameRequest, opts ...grpc.CallOption) (*SetNicknameResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetNicknameResponse)
+	err := c.cc.Invoke(ctx, IdentityService_SetNickname_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *identityServiceClient) RemoveNickname(ctx context.Context, in *RemoveNicknameRequest, opts ...grpc.CallOption) (*RemoveNicknameResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RemoveNicknameResponse)
+	err := c.cc.Invoke(ctx, IdentityService_RemoveNickname_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *identityServiceClient) ResolveNickname(ctx context.Context, in *ResolveNicknameRequest, opts ...grpc.CallOption) (*ResolveNicknameResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ResolveNicknameResponse)
+	err := c.cc.Invoke(ctx, IdentityService_ResolveNickname_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // IdentityServiceServer is the server API for IdentityService service.
 // All implementations should embed UnimplementedIdentityServiceServer
 // for forward compatibility.
@@ -94,6 +134,13 @@ type IdentityServiceServer interface {
 	// BatchGetIdentityTypes returns known identity types for the requested IDs.
 	// Unknown identity IDs are omitted from the response.
 	BatchGetIdentityTypes(context.Context, *BatchGetIdentityTypesRequest) (*BatchGetIdentityTypesResponse, error)
+	// SetNickname sets or updates the nickname for an identity within an org.
+	// Returns ALREADY_EXISTS if the nickname is already taken in the org.
+	SetNickname(context.Context, *SetNicknameRequest) (*SetNicknameResponse, error)
+	// RemoveNickname deletes the nickname entry for an identity within an org.
+	RemoveNickname(context.Context, *RemoveNicknameRequest) (*RemoveNicknameResponse, error)
+	// ResolveNickname resolves an @nickname within an org to its identity.
+	ResolveNickname(context.Context, *ResolveNicknameRequest) (*ResolveNicknameResponse, error)
 }
 
 // UnimplementedIdentityServiceServer should be embedded to have
@@ -111,6 +158,15 @@ func (UnimplementedIdentityServiceServer) GetIdentityType(context.Context, *GetI
 }
 func (UnimplementedIdentityServiceServer) BatchGetIdentityTypes(context.Context, *BatchGetIdentityTypesRequest) (*BatchGetIdentityTypesResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method BatchGetIdentityTypes not implemented")
+}
+func (UnimplementedIdentityServiceServer) SetNickname(context.Context, *SetNicknameRequest) (*SetNicknameResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SetNickname not implemented")
+}
+func (UnimplementedIdentityServiceServer) RemoveNickname(context.Context, *RemoveNicknameRequest) (*RemoveNicknameResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RemoveNickname not implemented")
+}
+func (UnimplementedIdentityServiceServer) ResolveNickname(context.Context, *ResolveNicknameRequest) (*ResolveNicknameResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ResolveNickname not implemented")
 }
 func (UnimplementedIdentityServiceServer) testEmbeddedByValue() {}
 
@@ -186,6 +242,60 @@ func _IdentityService_BatchGetIdentityTypes_Handler(srv interface{}, ctx context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _IdentityService_SetNickname_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetNicknameRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(IdentityServiceServer).SetNickname(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: IdentityService_SetNickname_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(IdentityServiceServer).SetNickname(ctx, req.(*SetNicknameRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _IdentityService_RemoveNickname_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RemoveNicknameRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(IdentityServiceServer).RemoveNickname(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: IdentityService_RemoveNickname_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(IdentityServiceServer).RemoveNickname(ctx, req.(*RemoveNicknameRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _IdentityService_ResolveNickname_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ResolveNicknameRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(IdentityServiceServer).ResolveNickname(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: IdentityService_ResolveNickname_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(IdentityServiceServer).ResolveNickname(ctx, req.(*ResolveNicknameRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // IdentityService_ServiceDesc is the grpc.ServiceDesc for IdentityService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -204,6 +314,18 @@ var IdentityService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "BatchGetIdentityTypes",
 			Handler:    _IdentityService_BatchGetIdentityTypes_Handler,
+		},
+		{
+			MethodName: "SetNickname",
+			Handler:    _IdentityService_SetNickname_Handler,
+		},
+		{
+			MethodName: "RemoveNickname",
+			Handler:    _IdentityService_RemoveNickname_Handler,
+		},
+		{
+			MethodName: "ResolveNickname",
+			Handler:    _IdentityService_ResolveNickname_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

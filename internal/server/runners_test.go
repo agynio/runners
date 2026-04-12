@@ -82,6 +82,26 @@ func (f fakeZitiManagementClient) ExtendIdentityLease(ctx context.Context, req *
 	return nil, status.Error(codes.Unimplemented, "not implemented")
 }
 
+func (f fakeZitiManagementClient) CreateServicePolicy(ctx context.Context, req *zitimanagementv1.CreateServicePolicyRequest, opts ...grpc.CallOption) (*zitimanagementv1.CreateServicePolicyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "not implemented")
+}
+
+func (f fakeZitiManagementClient) DeleteServicePolicy(ctx context.Context, req *zitimanagementv1.DeleteServicePolicyRequest, opts ...grpc.CallOption) (*zitimanagementv1.DeleteServicePolicyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "not implemented")
+}
+
+func (f fakeZitiManagementClient) DeleteService(ctx context.Context, req *zitimanagementv1.DeleteServiceRequest, opts ...grpc.CallOption) (*zitimanagementv1.DeleteServiceResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "not implemented")
+}
+
+func (f fakeZitiManagementClient) CreateDeviceIdentity(ctx context.Context, req *zitimanagementv1.CreateDeviceIdentityRequest, opts ...grpc.CallOption) (*zitimanagementv1.CreateDeviceIdentityResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "not implemented")
+}
+
+func (f fakeZitiManagementClient) DeleteDeviceIdentity(ctx context.Context, req *zitimanagementv1.DeleteDeviceIdentityRequest, opts ...grpc.CallOption) (*zitimanagementv1.DeleteDeviceIdentityResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "not implemented")
+}
+
 type fakeIdentityClient struct {
 	registerIdentity func(ctx context.Context, req *identityv1.RegisterIdentityRequest) (*identityv1.RegisterIdentityResponse, error)
 }
@@ -98,6 +118,18 @@ func (f fakeIdentityClient) GetIdentityType(ctx context.Context, req *identityv1
 }
 
 func (f fakeIdentityClient) BatchGetIdentityTypes(ctx context.Context, req *identityv1.BatchGetIdentityTypesRequest, opts ...grpc.CallOption) (*identityv1.BatchGetIdentityTypesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "not implemented")
+}
+
+func (f fakeIdentityClient) SetNickname(ctx context.Context, req *identityv1.SetNicknameRequest, opts ...grpc.CallOption) (*identityv1.SetNicknameResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "not implemented")
+}
+
+func (f fakeIdentityClient) RemoveNickname(ctx context.Context, req *identityv1.RemoveNicknameRequest, opts ...grpc.CallOption) (*identityv1.RemoveNicknameResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "not implemented")
+}
+
+func (f fakeIdentityClient) ResolveNickname(ctx context.Context, req *identityv1.ResolveNicknameRequest, opts ...grpc.CallOption) (*identityv1.ResolveNicknameResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "not implemented")
 }
 
