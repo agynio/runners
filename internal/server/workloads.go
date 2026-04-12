@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	runnersv1 "github.com/agynio/runners/.gen/go/agynio/api/runners/v1"
 	"github.com/google/uuid"
@@ -14,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const (
@@ -31,7 +33,7 @@ const (
 	containerStatusTerminated = "terminated"
 	containerStatusWaiting    = "waiting"
 
-	workloadColumns = `id, runner_id, thread_id, agent_id, organization_id, status, containers, ziti_identity_id, created_at, updated_at`
+	workloadColumns = `id, runner_id, thread_id, agent_id, organization_id, status, containers, ziti_identity_id, instance_id, last_activity_at, last_metering_sampled_at, removed_at, created_at, updated_at`
 )
 
 type workloadRecord struct {
@@ -43,6 +45,10 @@ type workloadRecord struct {
 	Status         string
 	Containers     []containerRecord
 	ZitiIdentityID string
+	InstanceID     *string
+	LastActivityAt time.Time
+	RemovedAt      *time.Time
+	LastMeteringAt *time.Time
 }
 
 type workloadInsertInput struct {
@@ -54,6 +60,15 @@ type workloadInsertInput struct {
 	Status         string
 	ContainersJSON []byte
 	ZitiIdentityID string
+}
+
+type workloadUpdateInput struct {
+	ID             uuid.UUID
+	Status         *string
+	ContainersJSON *[]byte
+	InstanceID     *string
+	RemovedAt      *time.Time
+	LastMeteringAt *time.Time
 }
 
 type containerRecord struct {
@@ -120,6 +135,83 @@ func (s *Server) CreateWorkload(ctx context.Context, req *runnersv1.CreateWorklo
 	return &runnersv1.CreateWorkloadResponse{Workload: protoWorkload}, nil
 }
 
+func (s *Server) UpdateWorkload(ctx context.Context, req *runnersv1.UpdateWorkloadRequest) (*runnersv1.UpdateWorkloadResponse, error) {
+	id, err := parseUUID(req.GetId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "id: %v", err)
+	}
+
+	var statusValue *string
+	if req.Status != nil {
+		value, err := workloadStatusToString(req.GetStatus())
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "status: %v", err)
+		}
+		statusValue = &value
+	}
+
+	var containersJSON *[]byte
+	if req.Containers != nil {
+		containers, err := containersFromProto(req.GetContainers())
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "containers: %v", err)
+		}
+		payload, err := json.Marshal(containers)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "marshal containers: %v", err)
+		}
+		containersJSON = &payload
+	}
+
+	var instanceID *string
+	if req.InstanceId != nil {
+		trimmed := strings.TrimSpace(req.GetInstanceId())
+		if trimmed == "" {
+			return nil, status.Error(codes.InvalidArgument, "instance_id must not be empty")
+		}
+		instanceID = &trimmed
+	}
+
+	var removedAt *time.Time
+	if req.RemovedAt != nil {
+		if err := req.GetRemovedAt().CheckValid(); err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "removed_at: %v", err)
+		}
+		value := req.GetRemovedAt().AsTime()
+		removedAt = &value
+	}
+
+	var lastMeteringAt *time.Time
+	if req.LastMeteringSampledAt != nil {
+		if err := req.GetLastMeteringSampledAt().CheckValid(); err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "last_metering_sampled_at: %v", err)
+		}
+		value := req.GetLastMeteringSampledAt().AsTime()
+		lastMeteringAt = &value
+	}
+
+	if statusValue == nil && containersJSON == nil && instanceID == nil && removedAt == nil && lastMeteringAt == nil {
+		return nil, status.Error(codes.InvalidArgument, "at least one field must be provided")
+	}
+
+	workload, err := s.updateWorkload(ctx, workloadUpdateInput{
+		ID:             id,
+		Status:         statusValue,
+		ContainersJSON: containersJSON,
+		InstanceID:     instanceID,
+		RemovedAt:      removedAt,
+		LastMeteringAt: lastMeteringAt,
+	})
+	if err != nil {
+		return nil, toStatusError(err)
+	}
+	protoWorkload, err := toProtoWorkload(workload)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "convert workload: %v", err)
+	}
+	return &runnersv1.UpdateWorkloadResponse{Workload: protoWorkload}, nil
+}
+
 func (s *Server) UpdateWorkloadStatus(ctx context.Context, req *runnersv1.UpdateWorkloadStatusRequest) (*runnersv1.UpdateWorkloadStatusResponse, error) {
 	id, err := parseUUID(req.GetId())
 	if err != nil {
@@ -138,7 +230,11 @@ func (s *Server) UpdateWorkloadStatus(ctx context.Context, req *runnersv1.Update
 		return nil, status.Errorf(codes.Internal, "marshal containers: %v", err)
 	}
 
-	workload, err := s.updateWorkloadStatus(ctx, id, statusValue, containersJSON)
+	workload, err := s.updateWorkload(ctx, workloadUpdateInput{
+		ID:             id,
+		Status:         &statusValue,
+		ContainersJSON: &containersJSON,
+	})
 	if err != nil {
 		return nil, toStatusError(err)
 	}
@@ -149,12 +245,23 @@ func (s *Server) UpdateWorkloadStatus(ctx context.Context, req *runnersv1.Update
 	return &runnersv1.UpdateWorkloadStatusResponse{Workload: protoWorkload}, nil
 }
 
+func (s *Server) TouchWorkload(ctx context.Context, req *runnersv1.TouchWorkloadRequest) (*runnersv1.TouchWorkloadResponse, error) {
+	id, err := parseUUID(req.GetId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "id: %v", err)
+	}
+	if err := s.touchWorkload(ctx, id); err != nil {
+		return nil, toStatusError(err)
+	}
+	return &runnersv1.TouchWorkloadResponse{}, nil
+}
+
 func (s *Server) DeleteWorkload(ctx context.Context, req *runnersv1.DeleteWorkloadRequest) (*runnersv1.DeleteWorkloadResponse, error) {
 	id, err := parseUUID(req.GetId())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "id: %v", err)
 	}
-	if err := s.deleteWorkload(ctx, id); err != nil {
+	if err := s.softDeleteWorkload(ctx, id); err != nil {
 		return nil, toStatusError(err)
 	}
 	return &runnersv1.DeleteWorkloadResponse{}, nil
@@ -201,7 +308,27 @@ func (s *Server) ListWorkloads(ctx context.Context, req *runnersv1.ListWorkloads
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "statuses: %v", err)
 	}
-	workloads, nextToken, err := s.listWorkloads(ctx, statuses, req.GetPageSize(), req.GetPageToken())
+	var organizationID *uuid.UUID
+	if req.OrganizationId != nil {
+		parsed, err := parseUUID(req.GetOrganizationId())
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "organization_id: %v", err)
+		}
+		organizationID = &parsed
+	}
+
+	var runnerID *uuid.UUID
+	if req.RunnerId != nil {
+		parsed, err := parseUUID(req.GetRunnerId())
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "runner_id: %v", err)
+		}
+		runnerID = &parsed
+	}
+
+	pendingSample := req.PendingSample != nil && req.GetPendingSample()
+
+	workloads, nextToken, err := s.listWorkloads(ctx, statuses, organizationID, runnerID, pendingSample, req.GetPageSize(), req.GetPageToken())
 	if err != nil {
 		var invalidToken *InvalidPageTokenError
 		if errors.As(err, &invalidToken) {
@@ -222,9 +349,9 @@ func (s *Server) insertWorkload(ctx context.Context, input workloadInsertInput) 
 		containersJSON = []byte("[]")
 	}
 	row := s.pool.QueryRow(ctx,
-		fmt.Sprintf(`INSERT INTO workloads (id, runner_id, thread_id, agent_id, organization_id, status, containers, ziti_identity_id)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-        RETURNING %s`, workloadColumns),
+		fmt.Sprintf(`INSERT INTO workloads (id, runner_id, thread_id, agent_id, organization_id, status, containers, ziti_identity_id, last_activity_at, created_at, updated_at)
+	    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW(), NOW())
+	    RETURNING %s`, workloadColumns),
 		input.ID,
 		input.RunnerID,
 		input.ThreadID,
@@ -250,15 +377,40 @@ func (s *Server) insertWorkload(ctx context.Context, input workloadInsertInput) 
 	return workload, nil
 }
 
-func (s *Server) updateWorkloadStatus(ctx context.Context, id uuid.UUID, statusValue string, containersJSON []byte) (workloadRecord, error) {
-	if len(containersJSON) == 0 {
-		containersJSON = []byte("[]")
+func (s *Server) updateWorkload(ctx context.Context, input workloadUpdateInput) (workloadRecord, error) {
+	clauses := make([]string, 0, 6)
+	args := make([]any, 0, 6)
+
+	if input.Status != nil {
+		clauses = append(clauses, fmt.Sprintf("status = $%d", len(args)+1))
+		args = append(args, *input.Status)
 	}
+	if input.ContainersJSON != nil {
+		payload := *input.ContainersJSON
+		if len(payload) == 0 {
+			payload = []byte("[]")
+		}
+		clauses = append(clauses, fmt.Sprintf("containers = $%d", len(args)+1))
+		args = append(args, payload)
+	}
+	if input.InstanceID != nil {
+		clauses = append(clauses, fmt.Sprintf("instance_id = $%d", len(args)+1))
+		args = append(args, *input.InstanceID)
+	}
+	if input.RemovedAt != nil {
+		clauses = append(clauses, fmt.Sprintf("removed_at = $%d", len(args)+1))
+		args = append(args, *input.RemovedAt)
+	}
+	if input.LastMeteringAt != nil {
+		clauses = append(clauses, fmt.Sprintf("last_metering_sampled_at = $%d", len(args)+1))
+		args = append(args, *input.LastMeteringAt)
+	}
+
+	clauses = append(clauses, "updated_at = NOW()")
+
 	row := s.pool.QueryRow(ctx,
-		fmt.Sprintf(`UPDATE workloads SET status = $1, containers = $2, updated_at = NOW() WHERE id = $3 RETURNING %s`, workloadColumns),
-		statusValue,
-		containersJSON,
-		id,
+		fmt.Sprintf(`UPDATE workloads SET %s WHERE id = $%d RETURNING %s`, strings.Join(clauses, ", "), len(args)+1, workloadColumns),
+		append(args, input.ID)...,
 	)
 	workload, err := scanWorkload(row)
 	if err != nil {
@@ -285,8 +437,19 @@ func (s *Server) getWorkloadByID(ctx context.Context, id uuid.UUID) (workloadRec
 	return workload, nil
 }
 
-func (s *Server) deleteWorkload(ctx context.Context, id uuid.UUID) error {
-	result, err := s.pool.Exec(ctx, `DELETE FROM workloads WHERE id = $1`, id)
+func (s *Server) softDeleteWorkload(ctx context.Context, id uuid.UUID) error {
+	statusValue := workloadStatusStopped
+	now := time.Now().UTC()
+	_, err := s.updateWorkload(ctx, workloadUpdateInput{
+		ID:        id,
+		Status:    &statusValue,
+		RemovedAt: &now,
+	})
+	return err
+}
+
+func (s *Server) touchWorkload(ctx context.Context, id uuid.UUID) error {
+	result, err := s.pool.Exec(ctx, `UPDATE workloads SET last_activity_at = NOW(), updated_at = NOW() WHERE id = $1`, id)
 	if err != nil {
 		return err
 	}
@@ -351,7 +514,7 @@ func (s *Server) listWorkloadsByThread(ctx context.Context, threadID uuid.UUID, 
 	return workloads, nextToken, nil
 }
 
-func (s *Server) listWorkloads(ctx context.Context, statuses []string, pageSize int32, pageToken string) ([]workloadRecord, string, error) {
+func (s *Server) listWorkloads(ctx context.Context, statuses []string, organizationID *uuid.UUID, runnerID *uuid.UUID, pendingSample bool, pageSize int32, pageToken string) ([]workloadRecord, string, error) {
 	limit := normalizePageSize(pageSize)
 
 	var (
@@ -361,6 +524,17 @@ func (s *Server) listWorkloads(ctx context.Context, statuses []string, pageSize 
 	if len(statuses) > 0 {
 		clauses = append(clauses, fmt.Sprintf("status = ANY($%d)", len(args)+1))
 		args = append(args, pgtype.FlatArray[string](statuses))
+	}
+	if organizationID != nil {
+		clauses = append(clauses, fmt.Sprintf("organization_id = $%d", len(args)+1))
+		args = append(args, *organizationID)
+	}
+	if runnerID != nil {
+		clauses = append(clauses, fmt.Sprintf("runner_id = $%d", len(args)+1))
+		args = append(args, *runnerID)
+	}
+	if pendingSample {
+		clauses = append(clauses, "(removed_at IS NULL OR last_metering_sampled_at IS NULL OR removed_at > last_metering_sampled_at)")
 	}
 	if pageToken != "" {
 		afterID, err := decodePageToken(pageToken)
@@ -418,6 +592,9 @@ func scanWorkload(row pgx.Row) (workloadRecord, error) {
 	var (
 		workload       workloadRecord
 		containersData []byte
+		instanceID     pgtype.Text
+		removedAt      pgtype.Timestamptz
+		lastMeteringAt pgtype.Timestamptz
 	)
 	if err := row.Scan(
 		&workload.Meta.ID,
@@ -428,6 +605,10 @@ func scanWorkload(row pgx.Row) (workloadRecord, error) {
 		&workload.Status,
 		&containersData,
 		&workload.ZitiIdentityID,
+		&instanceID,
+		&workload.LastActivityAt,
+		&lastMeteringAt,
+		&removedAt,
 		&workload.Meta.CreatedAt,
 		&workload.Meta.UpdatedAt,
 	); err != nil {
@@ -438,6 +619,18 @@ func scanWorkload(row pgx.Row) (workloadRecord, error) {
 	}
 	if err := json.Unmarshal(containersData, &workload.Containers); err != nil {
 		return workloadRecord{}, err
+	}
+	if instanceID.Valid {
+		value := instanceID.String
+		workload.InstanceID = &value
+	}
+	if removedAt.Valid {
+		value := removedAt.Time
+		workload.RemovedAt = &value
+	}
+	if lastMeteringAt.Valid {
+		value := lastMeteringAt.Time
+		workload.LastMeteringAt = &value
 	}
 	return workload, nil
 }
@@ -451,7 +644,7 @@ func toProtoWorkload(record workloadRecord) (*runnersv1.Workload, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &runnersv1.Workload{
+	protoWorkload := &runnersv1.Workload{
 		Meta:           toProtoEntityMeta(record.Meta),
 		RunnerId:       record.RunnerID.String(),
 		ThreadId:       record.ThreadID.String(),
@@ -460,7 +653,18 @@ func toProtoWorkload(record workloadRecord) (*runnersv1.Workload, error) {
 		Status:         statusValue,
 		Containers:     containers,
 		ZitiIdentityId: record.ZitiIdentityID,
-	}, nil
+		LastActivityAt: timestamppb.New(record.LastActivityAt),
+	}
+	if record.InstanceID != nil {
+		protoWorkload.InstanceId = record.InstanceID
+	}
+	if record.RemovedAt != nil {
+		protoWorkload.RemovedAt = timestamppb.New(*record.RemovedAt)
+	}
+	if record.LastMeteringAt != nil {
+		protoWorkload.LastMeteringSampledAt = timestamppb.New(*record.LastMeteringAt)
+	}
+	return protoWorkload, nil
 }
 
 func toProtoWorkloadList(records []workloadRecord) ([]*runnersv1.Workload, error) {

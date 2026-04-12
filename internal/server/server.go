@@ -12,7 +12,6 @@ import (
 	runnersv1 "github.com/agynio/runners/.gen/go/agynio/api/runners/v1"
 	zitimanagementv1 "github.com/agynio/runners/.gen/go/agynio/api/ziti_management/v1"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -30,7 +29,7 @@ const (
 // Server implements the RunnersService gRPC API.
 type Server struct {
 	runnersv1.UnimplementedRunnersServiceServer
-	pool                 *pgxpool.Pool
+	pool                 dbPool
 	identityClient       identityv1.IdentityServiceClient
 	authorizationClient  authorizationv1.AuthorizationServiceClient
 	zitiManagementClient zitimanagementv1.ZitiManagementServiceClient
@@ -38,7 +37,7 @@ type Server struct {
 
 // Options defines required inputs for constructing a Server.
 type Options struct {
-	Pool                 *pgxpool.Pool
+	Pool                 dbPool
 	IdentityClient       identityv1.IdentityServiceClient
 	AuthorizationClient  authorizationv1.AuthorizationServiceClient
 	ZitiManagementClient zitimanagementv1.ZitiManagementServiceClient
