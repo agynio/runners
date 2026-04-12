@@ -289,28 +289,19 @@ func (s *Server) updateVolume(ctx context.Context, input volumeUpdateInput) (vol
 	args := make([]any, 0, 5)
 
 	if input.Status != nil {
-		clauses = append(clauses, fmt.Sprintf("status = $%d", len(args)+1))
-		args = append(args, *input.Status)
+		addUpdateClause(&clauses, &args, "status", *input.Status)
 	}
 	if input.InstanceID != nil {
-		clauses = append(clauses, fmt.Sprintf("instance_id = $%d", len(args)+1))
-		args = append(args, *input.InstanceID)
+		addUpdateClause(&clauses, &args, "instance_id", *input.InstanceID)
 	}
 	if input.RemovedAt != nil {
-		clauses = append(clauses, fmt.Sprintf("removed_at = $%d", len(args)+1))
-		args = append(args, *input.RemovedAt)
+		addUpdateClause(&clauses, &args, "removed_at", *input.RemovedAt)
 	}
 	if input.LastMeteringAt != nil {
-		clauses = append(clauses, fmt.Sprintf("last_metering_sampled_at = $%d", len(args)+1))
-		args = append(args, *input.LastMeteringAt)
+		addUpdateClause(&clauses, &args, "last_metering_sampled_at", *input.LastMeteringAt)
 	}
-
-	clauses = append(clauses, "updated_at = NOW()")
-
-	row := s.pool.QueryRow(ctx,
-		fmt.Sprintf(`UPDATE volumes SET %s WHERE id = $%d RETURNING %s`, strings.Join(clauses, ", "), len(args)+1, volumeColumns),
-		append(args, input.ID)...,
-	)
+	query, args := buildUpdateQuery("volumes", volumeColumns, clauses, args, input.ID)
+	row := s.pool.QueryRow(ctx, query, args...)
 	volume, err := scanVolume(row)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -393,45 +384,21 @@ func (s *Server) listVolumesByThread(ctx context.Context, threadID uuid.UUID, pa
 
 func (s *Server) listVolumes(ctx context.Context, statuses []string, organizationID *uuid.UUID, runnerID *uuid.UUID, pendingSample bool, pageSize int32, pageToken string) ([]volumeRecord, string, error) {
 	limit := normalizePageSize(pageSize)
-
-	var (
-		clauses []string
-		args    []any
-	)
-	if len(statuses) > 0 {
-		clauses = append(clauses, fmt.Sprintf("status = ANY($%d)", len(args)+1))
-		args = append(args, pgtype.FlatArray[string](statuses))
-	}
-	if organizationID != nil {
-		clauses = append(clauses, fmt.Sprintf("organization_id = $%d", len(args)+1))
-		args = append(args, *organizationID)
-	}
-	if runnerID != nil {
-		clauses = append(clauses, fmt.Sprintf("runner_id = $%d", len(args)+1))
-		args = append(args, *runnerID)
-	}
-	if pendingSample {
-		clauses = append(clauses, "(removed_at IS NULL OR last_metering_sampled_at IS NULL OR removed_at > last_metering_sampled_at)")
-	}
-	if pageToken != "" {
-		afterID, err := decodePageToken(pageToken)
-		if err != nil {
-			return nil, "", InvalidPageToken(err)
-		}
-		clauses = append(clauses, fmt.Sprintf("id > $%d", len(args)+1))
-		args = append(args, afterID)
+	query, args, err := buildListQuery(listQueryInput{
+		Table:          "volumes",
+		Columns:        volumeColumns,
+		Statuses:       statuses,
+		OrganizationID: organizationID,
+		RunnerID:       runnerID,
+		PendingSample:  pendingSample,
+		PageToken:      pageToken,
+		Limit:          limit,
+	})
+	if err != nil {
+		return nil, "", err
 	}
 
-	query := strings.Builder{}
-	query.WriteString(fmt.Sprintf("SELECT %s FROM volumes", volumeColumns))
-	if len(clauses) > 0 {
-		query.WriteString(" WHERE ")
-		query.WriteString(strings.Join(clauses, " AND "))
-	}
-	query.WriteString(fmt.Sprintf(" ORDER BY id ASC LIMIT $%d", len(args)+1))
-	args = append(args, int(limit)+1)
-
-	rows, err := s.pool.Query(ctx, query.String(), args...)
+	rows, err := s.pool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, "", err
 	}

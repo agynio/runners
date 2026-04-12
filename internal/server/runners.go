@@ -77,34 +77,44 @@ func (s *Server) RegisterRunner(ctx context.Context, req *runnersv1.RegisterRunn
 
 	runnerID := uuid.New()
 
+	serviceName := fmt.Sprintf("runner-%s", runnerID)
+	serviceResp, err := s.zitiManagementClient.CreateService(ctx, &zitimanagementv1.CreateServiceRequest{
+		Name:           serviceName,
+		RoleAttributes: []string{"runner-services"},
+	})
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "create runner service: %v", err)
+	}
+	zitiServiceID := serviceResp.GetZitiServiceId()
+	zitiServiceName := serviceResp.GetZitiServiceName()
+
 	zitiResp, err := s.zitiManagementClient.CreateRunnerIdentity(ctx, &zitimanagementv1.CreateRunnerIdentityRequest{
 		RunnerId:       runnerID.String(),
 		RoleAttributes: []string{"runners"},
 	})
 	if err != nil {
+		s.cleanupRunnerZitiIdentity(ctx, runnerID.String(), zitiServiceID)
 		return nil, status.Errorf(codes.Internal, "create runner ziti identity: %v", err)
 	}
 	zitiIdentityID := zitiResp.GetZitiIdentityId()
-	zitiServiceID := zitiResp.GetZitiServiceId()
-	zitiServiceName := zitiResp.GetZitiServiceName()
 
 	if _, err := s.identityClient.RegisterIdentity(ctx, &identityv1.RegisterIdentityRequest{
 		IdentityId:   runnerID.String(),
 		IdentityType: identityv1.IdentityType_IDENTITY_TYPE_RUNNER,
 	}); err != nil {
-		s.cleanupRunnerZitiIdentity(ctx, zitiIdentityID, zitiServiceID)
+		s.cleanupRunnerZitiIdentity(ctx, runnerID.String(), zitiServiceID)
 		return nil, status.Errorf(codes.Internal, "register identity: %v", err)
 	}
 
 	if err := s.writeRunnerAuthorization(ctx, runnerID, organizationID); err != nil {
-		s.cleanupRunnerZitiIdentity(ctx, zitiIdentityID, zitiServiceID)
+		s.cleanupRunnerZitiIdentity(ctx, runnerID.String(), zitiServiceID)
 		return nil, err
 	}
 
 	token, tokenHash, err := generateServiceToken()
 	if err != nil {
 		s.cleanupRunnerAuthorization(ctx, runnerID, organizationID)
-		s.cleanupRunnerZitiIdentity(ctx, zitiIdentityID, zitiServiceID)
+		s.cleanupRunnerZitiIdentity(ctx, runnerID.String(), zitiServiceID)
 		return nil, status.Errorf(codes.Internal, "generate service token: %v", err)
 	}
 
@@ -122,7 +132,7 @@ func (s *Server) RegisterRunner(ctx context.Context, req *runnersv1.RegisterRunn
 	})
 	if err != nil {
 		s.cleanupRunnerAuthorization(ctx, runnerID, organizationID)
-		s.cleanupRunnerZitiIdentity(ctx, zitiIdentityID, zitiServiceID)
+		s.cleanupRunnerZitiIdentity(ctx, runnerID.String(), zitiServiceID)
 		return nil, toStatusError(err)
 	}
 
@@ -224,7 +234,7 @@ func (s *Server) DeleteRunner(ctx context.Context, req *runnersv1.DeleteRunnerRe
 		return nil, toStatusError(err)
 	}
 
-	s.cleanupRunnerZitiIdentity(ctx, runner.ZitiIdentityID, runner.ZitiServiceID)
+	s.cleanupRunnerZitiIdentity(ctx, runner.IdentityID.String(), runner.ZitiServiceID)
 	s.cleanupRunnerAuthorization(ctx, runner.IdentityID, runner.OrganizationID)
 
 	if err := s.deleteRunner(ctx, id); err != nil {
@@ -269,10 +279,10 @@ func (s *Server) cleanupRunnerAuthorization(ctx context.Context, runnerID uuid.U
 	_, _ = s.authorizationClient.Write(ctx, &authorizationv1.WriteRequest{Deletes: []*authorizationv1.TupleKey{tuple}})
 }
 
-func (s *Server) cleanupRunnerZitiIdentity(ctx context.Context, zitiIdentityID, zitiServiceID string) {
+func (s *Server) cleanupRunnerZitiIdentity(ctx context.Context, identityID, zitiServiceID string) {
 	_, _ = s.zitiManagementClient.DeleteRunnerIdentity(ctx, &zitimanagementv1.DeleteRunnerIdentityRequest{
-		ZitiIdentityId: zitiIdentityID,
-		ZitiServiceId:  zitiServiceID,
+		IdentityId:    identityID,
+		ZitiServiceId: zitiServiceID,
 	})
 }
 
