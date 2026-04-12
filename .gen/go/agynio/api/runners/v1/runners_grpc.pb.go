@@ -27,11 +27,18 @@ const (
 	RunnersService_ValidateServiceToken_FullMethodName  = "/agynio.api.runners.v1.RunnersService/ValidateServiceToken"
 	RunnersService_EnrollRunner_FullMethodName          = "/agynio.api.runners.v1.RunnersService/EnrollRunner"
 	RunnersService_CreateWorkload_FullMethodName        = "/agynio.api.runners.v1.RunnersService/CreateWorkload"
+	RunnersService_UpdateWorkload_FullMethodName        = "/agynio.api.runners.v1.RunnersService/UpdateWorkload"
 	RunnersService_UpdateWorkloadStatus_FullMethodName  = "/agynio.api.runners.v1.RunnersService/UpdateWorkloadStatus"
+	RunnersService_TouchWorkload_FullMethodName         = "/agynio.api.runners.v1.RunnersService/TouchWorkload"
 	RunnersService_DeleteWorkload_FullMethodName        = "/agynio.api.runners.v1.RunnersService/DeleteWorkload"
 	RunnersService_GetWorkload_FullMethodName           = "/agynio.api.runners.v1.RunnersService/GetWorkload"
 	RunnersService_ListWorkloadsByThread_FullMethodName = "/agynio.api.runners.v1.RunnersService/ListWorkloadsByThread"
 	RunnersService_ListWorkloads_FullMethodName         = "/agynio.api.runners.v1.RunnersService/ListWorkloads"
+	RunnersService_CreateVolume_FullMethodName          = "/agynio.api.runners.v1.RunnersService/CreateVolume"
+	RunnersService_UpdateVolume_FullMethodName          = "/agynio.api.runners.v1.RunnersService/UpdateVolume"
+	RunnersService_GetVolume_FullMethodName             = "/agynio.api.runners.v1.RunnersService/GetVolume"
+	RunnersService_ListVolumes_FullMethodName           = "/agynio.api.runners.v1.RunnersService/ListVolumes"
+	RunnersService_ListVolumesByThread_FullMethodName   = "/agynio.api.runners.v1.RunnersService/ListVolumesByThread"
 )
 
 // RunnersServiceClient is the client API for RunnersService service.
@@ -50,11 +57,19 @@ type RunnersServiceClient interface {
 	EnrollRunner(ctx context.Context, in *EnrollRunnerRequest, opts ...grpc.CallOption) (*EnrollRunnerResponse, error)
 	// --- Workload state ---
 	CreateWorkload(ctx context.Context, in *CreateWorkloadRequest, opts ...grpc.CallOption) (*CreateWorkloadResponse, error)
+	UpdateWorkload(ctx context.Context, in *UpdateWorkloadRequest, opts ...grpc.CallOption) (*UpdateWorkloadResponse, error)
 	UpdateWorkloadStatus(ctx context.Context, in *UpdateWorkloadStatusRequest, opts ...grpc.CallOption) (*UpdateWorkloadStatusResponse, error)
+	TouchWorkload(ctx context.Context, in *TouchWorkloadRequest, opts ...grpc.CallOption) (*TouchWorkloadResponse, error)
 	DeleteWorkload(ctx context.Context, in *DeleteWorkloadRequest, opts ...grpc.CallOption) (*DeleteWorkloadResponse, error)
 	GetWorkload(ctx context.Context, in *GetWorkloadRequest, opts ...grpc.CallOption) (*GetWorkloadResponse, error)
 	ListWorkloadsByThread(ctx context.Context, in *ListWorkloadsByThreadRequest, opts ...grpc.CallOption) (*ListWorkloadsByThreadResponse, error)
 	ListWorkloads(ctx context.Context, in *ListWorkloadsRequest, opts ...grpc.CallOption) (*ListWorkloadsResponse, error)
+	// --- Volume state ---
+	CreateVolume(ctx context.Context, in *CreateVolumeRequest, opts ...grpc.CallOption) (*CreateVolumeResponse, error)
+	UpdateVolume(ctx context.Context, in *UpdateVolumeRequest, opts ...grpc.CallOption) (*UpdateVolumeResponse, error)
+	GetVolume(ctx context.Context, in *GetVolumeRequest, opts ...grpc.CallOption) (*GetVolumeResponse, error)
+	ListVolumes(ctx context.Context, in *ListVolumesRequest, opts ...grpc.CallOption) (*ListVolumesResponse, error)
+	ListVolumesByThread(ctx context.Context, in *ListVolumesByThreadRequest, opts ...grpc.CallOption) (*ListVolumesByThreadResponse, error)
 }
 
 type runnersServiceClient struct {
@@ -145,10 +160,30 @@ func (c *runnersServiceClient) CreateWorkload(ctx context.Context, in *CreateWor
 	return out, nil
 }
 
+func (c *runnersServiceClient) UpdateWorkload(ctx context.Context, in *UpdateWorkloadRequest, opts ...grpc.CallOption) (*UpdateWorkloadResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateWorkloadResponse)
+	err := c.cc.Invoke(ctx, RunnersService_UpdateWorkload_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *runnersServiceClient) UpdateWorkloadStatus(ctx context.Context, in *UpdateWorkloadStatusRequest, opts ...grpc.CallOption) (*UpdateWorkloadStatusResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(UpdateWorkloadStatusResponse)
 	err := c.cc.Invoke(ctx, RunnersService_UpdateWorkloadStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *runnersServiceClient) TouchWorkload(ctx context.Context, in *TouchWorkloadRequest, opts ...grpc.CallOption) (*TouchWorkloadResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TouchWorkloadResponse)
+	err := c.cc.Invoke(ctx, RunnersService_TouchWorkload_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -195,6 +230,56 @@ func (c *runnersServiceClient) ListWorkloads(ctx context.Context, in *ListWorklo
 	return out, nil
 }
 
+func (c *runnersServiceClient) CreateVolume(ctx context.Context, in *CreateVolumeRequest, opts ...grpc.CallOption) (*CreateVolumeResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateVolumeResponse)
+	err := c.cc.Invoke(ctx, RunnersService_CreateVolume_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *runnersServiceClient) UpdateVolume(ctx context.Context, in *UpdateVolumeRequest, opts ...grpc.CallOption) (*UpdateVolumeResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateVolumeResponse)
+	err := c.cc.Invoke(ctx, RunnersService_UpdateVolume_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *runnersServiceClient) GetVolume(ctx context.Context, in *GetVolumeRequest, opts ...grpc.CallOption) (*GetVolumeResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetVolumeResponse)
+	err := c.cc.Invoke(ctx, RunnersService_GetVolume_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *runnersServiceClient) ListVolumes(ctx context.Context, in *ListVolumesRequest, opts ...grpc.CallOption) (*ListVolumesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListVolumesResponse)
+	err := c.cc.Invoke(ctx, RunnersService_ListVolumes_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *runnersServiceClient) ListVolumesByThread(ctx context.Context, in *ListVolumesByThreadRequest, opts ...grpc.CallOption) (*ListVolumesByThreadResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListVolumesByThreadResponse)
+	err := c.cc.Invoke(ctx, RunnersService_ListVolumesByThread_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // RunnersServiceServer is the server API for RunnersService service.
 // All implementations should embed UnimplementedRunnersServiceServer
 // for forward compatibility.
@@ -211,11 +296,19 @@ type RunnersServiceServer interface {
 	EnrollRunner(context.Context, *EnrollRunnerRequest) (*EnrollRunnerResponse, error)
 	// --- Workload state ---
 	CreateWorkload(context.Context, *CreateWorkloadRequest) (*CreateWorkloadResponse, error)
+	UpdateWorkload(context.Context, *UpdateWorkloadRequest) (*UpdateWorkloadResponse, error)
 	UpdateWorkloadStatus(context.Context, *UpdateWorkloadStatusRequest) (*UpdateWorkloadStatusResponse, error)
+	TouchWorkload(context.Context, *TouchWorkloadRequest) (*TouchWorkloadResponse, error)
 	DeleteWorkload(context.Context, *DeleteWorkloadRequest) (*DeleteWorkloadResponse, error)
 	GetWorkload(context.Context, *GetWorkloadRequest) (*GetWorkloadResponse, error)
 	ListWorkloadsByThread(context.Context, *ListWorkloadsByThreadRequest) (*ListWorkloadsByThreadResponse, error)
 	ListWorkloads(context.Context, *ListWorkloadsRequest) (*ListWorkloadsResponse, error)
+	// --- Volume state ---
+	CreateVolume(context.Context, *CreateVolumeRequest) (*CreateVolumeResponse, error)
+	UpdateVolume(context.Context, *UpdateVolumeRequest) (*UpdateVolumeResponse, error)
+	GetVolume(context.Context, *GetVolumeRequest) (*GetVolumeResponse, error)
+	ListVolumes(context.Context, *ListVolumesRequest) (*ListVolumesResponse, error)
+	ListVolumesByThread(context.Context, *ListVolumesByThreadRequest) (*ListVolumesByThreadResponse, error)
 }
 
 // UnimplementedRunnersServiceServer should be embedded to have
@@ -249,8 +342,14 @@ func (UnimplementedRunnersServiceServer) EnrollRunner(context.Context, *EnrollRu
 func (UnimplementedRunnersServiceServer) CreateWorkload(context.Context, *CreateWorkloadRequest) (*CreateWorkloadResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateWorkload not implemented")
 }
+func (UnimplementedRunnersServiceServer) UpdateWorkload(context.Context, *UpdateWorkloadRequest) (*UpdateWorkloadResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateWorkload not implemented")
+}
 func (UnimplementedRunnersServiceServer) UpdateWorkloadStatus(context.Context, *UpdateWorkloadStatusRequest) (*UpdateWorkloadStatusResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method UpdateWorkloadStatus not implemented")
+}
+func (UnimplementedRunnersServiceServer) TouchWorkload(context.Context, *TouchWorkloadRequest) (*TouchWorkloadResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method TouchWorkload not implemented")
 }
 func (UnimplementedRunnersServiceServer) DeleteWorkload(context.Context, *DeleteWorkloadRequest) (*DeleteWorkloadResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeleteWorkload not implemented")
@@ -263,6 +362,21 @@ func (UnimplementedRunnersServiceServer) ListWorkloadsByThread(context.Context, 
 }
 func (UnimplementedRunnersServiceServer) ListWorkloads(context.Context, *ListWorkloadsRequest) (*ListWorkloadsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListWorkloads not implemented")
+}
+func (UnimplementedRunnersServiceServer) CreateVolume(context.Context, *CreateVolumeRequest) (*CreateVolumeResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateVolume not implemented")
+}
+func (UnimplementedRunnersServiceServer) UpdateVolume(context.Context, *UpdateVolumeRequest) (*UpdateVolumeResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateVolume not implemented")
+}
+func (UnimplementedRunnersServiceServer) GetVolume(context.Context, *GetVolumeRequest) (*GetVolumeResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetVolume not implemented")
+}
+func (UnimplementedRunnersServiceServer) ListVolumes(context.Context, *ListVolumesRequest) (*ListVolumesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListVolumes not implemented")
+}
+func (UnimplementedRunnersServiceServer) ListVolumesByThread(context.Context, *ListVolumesByThreadRequest) (*ListVolumesByThreadResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListVolumesByThread not implemented")
 }
 func (UnimplementedRunnersServiceServer) testEmbeddedByValue() {}
 
@@ -428,6 +542,24 @@ func _RunnersService_CreateWorkload_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RunnersService_UpdateWorkload_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateWorkloadRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RunnersServiceServer).UpdateWorkload(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RunnersService_UpdateWorkload_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RunnersServiceServer).UpdateWorkload(ctx, req.(*UpdateWorkloadRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _RunnersService_UpdateWorkloadStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(UpdateWorkloadStatusRequest)
 	if err := dec(in); err != nil {
@@ -442,6 +574,24 @@ func _RunnersService_UpdateWorkloadStatus_Handler(srv interface{}, ctx context.C
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(RunnersServiceServer).UpdateWorkloadStatus(ctx, req.(*UpdateWorkloadStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RunnersService_TouchWorkload_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TouchWorkloadRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RunnersServiceServer).TouchWorkload(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RunnersService_TouchWorkload_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RunnersServiceServer).TouchWorkload(ctx, req.(*TouchWorkloadRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -518,6 +668,96 @@ func _RunnersService_ListWorkloads_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RunnersService_CreateVolume_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateVolumeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RunnersServiceServer).CreateVolume(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RunnersService_CreateVolume_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RunnersServiceServer).CreateVolume(ctx, req.(*CreateVolumeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RunnersService_UpdateVolume_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateVolumeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RunnersServiceServer).UpdateVolume(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RunnersService_UpdateVolume_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RunnersServiceServer).UpdateVolume(ctx, req.(*UpdateVolumeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RunnersService_GetVolume_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetVolumeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RunnersServiceServer).GetVolume(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RunnersService_GetVolume_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RunnersServiceServer).GetVolume(ctx, req.(*GetVolumeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RunnersService_ListVolumes_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListVolumesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RunnersServiceServer).ListVolumes(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RunnersService_ListVolumes_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RunnersServiceServer).ListVolumes(ctx, req.(*ListVolumesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RunnersService_ListVolumesByThread_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListVolumesByThreadRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RunnersServiceServer).ListVolumesByThread(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RunnersService_ListVolumesByThread_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RunnersServiceServer).ListVolumesByThread(ctx, req.(*ListVolumesByThreadRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // RunnersService_ServiceDesc is the grpc.ServiceDesc for RunnersService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -558,8 +798,16 @@ var RunnersService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _RunnersService_CreateWorkload_Handler,
 		},
 		{
+			MethodName: "UpdateWorkload",
+			Handler:    _RunnersService_UpdateWorkload_Handler,
+		},
+		{
 			MethodName: "UpdateWorkloadStatus",
 			Handler:    _RunnersService_UpdateWorkloadStatus_Handler,
+		},
+		{
+			MethodName: "TouchWorkload",
+			Handler:    _RunnersService_TouchWorkload_Handler,
 		},
 		{
 			MethodName: "DeleteWorkload",
@@ -576,6 +824,26 @@ var RunnersService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListWorkloads",
 			Handler:    _RunnersService_ListWorkloads_Handler,
+		},
+		{
+			MethodName: "CreateVolume",
+			Handler:    _RunnersService_CreateVolume_Handler,
+		},
+		{
+			MethodName: "UpdateVolume",
+			Handler:    _RunnersService_UpdateVolume_Handler,
+		},
+		{
+			MethodName: "GetVolume",
+			Handler:    _RunnersService_GetVolume_Handler,
+		},
+		{
+			MethodName: "ListVolumes",
+			Handler:    _RunnersService_ListVolumes_Handler,
+		},
+		{
+			MethodName: "ListVolumesByThread",
+			Handler:    _RunnersService_ListVolumesByThread_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -30,6 +30,11 @@ const (
 	ZitiManagementService_ResolveIdentity_FullMethodName        = "/agynio.api.ziti_management.v1.ZitiManagementService/ResolveIdentity"
 	ZitiManagementService_RequestServiceIdentity_FullMethodName = "/agynio.api.ziti_management.v1.ZitiManagementService/RequestServiceIdentity"
 	ZitiManagementService_ExtendIdentityLease_FullMethodName    = "/agynio.api.ziti_management.v1.ZitiManagementService/ExtendIdentityLease"
+	ZitiManagementService_CreateServicePolicy_FullMethodName    = "/agynio.api.ziti_management.v1.ZitiManagementService/CreateServicePolicy"
+	ZitiManagementService_DeleteServicePolicy_FullMethodName    = "/agynio.api.ziti_management.v1.ZitiManagementService/DeleteServicePolicy"
+	ZitiManagementService_DeleteService_FullMethodName          = "/agynio.api.ziti_management.v1.ZitiManagementService/DeleteService"
+	ZitiManagementService_CreateDeviceIdentity_FullMethodName   = "/agynio.api.ziti_management.v1.ZitiManagementService/CreateDeviceIdentity"
+	ZitiManagementService_DeleteDeviceIdentity_FullMethodName   = "/agynio.api.ziti_management.v1.ZitiManagementService/DeleteDeviceIdentity"
 )
 
 // ZitiManagementServiceClient is the client API for ZitiManagementService service.
@@ -66,6 +71,20 @@ type ZitiManagementServiceClient interface {
 	// Infrastructure services -> extend the lease on a service identity.
 	// Called periodically by the service to prevent GC from deleting the identity.
 	ExtendIdentityLease(ctx context.Context, in *ExtendIdentityLeaseRequest, opts ...grpc.CallOption) (*ExtendIdentityLeaseResponse, error)
+	// Expose Service -> create a single OpenZiti service policy (Bind or Dial).
+	// Returns the policy ID.
+	CreateServicePolicy(ctx context.Context, in *CreateServicePolicyRequest, opts ...grpc.CallOption) (*CreateServicePolicyResponse, error)
+	// Expose Service -> delete an OpenZiti service policy by ID.
+	DeleteServicePolicy(ctx context.Context, in *DeleteServicePolicyRequest, opts ...grpc.CallOption) (*DeleteServicePolicyResponse, error)
+	// Expose Service -> delete an OpenZiti service by ID.
+	// Also deletes attached config objects.
+	DeleteService(ctx context.Context, in *DeleteServiceRequest, opts ...grpc.CallOption) (*DeleteServiceResponse, error)
+	// Users Service -> create an OpenZiti identity for a user device with
+	// roleAttributes: ["devices"] and enrollment.ott: true.
+	// Returns the identity ID and enrollment JWT.
+	CreateDeviceIdentity(ctx context.Context, in *CreateDeviceIdentityRequest, opts ...grpc.CallOption) (*CreateDeviceIdentityResponse, error)
+	// Users Service -> delete a device's OpenZiti identity.
+	DeleteDeviceIdentity(ctx context.Context, in *DeleteDeviceIdentityRequest, opts ...grpc.CallOption) (*DeleteDeviceIdentityResponse, error)
 }
 
 type zitiManagementServiceClient struct {
@@ -186,6 +205,56 @@ func (c *zitiManagementServiceClient) ExtendIdentityLease(ctx context.Context, i
 	return out, nil
 }
 
+func (c *zitiManagementServiceClient) CreateServicePolicy(ctx context.Context, in *CreateServicePolicyRequest, opts ...grpc.CallOption) (*CreateServicePolicyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateServicePolicyResponse)
+	err := c.cc.Invoke(ctx, ZitiManagementService_CreateServicePolicy_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *zitiManagementServiceClient) DeleteServicePolicy(ctx context.Context, in *DeleteServicePolicyRequest, opts ...grpc.CallOption) (*DeleteServicePolicyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteServicePolicyResponse)
+	err := c.cc.Invoke(ctx, ZitiManagementService_DeleteServicePolicy_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *zitiManagementServiceClient) DeleteService(ctx context.Context, in *DeleteServiceRequest, opts ...grpc.CallOption) (*DeleteServiceResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteServiceResponse)
+	err := c.cc.Invoke(ctx, ZitiManagementService_DeleteService_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *zitiManagementServiceClient) CreateDeviceIdentity(ctx context.Context, in *CreateDeviceIdentityRequest, opts ...grpc.CallOption) (*CreateDeviceIdentityResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateDeviceIdentityResponse)
+	err := c.cc.Invoke(ctx, ZitiManagementService_CreateDeviceIdentity_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *zitiManagementServiceClient) DeleteDeviceIdentity(ctx context.Context, in *DeleteDeviceIdentityRequest, opts ...grpc.CallOption) (*DeleteDeviceIdentityResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteDeviceIdentityResponse)
+	err := c.cc.Invoke(ctx, ZitiManagementService_DeleteDeviceIdentity_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ZitiManagementServiceServer is the server API for ZitiManagementService service.
 // All implementations should embed UnimplementedZitiManagementServiceServer
 // for forward compatibility.
@@ -220,6 +289,20 @@ type ZitiManagementServiceServer interface {
 	// Infrastructure services -> extend the lease on a service identity.
 	// Called periodically by the service to prevent GC from deleting the identity.
 	ExtendIdentityLease(context.Context, *ExtendIdentityLeaseRequest) (*ExtendIdentityLeaseResponse, error)
+	// Expose Service -> create a single OpenZiti service policy (Bind or Dial).
+	// Returns the policy ID.
+	CreateServicePolicy(context.Context, *CreateServicePolicyRequest) (*CreateServicePolicyResponse, error)
+	// Expose Service -> delete an OpenZiti service policy by ID.
+	DeleteServicePolicy(context.Context, *DeleteServicePolicyRequest) (*DeleteServicePolicyResponse, error)
+	// Expose Service -> delete an OpenZiti service by ID.
+	// Also deletes attached config objects.
+	DeleteService(context.Context, *DeleteServiceRequest) (*DeleteServiceResponse, error)
+	// Users Service -> create an OpenZiti identity for a user device with
+	// roleAttributes: ["devices"] and enrollment.ott: true.
+	// Returns the identity ID and enrollment JWT.
+	CreateDeviceIdentity(context.Context, *CreateDeviceIdentityRequest) (*CreateDeviceIdentityResponse, error)
+	// Users Service -> delete a device's OpenZiti identity.
+	DeleteDeviceIdentity(context.Context, *DeleteDeviceIdentityRequest) (*DeleteDeviceIdentityResponse, error)
 }
 
 // UnimplementedZitiManagementServiceServer should be embedded to have
@@ -261,6 +344,21 @@ func (UnimplementedZitiManagementServiceServer) RequestServiceIdentity(context.C
 }
 func (UnimplementedZitiManagementServiceServer) ExtendIdentityLease(context.Context, *ExtendIdentityLeaseRequest) (*ExtendIdentityLeaseResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ExtendIdentityLease not implemented")
+}
+func (UnimplementedZitiManagementServiceServer) CreateServicePolicy(context.Context, *CreateServicePolicyRequest) (*CreateServicePolicyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateServicePolicy not implemented")
+}
+func (UnimplementedZitiManagementServiceServer) DeleteServicePolicy(context.Context, *DeleteServicePolicyRequest) (*DeleteServicePolicyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteServicePolicy not implemented")
+}
+func (UnimplementedZitiManagementServiceServer) DeleteService(context.Context, *DeleteServiceRequest) (*DeleteServiceResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteService not implemented")
+}
+func (UnimplementedZitiManagementServiceServer) CreateDeviceIdentity(context.Context, *CreateDeviceIdentityRequest) (*CreateDeviceIdentityResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateDeviceIdentity not implemented")
+}
+func (UnimplementedZitiManagementServiceServer) DeleteDeviceIdentity(context.Context, *DeleteDeviceIdentityRequest) (*DeleteDeviceIdentityResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteDeviceIdentity not implemented")
 }
 func (UnimplementedZitiManagementServiceServer) testEmbeddedByValue() {}
 
@@ -480,6 +578,96 @@ func _ZitiManagementService_ExtendIdentityLease_Handler(srv interface{}, ctx con
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ZitiManagementService_CreateServicePolicy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateServicePolicyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ZitiManagementServiceServer).CreateServicePolicy(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ZitiManagementService_CreateServicePolicy_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ZitiManagementServiceServer).CreateServicePolicy(ctx, req.(*CreateServicePolicyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ZitiManagementService_DeleteServicePolicy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteServicePolicyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ZitiManagementServiceServer).DeleteServicePolicy(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ZitiManagementService_DeleteServicePolicy_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ZitiManagementServiceServer).DeleteServicePolicy(ctx, req.(*DeleteServicePolicyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ZitiManagementService_DeleteService_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteServiceRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ZitiManagementServiceServer).DeleteService(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ZitiManagementService_DeleteService_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ZitiManagementServiceServer).DeleteService(ctx, req.(*DeleteServiceRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ZitiManagementService_CreateDeviceIdentity_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateDeviceIdentityRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ZitiManagementServiceServer).CreateDeviceIdentity(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ZitiManagementService_CreateDeviceIdentity_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ZitiManagementServiceServer).CreateDeviceIdentity(ctx, req.(*CreateDeviceIdentityRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ZitiManagementService_DeleteDeviceIdentity_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteDeviceIdentityRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ZitiManagementServiceServer).DeleteDeviceIdentity(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ZitiManagementService_DeleteDeviceIdentity_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ZitiManagementServiceServer).DeleteDeviceIdentity(ctx, req.(*DeleteDeviceIdentityRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ZitiManagementService_ServiceDesc is the grpc.ServiceDesc for ZitiManagementService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -530,6 +718,26 @@ var ZitiManagementService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ExtendIdentityLease",
 			Handler:    _ZitiManagementService_ExtendIdentityLease_Handler,
+		},
+		{
+			MethodName: "CreateServicePolicy",
+			Handler:    _ZitiManagementService_CreateServicePolicy_Handler,
+		},
+		{
+			MethodName: "DeleteServicePolicy",
+			Handler:    _ZitiManagementService_DeleteServicePolicy_Handler,
+		},
+		{
+			MethodName: "DeleteService",
+			Handler:    _ZitiManagementService_DeleteService_Handler,
+		},
+		{
+			MethodName: "CreateDeviceIdentity",
+			Handler:    _ZitiManagementService_CreateDeviceIdentity_Handler,
+		},
+		{
+			MethodName: "DeleteDeviceIdentity",
+			Handler:    _ZitiManagementService_DeleteDeviceIdentity_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
