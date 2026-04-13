@@ -19,26 +19,28 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	RunnersService_RegisterRunner_FullMethodName        = "/agynio.api.runners.v1.RunnersService/RegisterRunner"
-	RunnersService_GetRunner_FullMethodName             = "/agynio.api.runners.v1.RunnersService/GetRunner"
-	RunnersService_ListRunners_FullMethodName           = "/agynio.api.runners.v1.RunnersService/ListRunners"
-	RunnersService_UpdateRunner_FullMethodName          = "/agynio.api.runners.v1.RunnersService/UpdateRunner"
-	RunnersService_DeleteRunner_FullMethodName          = "/agynio.api.runners.v1.RunnersService/DeleteRunner"
-	RunnersService_ValidateServiceToken_FullMethodName  = "/agynio.api.runners.v1.RunnersService/ValidateServiceToken"
-	RunnersService_EnrollRunner_FullMethodName          = "/agynio.api.runners.v1.RunnersService/EnrollRunner"
-	RunnersService_CreateWorkload_FullMethodName        = "/agynio.api.runners.v1.RunnersService/CreateWorkload"
-	RunnersService_UpdateWorkload_FullMethodName        = "/agynio.api.runners.v1.RunnersService/UpdateWorkload"
-	RunnersService_UpdateWorkloadStatus_FullMethodName  = "/agynio.api.runners.v1.RunnersService/UpdateWorkloadStatus"
-	RunnersService_TouchWorkload_FullMethodName         = "/agynio.api.runners.v1.RunnersService/TouchWorkload"
-	RunnersService_DeleteWorkload_FullMethodName        = "/agynio.api.runners.v1.RunnersService/DeleteWorkload"
-	RunnersService_GetWorkload_FullMethodName           = "/agynio.api.runners.v1.RunnersService/GetWorkload"
-	RunnersService_ListWorkloadsByThread_FullMethodName = "/agynio.api.runners.v1.RunnersService/ListWorkloadsByThread"
-	RunnersService_ListWorkloads_FullMethodName         = "/agynio.api.runners.v1.RunnersService/ListWorkloads"
-	RunnersService_CreateVolume_FullMethodName          = "/agynio.api.runners.v1.RunnersService/CreateVolume"
-	RunnersService_UpdateVolume_FullMethodName          = "/agynio.api.runners.v1.RunnersService/UpdateVolume"
-	RunnersService_GetVolume_FullMethodName             = "/agynio.api.runners.v1.RunnersService/GetVolume"
-	RunnersService_ListVolumes_FullMethodName           = "/agynio.api.runners.v1.RunnersService/ListVolumes"
-	RunnersService_ListVolumesByThread_FullMethodName   = "/agynio.api.runners.v1.RunnersService/ListVolumesByThread"
+	RunnersService_RegisterRunner_FullMethodName               = "/agynio.api.runners.v1.RunnersService/RegisterRunner"
+	RunnersService_GetRunner_FullMethodName                    = "/agynio.api.runners.v1.RunnersService/GetRunner"
+	RunnersService_ListRunners_FullMethodName                  = "/agynio.api.runners.v1.RunnersService/ListRunners"
+	RunnersService_UpdateRunner_FullMethodName                 = "/agynio.api.runners.v1.RunnersService/UpdateRunner"
+	RunnersService_DeleteRunner_FullMethodName                 = "/agynio.api.runners.v1.RunnersService/DeleteRunner"
+	RunnersService_ValidateServiceToken_FullMethodName         = "/agynio.api.runners.v1.RunnersService/ValidateServiceToken"
+	RunnersService_EnrollRunner_FullMethodName                 = "/agynio.api.runners.v1.RunnersService/EnrollRunner"
+	RunnersService_CreateWorkload_FullMethodName               = "/agynio.api.runners.v1.RunnersService/CreateWorkload"
+	RunnersService_UpdateWorkload_FullMethodName               = "/agynio.api.runners.v1.RunnersService/UpdateWorkload"
+	RunnersService_UpdateWorkloadStatus_FullMethodName         = "/agynio.api.runners.v1.RunnersService/UpdateWorkloadStatus"
+	RunnersService_TouchWorkload_FullMethodName                = "/agynio.api.runners.v1.RunnersService/TouchWorkload"
+	RunnersService_DeleteWorkload_FullMethodName               = "/agynio.api.runners.v1.RunnersService/DeleteWorkload"
+	RunnersService_GetWorkload_FullMethodName                  = "/agynio.api.runners.v1.RunnersService/GetWorkload"
+	RunnersService_ListWorkloadsByThread_FullMethodName        = "/agynio.api.runners.v1.RunnersService/ListWorkloadsByThread"
+	RunnersService_ListWorkloads_FullMethodName                = "/agynio.api.runners.v1.RunnersService/ListWorkloads"
+	RunnersService_BatchUpdateWorkloadSampledAt_FullMethodName = "/agynio.api.runners.v1.RunnersService/BatchUpdateWorkloadSampledAt"
+	RunnersService_CreateVolume_FullMethodName                 = "/agynio.api.runners.v1.RunnersService/CreateVolume"
+	RunnersService_UpdateVolume_FullMethodName                 = "/agynio.api.runners.v1.RunnersService/UpdateVolume"
+	RunnersService_GetVolume_FullMethodName                    = "/agynio.api.runners.v1.RunnersService/GetVolume"
+	RunnersService_ListVolumes_FullMethodName                  = "/agynio.api.runners.v1.RunnersService/ListVolumes"
+	RunnersService_ListVolumesByThread_FullMethodName          = "/agynio.api.runners.v1.RunnersService/ListVolumesByThread"
+	RunnersService_BatchUpdateVolumeSampledAt_FullMethodName   = "/agynio.api.runners.v1.RunnersService/BatchUpdateVolumeSampledAt"
 )
 
 // RunnersServiceClient is the client API for RunnersService service.
@@ -64,12 +66,14 @@ type RunnersServiceClient interface {
 	GetWorkload(ctx context.Context, in *GetWorkloadRequest, opts ...grpc.CallOption) (*GetWorkloadResponse, error)
 	ListWorkloadsByThread(ctx context.Context, in *ListWorkloadsByThreadRequest, opts ...grpc.CallOption) (*ListWorkloadsByThreadResponse, error)
 	ListWorkloads(ctx context.Context, in *ListWorkloadsRequest, opts ...grpc.CallOption) (*ListWorkloadsResponse, error)
+	BatchUpdateWorkloadSampledAt(ctx context.Context, in *BatchUpdateWorkloadSampledAtRequest, opts ...grpc.CallOption) (*BatchUpdateWorkloadSampledAtResponse, error)
 	// --- Volume state ---
 	CreateVolume(ctx context.Context, in *CreateVolumeRequest, opts ...grpc.CallOption) (*CreateVolumeResponse, error)
 	UpdateVolume(ctx context.Context, in *UpdateVolumeRequest, opts ...grpc.CallOption) (*UpdateVolumeResponse, error)
 	GetVolume(ctx context.Context, in *GetVolumeRequest, opts ...grpc.CallOption) (*GetVolumeResponse, error)
 	ListVolumes(ctx context.Context, in *ListVolumesRequest, opts ...grpc.CallOption) (*ListVolumesResponse, error)
 	ListVolumesByThread(ctx context.Context, in *ListVolumesByThreadRequest, opts ...grpc.CallOption) (*ListVolumesByThreadResponse, error)
+	BatchUpdateVolumeSampledAt(ctx context.Context, in *BatchUpdateVolumeSampledAtRequest, opts ...grpc.CallOption) (*BatchUpdateVolumeSampledAtResponse, error)
 }
 
 type runnersServiceClient struct {
@@ -230,6 +234,16 @@ func (c *runnersServiceClient) ListWorkloads(ctx context.Context, in *ListWorklo
 	return out, nil
 }
 
+func (c *runnersServiceClient) BatchUpdateWorkloadSampledAt(ctx context.Context, in *BatchUpdateWorkloadSampledAtRequest, opts ...grpc.CallOption) (*BatchUpdateWorkloadSampledAtResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BatchUpdateWorkloadSampledAtResponse)
+	err := c.cc.Invoke(ctx, RunnersService_BatchUpdateWorkloadSampledAt_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *runnersServiceClient) CreateVolume(ctx context.Context, in *CreateVolumeRequest, opts ...grpc.CallOption) (*CreateVolumeResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(CreateVolumeResponse)
@@ -280,6 +294,16 @@ func (c *runnersServiceClient) ListVolumesByThread(ctx context.Context, in *List
 	return out, nil
 }
 
+func (c *runnersServiceClient) BatchUpdateVolumeSampledAt(ctx context.Context, in *BatchUpdateVolumeSampledAtRequest, opts ...grpc.CallOption) (*BatchUpdateVolumeSampledAtResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BatchUpdateVolumeSampledAtResponse)
+	err := c.cc.Invoke(ctx, RunnersService_BatchUpdateVolumeSampledAt_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // RunnersServiceServer is the server API for RunnersService service.
 // All implementations should embed UnimplementedRunnersServiceServer
 // for forward compatibility.
@@ -303,12 +327,14 @@ type RunnersServiceServer interface {
 	GetWorkload(context.Context, *GetWorkloadRequest) (*GetWorkloadResponse, error)
 	ListWorkloadsByThread(context.Context, *ListWorkloadsByThreadRequest) (*ListWorkloadsByThreadResponse, error)
 	ListWorkloads(context.Context, *ListWorkloadsRequest) (*ListWorkloadsResponse, error)
+	BatchUpdateWorkloadSampledAt(context.Context, *BatchUpdateWorkloadSampledAtRequest) (*BatchUpdateWorkloadSampledAtResponse, error)
 	// --- Volume state ---
 	CreateVolume(context.Context, *CreateVolumeRequest) (*CreateVolumeResponse, error)
 	UpdateVolume(context.Context, *UpdateVolumeRequest) (*UpdateVolumeResponse, error)
 	GetVolume(context.Context, *GetVolumeRequest) (*GetVolumeResponse, error)
 	ListVolumes(context.Context, *ListVolumesRequest) (*ListVolumesResponse, error)
 	ListVolumesByThread(context.Context, *ListVolumesByThreadRequest) (*ListVolumesByThreadResponse, error)
+	BatchUpdateVolumeSampledAt(context.Context, *BatchUpdateVolumeSampledAtRequest) (*BatchUpdateVolumeSampledAtResponse, error)
 }
 
 // UnimplementedRunnersServiceServer should be embedded to have
@@ -363,6 +389,9 @@ func (UnimplementedRunnersServiceServer) ListWorkloadsByThread(context.Context, 
 func (UnimplementedRunnersServiceServer) ListWorkloads(context.Context, *ListWorkloadsRequest) (*ListWorkloadsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListWorkloads not implemented")
 }
+func (UnimplementedRunnersServiceServer) BatchUpdateWorkloadSampledAt(context.Context, *BatchUpdateWorkloadSampledAtRequest) (*BatchUpdateWorkloadSampledAtResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method BatchUpdateWorkloadSampledAt not implemented")
+}
 func (UnimplementedRunnersServiceServer) CreateVolume(context.Context, *CreateVolumeRequest) (*CreateVolumeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateVolume not implemented")
 }
@@ -377,6 +406,9 @@ func (UnimplementedRunnersServiceServer) ListVolumes(context.Context, *ListVolum
 }
 func (UnimplementedRunnersServiceServer) ListVolumesByThread(context.Context, *ListVolumesByThreadRequest) (*ListVolumesByThreadResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListVolumesByThread not implemented")
+}
+func (UnimplementedRunnersServiceServer) BatchUpdateVolumeSampledAt(context.Context, *BatchUpdateVolumeSampledAtRequest) (*BatchUpdateVolumeSampledAtResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method BatchUpdateVolumeSampledAt not implemented")
 }
 func (UnimplementedRunnersServiceServer) testEmbeddedByValue() {}
 
@@ -668,6 +700,24 @@ func _RunnersService_ListWorkloads_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RunnersService_BatchUpdateWorkloadSampledAt_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BatchUpdateWorkloadSampledAtRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RunnersServiceServer).BatchUpdateWorkloadSampledAt(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RunnersService_BatchUpdateWorkloadSampledAt_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RunnersServiceServer).BatchUpdateWorkloadSampledAt(ctx, req.(*BatchUpdateWorkloadSampledAtRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _RunnersService_CreateVolume_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(CreateVolumeRequest)
 	if err := dec(in); err != nil {
@@ -758,6 +808,24 @@ func _RunnersService_ListVolumesByThread_Handler(srv interface{}, ctx context.Co
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RunnersService_BatchUpdateVolumeSampledAt_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BatchUpdateVolumeSampledAtRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RunnersServiceServer).BatchUpdateVolumeSampledAt(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RunnersService_BatchUpdateVolumeSampledAt_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RunnersServiceServer).BatchUpdateVolumeSampledAt(ctx, req.(*BatchUpdateVolumeSampledAtRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // RunnersService_ServiceDesc is the grpc.ServiceDesc for RunnersService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -826,6 +894,10 @@ var RunnersService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _RunnersService_ListWorkloads_Handler,
 		},
 		{
+			MethodName: "BatchUpdateWorkloadSampledAt",
+			Handler:    _RunnersService_BatchUpdateWorkloadSampledAt_Handler,
+		},
+		{
 			MethodName: "CreateVolume",
 			Handler:    _RunnersService_CreateVolume_Handler,
 		},
@@ -844,6 +916,10 @@ var RunnersService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListVolumesByThread",
 			Handler:    _RunnersService_ListVolumesByThread_Handler,
+		},
+		{
+			MethodName: "BatchUpdateVolumeSampledAt",
+			Handler:    _RunnersService_BatchUpdateVolumeSampledAt_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
