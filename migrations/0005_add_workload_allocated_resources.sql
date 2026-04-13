@@ -1,0 +1,3 @@
+ALTER TABLE workloads
+ADD COLUMN IF NOT EXISTS allocated_cpu_millicores INT NOT NULL DEFAULT 0,
+ADD COLUMN IF NOT EXISTS allocated_ram_bytes BIGINT NOT NULL DEFAULT 0;

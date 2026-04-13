@@ -33,33 +33,37 @@ const (
 	containerStatusTerminated = "terminated"
 	containerStatusWaiting    = "waiting"
 
-	workloadColumns = `id, runner_id, thread_id, agent_id, organization_id, status, containers, ziti_identity_id, instance_id, last_activity_at, last_metering_sampled_at, removed_at, created_at, updated_at`
+	workloadColumns = `id, runner_id, thread_id, agent_id, organization_id, status, containers, ziti_identity_id, allocated_cpu_millicores, allocated_ram_bytes, instance_id, last_activity_at, last_metering_sampled_at, removed_at, created_at, updated_at`
 )
 
 type workloadRecord struct {
-	Meta           entityMeta
-	RunnerID       uuid.UUID
-	ThreadID       uuid.UUID
-	AgentID        uuid.UUID
-	OrganizationID uuid.UUID
-	Status         string
-	Containers     []containerRecord
-	ZitiIdentityID string
-	InstanceID     *string
-	LastActivityAt time.Time
-	RemovedAt      *time.Time
-	LastMeteringAt *time.Time
+	Meta                   entityMeta
+	RunnerID               uuid.UUID
+	ThreadID               uuid.UUID
+	AgentID                uuid.UUID
+	OrganizationID         uuid.UUID
+	Status                 string
+	Containers             []containerRecord
+	ZitiIdentityID         string
+	AllocatedCPUMillicores int32
+	AllocatedRAMBytes      int64
+	InstanceID             *string
+	LastActivityAt         time.Time
+	RemovedAt              *time.Time
+	LastMeteringAt         *time.Time
 }
 
 type workloadInsertInput struct {
-	ID             uuid.UUID
-	RunnerID       uuid.UUID
-	ThreadID       uuid.UUID
-	AgentID        uuid.UUID
-	OrganizationID uuid.UUID
-	Status         string
-	ContainersJSON []byte
-	ZitiIdentityID string
+	ID                     uuid.UUID
+	RunnerID               uuid.UUID
+	ThreadID               uuid.UUID
+	AgentID                uuid.UUID
+	OrganizationID         uuid.UUID
+	Status                 string
+	ContainersJSON         []byte
+	ZitiIdentityID         string
+	AllocatedCPUMillicores int32
+	AllocatedRAMBytes      int64
 }
 
 type workloadUpdateInput struct {
@@ -115,14 +119,16 @@ func (s *Server) CreateWorkload(ctx context.Context, req *runnersv1.CreateWorklo
 	}
 
 	workload, err := s.insertWorkload(ctx, workloadInsertInput{
-		ID:             id,
-		RunnerID:       runnerID,
-		ThreadID:       threadID,
-		AgentID:        agentID,
-		OrganizationID: organizationID,
-		Status:         statusValue,
-		ContainersJSON: containersJSON,
-		ZitiIdentityID: strings.TrimSpace(req.GetZitiIdentityId()),
+		ID:                     id,
+		RunnerID:               runnerID,
+		ThreadID:               threadID,
+		AgentID:                agentID,
+		OrganizationID:         organizationID,
+		Status:                 statusValue,
+		ContainersJSON:         containersJSON,
+		ZitiIdentityID:         strings.TrimSpace(req.GetZitiIdentityId()),
+		AllocatedCPUMillicores: req.GetAllocatedCpuMillicores(),
+		AllocatedRAMBytes:      req.GetAllocatedRamBytes(),
 	})
 	if err != nil {
 		return nil, toStatusError(err)
@@ -364,8 +370,8 @@ func (s *Server) insertWorkload(ctx context.Context, input workloadInsertInput) 
 		containersJSON = []byte("[]")
 	}
 	row := s.pool.QueryRow(ctx,
-		fmt.Sprintf(`INSERT INTO workloads (id, runner_id, thread_id, agent_id, organization_id, status, containers, ziti_identity_id, last_activity_at, created_at, updated_at)
-	    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW(), NOW())
+		fmt.Sprintf(`INSERT INTO workloads (id, runner_id, thread_id, agent_id, organization_id, status, containers, ziti_identity_id, allocated_cpu_millicores, allocated_ram_bytes, last_activity_at, created_at, updated_at)
+	    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW(), NOW())
 	    RETURNING %s`, workloadColumns),
 		input.ID,
 		input.RunnerID,
@@ -375,6 +381,8 @@ func (s *Server) insertWorkload(ctx context.Context, input workloadInsertInput) 
 		input.Status,
 		containersJSON,
 		input.ZitiIdentityID,
+		input.AllocatedCPUMillicores,
+		input.AllocatedRAMBytes,
 	)
 	workload, err := scanWorkload(row)
 	if err != nil {
@@ -601,6 +609,8 @@ func scanWorkload(row pgx.Row) (workloadRecord, error) {
 		&workload.Status,
 		&containersData,
 		&workload.ZitiIdentityID,
+		&workload.AllocatedCPUMillicores,
+		&workload.AllocatedRAMBytes,
 		&instanceID,
 		&workload.LastActivityAt,
 		&lastMeteringAt,
@@ -641,15 +651,17 @@ func toProtoWorkload(record workloadRecord) (*runnersv1.Workload, error) {
 		return nil, err
 	}
 	protoWorkload := &runnersv1.Workload{
-		Meta:           toProtoEntityMeta(record.Meta),
-		RunnerId:       record.RunnerID.String(),
-		ThreadId:       record.ThreadID.String(),
-		AgentId:        record.AgentID.String(),
-		OrganizationId: record.OrganizationID.String(),
-		Status:         statusValue,
-		Containers:     containers,
-		ZitiIdentityId: record.ZitiIdentityID,
-		LastActivityAt: timestamppb.New(record.LastActivityAt),
+		Meta:                   toProtoEntityMeta(record.Meta),
+		RunnerId:               record.RunnerID.String(),
+		ThreadId:               record.ThreadID.String(),
+		AgentId:                record.AgentID.String(),
+		OrganizationId:         record.OrganizationID.String(),
+		Status:                 statusValue,
+		Containers:             containers,
+		ZitiIdentityId:         record.ZitiIdentityID,
+		LastActivityAt:         timestamppb.New(record.LastActivityAt),
+		AllocatedCpuMillicores: record.AllocatedCPUMillicores,
+		AllocatedRamBytes:      record.AllocatedRAMBytes,
 	}
 	if record.InstanceID != nil {
 		protoWorkload.InstanceId = record.InstanceID

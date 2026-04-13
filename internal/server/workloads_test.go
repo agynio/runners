@@ -25,6 +25,8 @@ var workloadRowColumns = []string{
 	"status",
 	"containers",
 	"ziti_identity_id",
+	"allocated_cpu_millicores",
+	"allocated_ram_bytes",
 	"instance_id",
 	"last_activity_at",
 	"last_metering_sampled_at",
@@ -48,7 +50,7 @@ func TestListWorkloadsFiltersOrganization(t *testing.T) {
 	containersJSON := []byte("[]")
 
 	rows := pgxmock.NewRows(workloadRowColumns).
-		AddRow(workloadID, runnerID, threadID, agentID, organizationID, workloadStatusRunning, containersJSON, "ziti-id", nil, now, nil, nil, now, now)
+		AddRow(workloadID, runnerID, threadID, agentID, organizationID, workloadStatusRunning, containersJSON, "ziti-id", int32(0), int64(0), nil, now, nil, nil, now, now)
 
 	query := fmt.Sprintf("SELECT %s FROM workloads WHERE organization_id = $1 ORDER BY id ASC LIMIT $2", workloadColumns)
 	mockPool.ExpectQuery(regexp.QuoteMeta(query)).
@@ -88,7 +90,7 @@ func TestListWorkloadsFiltersRunner(t *testing.T) {
 	containersJSON := []byte("[]")
 
 	rows := pgxmock.NewRows(workloadRowColumns).
-		AddRow(workloadID, runnerID, threadID, agentID, organizationID, workloadStatusRunning, containersJSON, "ziti-id", nil, now, nil, nil, now, now)
+		AddRow(workloadID, runnerID, threadID, agentID, organizationID, workloadStatusRunning, containersJSON, "ziti-id", int32(0), int64(0), nil, now, nil, nil, now, now)
 
 	query := fmt.Sprintf("SELECT %s FROM workloads WHERE runner_id = $1 ORDER BY id ASC LIMIT $2", workloadColumns)
 	mockPool.ExpectQuery(regexp.QuoteMeta(query)).
@@ -128,7 +130,7 @@ func TestListWorkloadsPendingSample(t *testing.T) {
 	containersJSON := []byte("[]")
 
 	rows := pgxmock.NewRows(workloadRowColumns).
-		AddRow(workloadID, runnerID, threadID, agentID, organizationID, workloadStatusRunning, containersJSON, "ziti-id", nil, now, nil, nil, now, now)
+		AddRow(workloadID, runnerID, threadID, agentID, organizationID, workloadStatusRunning, containersJSON, "ziti-id", int32(0), int64(0), nil, now, nil, nil, now, now)
 
 	query := fmt.Sprintf("SELECT %s FROM workloads WHERE %s ORDER BY id ASC LIMIT $1", workloadColumns, pendingSampleClause)
 	mockPool.ExpectQuery(regexp.QuoteMeta(query)).
@@ -236,7 +238,7 @@ func TestUpdateWorkload(t *testing.T) {
 	}
 
 	rows := pgxmock.NewRows(workloadRowColumns).
-		AddRow(workloadID, runnerID, threadID, agentID, organizationID, workloadStatusRunning, containersJSON, "ziti-id", instanceID, now, nil, nil, now, now)
+		AddRow(workloadID, runnerID, threadID, agentID, organizationID, workloadStatusRunning, containersJSON, "ziti-id", int32(0), int64(0), instanceID, now, nil, nil, now, now)
 
 	query := fmt.Sprintf("UPDATE workloads SET status = $1, containers = $2, instance_id = $3, updated_at = NOW() WHERE id = $4 RETURNING %s", workloadColumns)
 	mockPool.ExpectQuery(regexp.QuoteMeta(query)).
@@ -329,7 +331,7 @@ func TestSoftDeleteWorkload(t *testing.T) {
 	containersJSON := []byte("[]")
 
 	rows := pgxmock.NewRows(workloadRowColumns).
-		AddRow(workloadID, runnerID, threadID, agentID, organizationID, workloadStatusStopped, containersJSON, "ziti-id", nil, now, nil, now, now, now)
+		AddRow(workloadID, runnerID, threadID, agentID, organizationID, workloadStatusStopped, containersJSON, "ziti-id", int32(0), int64(0), nil, now, nil, now, now, now)
 
 	query := fmt.Sprintf("UPDATE workloads SET status = $1, removed_at = NOW(), updated_at = NOW() WHERE id = $2 RETURNING %s", workloadColumns)
 	mockPool.ExpectQuery(regexp.QuoteMeta(query)).

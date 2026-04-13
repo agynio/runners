@@ -1265,21 +1265,23 @@ func (x *Container) GetStatus() ContainerStatus {
 }
 
 type Workload struct {
-	state                 protoimpl.MessageState `protogen:"open.v1"`
-	Meta                  *EntityMeta            `protobuf:"bytes,1,opt,name=meta,proto3" json:"meta,omitempty"`
-	RunnerId              string                 `protobuf:"bytes,2,opt,name=runner_id,json=runnerId,proto3" json:"runner_id,omitempty"`
-	ThreadId              string                 `protobuf:"bytes,3,opt,name=thread_id,json=threadId,proto3" json:"thread_id,omitempty"`
-	AgentId               string                 `protobuf:"bytes,4,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
-	OrganizationId        string                 `protobuf:"bytes,5,opt,name=organization_id,json=organizationId,proto3" json:"organization_id,omitempty"`
-	Status                WorkloadStatus         `protobuf:"varint,6,opt,name=status,proto3,enum=agynio.api.runners.v1.WorkloadStatus" json:"status,omitempty"`
-	Containers            []*Container           `protobuf:"bytes,7,rep,name=containers,proto3" json:"containers,omitempty"`
-	ZitiIdentityId        string                 `protobuf:"bytes,8,opt,name=ziti_identity_id,json=zitiIdentityId,proto3" json:"ziti_identity_id,omitempty"`
-	InstanceId            *string                `protobuf:"bytes,9,opt,name=instance_id,json=instanceId,proto3,oneof" json:"instance_id,omitempty"`
-	LastActivityAt        *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=last_activity_at,json=lastActivityAt,proto3" json:"last_activity_at,omitempty"`
-	LastMeteringSampledAt *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=last_metering_sampled_at,json=lastMeteringSampledAt,proto3,oneof" json:"last_metering_sampled_at,omitempty"`
-	RemovedAt             *timestamppb.Timestamp `protobuf:"bytes,12,opt,name=removed_at,json=removedAt,proto3,oneof" json:"removed_at,omitempty"`
-	unknownFields         protoimpl.UnknownFields
-	sizeCache             protoimpl.SizeCache
+	state                  protoimpl.MessageState `protogen:"open.v1"`
+	Meta                   *EntityMeta            `protobuf:"bytes,1,opt,name=meta,proto3" json:"meta,omitempty"`
+	RunnerId               string                 `protobuf:"bytes,2,opt,name=runner_id,json=runnerId,proto3" json:"runner_id,omitempty"`
+	ThreadId               string                 `protobuf:"bytes,3,opt,name=thread_id,json=threadId,proto3" json:"thread_id,omitempty"`
+	AgentId                string                 `protobuf:"bytes,4,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	OrganizationId         string                 `protobuf:"bytes,5,opt,name=organization_id,json=organizationId,proto3" json:"organization_id,omitempty"`
+	Status                 WorkloadStatus         `protobuf:"varint,6,opt,name=status,proto3,enum=agynio.api.runners.v1.WorkloadStatus" json:"status,omitempty"`
+	Containers             []*Container           `protobuf:"bytes,7,rep,name=containers,proto3" json:"containers,omitempty"`
+	ZitiIdentityId         string                 `protobuf:"bytes,8,opt,name=ziti_identity_id,json=zitiIdentityId,proto3" json:"ziti_identity_id,omitempty"`
+	InstanceId             *string                `protobuf:"bytes,9,opt,name=instance_id,json=instanceId,proto3,oneof" json:"instance_id,omitempty"`
+	LastActivityAt         *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=last_activity_at,json=lastActivityAt,proto3" json:"last_activity_at,omitempty"`
+	LastMeteringSampledAt  *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=last_metering_sampled_at,json=lastMeteringSampledAt,proto3,oneof" json:"last_metering_sampled_at,omitempty"`
+	RemovedAt              *timestamppb.Timestamp `protobuf:"bytes,12,opt,name=removed_at,json=removedAt,proto3,oneof" json:"removed_at,omitempty"`
+	AllocatedCpuMillicores int32                  `protobuf:"varint,13,opt,name=allocated_cpu_millicores,json=allocatedCpuMillicores,proto3" json:"allocated_cpu_millicores,omitempty"`
+	AllocatedRamBytes      int64                  `protobuf:"varint,14,opt,name=allocated_ram_bytes,json=allocatedRamBytes,proto3" json:"allocated_ram_bytes,omitempty"`
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *Workload) Reset() {
@@ -1396,18 +1398,34 @@ func (x *Workload) GetRemovedAt() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *Workload) GetAllocatedCpuMillicores() int32 {
+	if x != nil {
+		return x.AllocatedCpuMillicores
+	}
+	return 0
+}
+
+func (x *Workload) GetAllocatedRamBytes() int64 {
+	if x != nil {
+		return x.AllocatedRamBytes
+	}
+	return 0
+}
+
 type CreateWorkloadRequest struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	Id             string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	RunnerId       string                 `protobuf:"bytes,2,opt,name=runner_id,json=runnerId,proto3" json:"runner_id,omitempty"`
-	ThreadId       string                 `protobuf:"bytes,3,opt,name=thread_id,json=threadId,proto3" json:"thread_id,omitempty"`
-	AgentId        string                 `protobuf:"bytes,4,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
-	OrganizationId string                 `protobuf:"bytes,5,opt,name=organization_id,json=organizationId,proto3" json:"organization_id,omitempty"`
-	Status         WorkloadStatus         `protobuf:"varint,6,opt,name=status,proto3,enum=agynio.api.runners.v1.WorkloadStatus" json:"status,omitempty"`
-	Containers     []*Container           `protobuf:"bytes,7,rep,name=containers,proto3" json:"containers,omitempty"`
-	ZitiIdentityId string                 `protobuf:"bytes,8,opt,name=ziti_identity_id,json=zitiIdentityId,proto3" json:"ziti_identity_id,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	state                  protoimpl.MessageState `protogen:"open.v1"`
+	Id                     string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	RunnerId               string                 `protobuf:"bytes,2,opt,name=runner_id,json=runnerId,proto3" json:"runner_id,omitempty"`
+	ThreadId               string                 `protobuf:"bytes,3,opt,name=thread_id,json=threadId,proto3" json:"thread_id,omitempty"`
+	AgentId                string                 `protobuf:"bytes,4,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	OrganizationId         string                 `protobuf:"bytes,5,opt,name=organization_id,json=organizationId,proto3" json:"organization_id,omitempty"`
+	Status                 WorkloadStatus         `protobuf:"varint,6,opt,name=status,proto3,enum=agynio.api.runners.v1.WorkloadStatus" json:"status,omitempty"`
+	Containers             []*Container           `protobuf:"bytes,7,rep,name=containers,proto3" json:"containers,omitempty"`
+	ZitiIdentityId         string                 `protobuf:"bytes,8,opt,name=ziti_identity_id,json=zitiIdentityId,proto3" json:"ziti_identity_id,omitempty"`
+	AllocatedCpuMillicores int32                  `protobuf:"varint,9,opt,name=allocated_cpu_millicores,json=allocatedCpuMillicores,proto3" json:"allocated_cpu_millicores,omitempty"`
+	AllocatedRamBytes      int64                  `protobuf:"varint,10,opt,name=allocated_ram_bytes,json=allocatedRamBytes,proto3" json:"allocated_ram_bytes,omitempty"`
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *CreateWorkloadRequest) Reset() {
@@ -1494,6 +1512,20 @@ func (x *CreateWorkloadRequest) GetZitiIdentityId() string {
 		return x.ZitiIdentityId
 	}
 	return ""
+}
+
+func (x *CreateWorkloadRequest) GetAllocatedCpuMillicores() int32 {
+	if x != nil {
+		return x.AllocatedCpuMillicores
+	}
+	return 0
+}
+
+func (x *CreateWorkloadRequest) GetAllocatedRamBytes() int64 {
+	if x != nil {
+		return x.AllocatedRamBytes
+	}
+	return 0
 }
 
 type CreateWorkloadResponse struct {
@@ -3235,7 +3267,7 @@ const file_agynio_api_runners_v1_runners_proto_rawDesc = "" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x128\n" +
 	"\x04role\x18\x03 \x01(\x0e2$.agynio.api.runners.v1.ContainerRoleR\x04role\x12\x14\n" +
 	"\x05image\x18\x04 \x01(\tR\x05image\x12>\n" +
-	"\x06status\x18\x05 \x01(\x0e2&.agynio.api.runners.v1.ContainerStatusR\x06status\"\xac\x05\n" +
+	"\x06status\x18\x05 \x01(\x0e2&.agynio.api.runners.v1.ContainerStatusR\x06status\"\x96\x06\n" +
 	"\bWorkload\x125\n" +
 	"\x04meta\x18\x01 \x01(\v2!.agynio.api.runners.v1.EntityMetaR\x04meta\x12\x1b\n" +
 	"\trunner_id\x18\x02 \x01(\tR\brunnerId\x12\x1b\n" +
@@ -3253,10 +3285,12 @@ const file_agynio_api_runners_v1_runners_proto_rawDesc = "" +
 	" \x01(\v2\x1a.google.protobuf.TimestampR\x0elastActivityAt\x12X\n" +
 	"\x18last_metering_sampled_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampH\x01R\x15lastMeteringSampledAt\x88\x01\x01\x12>\n" +
 	"\n" +
-	"removed_at\x18\f \x01(\v2\x1a.google.protobuf.TimestampH\x02R\tremovedAt\x88\x01\x01B\x0e\n" +
+	"removed_at\x18\f \x01(\v2\x1a.google.protobuf.TimestampH\x02R\tremovedAt\x88\x01\x01\x128\n" +
+	"\x18allocated_cpu_millicores\x18\r \x01(\x05R\x16allocatedCpuMillicores\x12.\n" +
+	"\x13allocated_ram_bytes\x18\x0e \x01(\x03R\x11allocatedRamBytesB\x0e\n" +
 	"\f_instance_idB\x1b\n" +
 	"\x19_last_metering_sampled_atB\r\n" +
-	"\v_removed_at\"\xd0\x02\n" +
+	"\v_removed_at\"\xba\x03\n" +
 	"\x15CreateWorkloadRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\trunner_id\x18\x02 \x01(\tR\brunnerId\x12\x1b\n" +
@@ -3267,7 +3301,10 @@ const file_agynio_api_runners_v1_runners_proto_rawDesc = "" +
 	"\n" +
 	"containers\x18\a \x03(\v2 .agynio.api.runners.v1.ContainerR\n" +
 	"containers\x12(\n" +
-	"\x10ziti_identity_id\x18\b \x01(\tR\x0ezitiIdentityId\"U\n" +
+	"\x10ziti_identity_id\x18\b \x01(\tR\x0ezitiIdentityId\x128\n" +
+	"\x18allocated_cpu_millicores\x18\t \x01(\x05R\x16allocatedCpuMillicores\x12.\n" +
+	"\x13allocated_ram_bytes\x18\n" +
+	" \x01(\x03R\x11allocatedRamBytes\"U\n" +
 	"\x16CreateWorkloadResponse\x12;\n" +
 	"\bworkload\x18\x01 \x01(\v2\x1f.agynio.api.runners.v1.WorkloadR\bworkload\"\xb4\x03\n" +
 	"\x15UpdateWorkloadRequest\x12\x0e\n" +
