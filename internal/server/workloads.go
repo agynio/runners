@@ -348,23 +348,9 @@ func (s *Server) BatchUpdateWorkloadSampledAt(ctx context.Context, req *runnersv
 	if len(entries) == 0 {
 		return &runnersv1.BatchUpdateWorkloadSampledAtResponse{}, nil
 	}
-	updates := make([]sampledAtEntry, 0, len(entries))
-	for i, entry := range entries {
-		if entry == nil {
-			return nil, status.Errorf(codes.InvalidArgument, "entries[%d]: must be provided", i)
-		}
-		id, err := parseUUID(entry.GetId())
-		if err != nil {
-			return nil, status.Errorf(codes.InvalidArgument, "entries[%d].id: %v", i, err)
-		}
-		sampledAt := entry.GetSampledAt()
-		if sampledAt == nil {
-			return nil, status.Errorf(codes.InvalidArgument, "entries[%d].sampled_at: must be provided", i)
-		}
-		if err := sampledAt.CheckValid(); err != nil {
-			return nil, status.Errorf(codes.InvalidArgument, "entries[%d].sampled_at: %v", i, err)
-		}
-		updates = append(updates, sampledAtEntry{ID: id, SampledAt: sampledAt.AsTime()})
+	updates, err := parseSampledAtEntries(entries)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 	if err := s.batchUpdateWorkloadSampledAt(ctx, updates); err != nil {
 		return nil, status.Errorf(codes.Internal, "batch update workloads: %v", err)

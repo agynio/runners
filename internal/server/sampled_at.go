@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	runnersv1 "github.com/agynio/runners/.gen/go/agynio/api/runners/v1"
 	"github.com/google/uuid"
 )
 
@@ -29,4 +30,26 @@ func buildBatchSampledAtUpdateQuery(table string, entries []sampledAtEntry) (str
 	}
 	query.WriteString(") AS v(id, sampled_at) WHERE target.id = v.id")
 	return query.String(), args
+}
+
+func parseSampledAtEntries(entries []*runnersv1.SampledAtEntry) ([]sampledAtEntry, error) {
+	updates := make([]sampledAtEntry, 0, len(entries))
+	for i, entry := range entries {
+		if entry == nil {
+			return nil, fmt.Errorf("entries[%d]: must be provided", i)
+		}
+		id, err := parseUUID(entry.GetId())
+		if err != nil {
+			return nil, fmt.Errorf("entries[%d].id: %v", i, err)
+		}
+		sampledAt := entry.GetSampledAt()
+		if sampledAt == nil {
+			return nil, fmt.Errorf("entries[%d].sampled_at: must be provided", i)
+		}
+		if err := sampledAt.CheckValid(); err != nil {
+			return nil, fmt.Errorf("entries[%d].sampled_at: %v", i, err)
+		}
+		updates = append(updates, sampledAtEntry{ID: id, SampledAt: sampledAt.AsTime()})
+	}
+	return updates, nil
 }
