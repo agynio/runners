@@ -343,6 +343,21 @@ func (s *Server) ListWorkloads(ctx context.Context, req *runnersv1.ListWorkloads
 	return &runnersv1.ListWorkloadsResponse{Workloads: protoWorkloads, NextPageToken: nextToken}, nil
 }
 
+func (s *Server) BatchUpdateWorkloadSampledAt(ctx context.Context, req *runnersv1.BatchUpdateWorkloadSampledAtRequest) (*runnersv1.BatchUpdateWorkloadSampledAtResponse, error) {
+	entries := req.GetEntries()
+	if len(entries) == 0 {
+		return &runnersv1.BatchUpdateWorkloadSampledAtResponse{}, nil
+	}
+	updates, err := parseSampledAtEntries(entries)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	if err := s.batchUpdateWorkloadSampledAt(ctx, updates); err != nil {
+		return nil, status.Errorf(codes.Internal, "batch update workloads: %v", err)
+	}
+	return &runnersv1.BatchUpdateWorkloadSampledAtResponse{}, nil
+}
+
 func (s *Server) insertWorkload(ctx context.Context, input workloadInsertInput) (workloadRecord, error) {
 	containersJSON := input.ContainersJSON
 	if len(containersJSON) == 0 {
@@ -559,6 +574,14 @@ func (s *Server) listWorkloads(ctx context.Context, statuses []string, organizat
 		nextToken = encodePageToken(lastID)
 	}
 	return workloads, nextToken, nil
+}
+
+func (s *Server) batchUpdateWorkloadSampledAt(ctx context.Context, entries []sampledAtEntry) error {
+	query, args := buildBatchSampledAtUpdateQuery("workloads", entries)
+	if _, err := s.pool.Exec(ctx, query, args...); err != nil {
+		return err
+	}
+	return nil
 }
 
 func scanWorkload(row pgx.Row) (workloadRecord, error) {

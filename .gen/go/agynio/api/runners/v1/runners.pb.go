@@ -354,6 +354,58 @@ func (x *EntityMeta) GetUpdatedAt() *timestamppb.Timestamp {
 	return nil
 }
 
+type SampledAtEntry struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	SampledAt     *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=sampled_at,json=sampledAt,proto3" json:"sampled_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SampledAtEntry) Reset() {
+	*x = SampledAtEntry{}
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SampledAtEntry) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SampledAtEntry) ProtoMessage() {}
+
+func (x *SampledAtEntry) ProtoReflect() protoreflect.Message {
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SampledAtEntry.ProtoReflect.Descriptor instead.
+func (*SampledAtEntry) Descriptor() ([]byte, []int) {
+	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *SampledAtEntry) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *SampledAtEntry) GetSampledAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.SampledAt
+	}
+	return nil
+}
+
 type Runner struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	Meta           *EntityMeta            `protobuf:"bytes,1,opt,name=meta,proto3" json:"meta,omitempty"`
@@ -370,7 +422,7 @@ type Runner struct {
 
 func (x *Runner) Reset() {
 	*x = Runner{}
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[1]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -382,7 +434,7 @@ func (x *Runner) String() string {
 func (*Runner) ProtoMessage() {}
 
 func (x *Runner) ProtoReflect() protoreflect.Message {
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[1]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -395,7 +447,7 @@ func (x *Runner) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Runner.ProtoReflect.Descriptor instead.
 func (*Runner) Descriptor() ([]byte, []int) {
-	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{1}
+	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *Runner) GetMeta() *EntityMeta {
@@ -458,7 +510,7 @@ type RegisterRunnerRequest struct {
 
 func (x *RegisterRunnerRequest) Reset() {
 	*x = RegisterRunnerRequest{}
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[2]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -470,7 +522,7 @@ func (x *RegisterRunnerRequest) String() string {
 func (*RegisterRunnerRequest) ProtoMessage() {}
 
 func (x *RegisterRunnerRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[2]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -483,7 +535,7 @@ func (x *RegisterRunnerRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterRunnerRequest.ProtoReflect.Descriptor instead.
 func (*RegisterRunnerRequest) Descriptor() ([]byte, []int) {
-	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{2}
+	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *RegisterRunnerRequest) GetName() string {
@@ -517,7 +569,7 @@ type RegisterRunnerResponse struct {
 
 func (x *RegisterRunnerResponse) Reset() {
 	*x = RegisterRunnerResponse{}
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[3]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -529,7 +581,7 @@ func (x *RegisterRunnerResponse) String() string {
 func (*RegisterRunnerResponse) ProtoMessage() {}
 
 func (x *RegisterRunnerResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[3]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -542,7 +594,7 @@ func (x *RegisterRunnerResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterRunnerResponse.ProtoReflect.Descriptor instead.
 func (*RegisterRunnerResponse) Descriptor() ([]byte, []int) {
-	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{3}
+	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *RegisterRunnerResponse) GetRunner() *Runner {
@@ -568,7 +620,7 @@ type GetRunnerRequest struct {
 
 func (x *GetRunnerRequest) Reset() {
 	*x = GetRunnerRequest{}
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[4]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -580,7 +632,7 @@ func (x *GetRunnerRequest) String() string {
 func (*GetRunnerRequest) ProtoMessage() {}
 
 func (x *GetRunnerRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[4]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -593,7 +645,7 @@ func (x *GetRunnerRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetRunnerRequest.ProtoReflect.Descriptor instead.
 func (*GetRunnerRequest) Descriptor() ([]byte, []int) {
-	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{4}
+	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *GetRunnerRequest) GetId() string {
@@ -612,7 +664,7 @@ type GetRunnerResponse struct {
 
 func (x *GetRunnerResponse) Reset() {
 	*x = GetRunnerResponse{}
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[5]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -624,7 +676,7 @@ func (x *GetRunnerResponse) String() string {
 func (*GetRunnerResponse) ProtoMessage() {}
 
 func (x *GetRunnerResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[5]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -637,7 +689,7 @@ func (x *GetRunnerResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetRunnerResponse.ProtoReflect.Descriptor instead.
 func (*GetRunnerResponse) Descriptor() ([]byte, []int) {
-	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{5}
+	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *GetRunnerResponse) GetRunner() *Runner {
@@ -658,7 +710,7 @@ type ListRunnersRequest struct {
 
 func (x *ListRunnersRequest) Reset() {
 	*x = ListRunnersRequest{}
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[6]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -670,7 +722,7 @@ func (x *ListRunnersRequest) String() string {
 func (*ListRunnersRequest) ProtoMessage() {}
 
 func (x *ListRunnersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[6]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -683,7 +735,7 @@ func (x *ListRunnersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListRunnersRequest.ProtoReflect.Descriptor instead.
 func (*ListRunnersRequest) Descriptor() ([]byte, []int) {
-	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{6}
+	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *ListRunnersRequest) GetPageSize() int32 {
@@ -717,7 +769,7 @@ type ListRunnersResponse struct {
 
 func (x *ListRunnersResponse) Reset() {
 	*x = ListRunnersResponse{}
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[7]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -729,7 +781,7 @@ func (x *ListRunnersResponse) String() string {
 func (*ListRunnersResponse) ProtoMessage() {}
 
 func (x *ListRunnersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[7]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -742,7 +794,7 @@ func (x *ListRunnersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListRunnersResponse.ProtoReflect.Descriptor instead.
 func (*ListRunnersResponse) Descriptor() ([]byte, []int) {
-	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{7}
+	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *ListRunnersResponse) GetRunners() []*Runner {
@@ -771,7 +823,7 @@ type UpdateRunnerRequest struct {
 
 func (x *UpdateRunnerRequest) Reset() {
 	*x = UpdateRunnerRequest{}
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[8]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -783,7 +835,7 @@ func (x *UpdateRunnerRequest) String() string {
 func (*UpdateRunnerRequest) ProtoMessage() {}
 
 func (x *UpdateRunnerRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[8]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -796,7 +848,7 @@ func (x *UpdateRunnerRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateRunnerRequest.ProtoReflect.Descriptor instead.
 func (*UpdateRunnerRequest) Descriptor() ([]byte, []int) {
-	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{8}
+	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *UpdateRunnerRequest) GetId() string {
@@ -829,7 +881,7 @@ type UpdateRunnerResponse struct {
 
 func (x *UpdateRunnerResponse) Reset() {
 	*x = UpdateRunnerResponse{}
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[9]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -841,7 +893,7 @@ func (x *UpdateRunnerResponse) String() string {
 func (*UpdateRunnerResponse) ProtoMessage() {}
 
 func (x *UpdateRunnerResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[9]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -854,7 +906,7 @@ func (x *UpdateRunnerResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateRunnerResponse.ProtoReflect.Descriptor instead.
 func (*UpdateRunnerResponse) Descriptor() ([]byte, []int) {
-	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{9}
+	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *UpdateRunnerResponse) GetRunner() *Runner {
@@ -873,7 +925,7 @@ type DeleteRunnerRequest struct {
 
 func (x *DeleteRunnerRequest) Reset() {
 	*x = DeleteRunnerRequest{}
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[10]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -885,7 +937,7 @@ func (x *DeleteRunnerRequest) String() string {
 func (*DeleteRunnerRequest) ProtoMessage() {}
 
 func (x *DeleteRunnerRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[10]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -898,7 +950,7 @@ func (x *DeleteRunnerRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteRunnerRequest.ProtoReflect.Descriptor instead.
 func (*DeleteRunnerRequest) Descriptor() ([]byte, []int) {
-	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{10}
+	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *DeleteRunnerRequest) GetId() string {
@@ -916,7 +968,7 @@ type DeleteRunnerResponse struct {
 
 func (x *DeleteRunnerResponse) Reset() {
 	*x = DeleteRunnerResponse{}
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[11]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -928,7 +980,7 @@ func (x *DeleteRunnerResponse) String() string {
 func (*DeleteRunnerResponse) ProtoMessage() {}
 
 func (x *DeleteRunnerResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[11]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -941,7 +993,7 @@ func (x *DeleteRunnerResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteRunnerResponse.ProtoReflect.Descriptor instead.
 func (*DeleteRunnerResponse) Descriptor() ([]byte, []int) {
-	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{11}
+	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{12}
 }
 
 type ValidateServiceTokenRequest struct {
@@ -953,7 +1005,7 @@ type ValidateServiceTokenRequest struct {
 
 func (x *ValidateServiceTokenRequest) Reset() {
 	*x = ValidateServiceTokenRequest{}
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[12]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -965,7 +1017,7 @@ func (x *ValidateServiceTokenRequest) String() string {
 func (*ValidateServiceTokenRequest) ProtoMessage() {}
 
 func (x *ValidateServiceTokenRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[12]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -978,7 +1030,7 @@ func (x *ValidateServiceTokenRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ValidateServiceTokenRequest.ProtoReflect.Descriptor instead.
 func (*ValidateServiceTokenRequest) Descriptor() ([]byte, []int) {
-	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{12}
+	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *ValidateServiceTokenRequest) GetTokenHash() string {
@@ -997,7 +1049,7 @@ type ValidateServiceTokenResponse struct {
 
 func (x *ValidateServiceTokenResponse) Reset() {
 	*x = ValidateServiceTokenResponse{}
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[13]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1009,7 +1061,7 @@ func (x *ValidateServiceTokenResponse) String() string {
 func (*ValidateServiceTokenResponse) ProtoMessage() {}
 
 func (x *ValidateServiceTokenResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[13]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1022,7 +1074,7 @@ func (x *ValidateServiceTokenResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ValidateServiceTokenResponse.ProtoReflect.Descriptor instead.
 func (*ValidateServiceTokenResponse) Descriptor() ([]byte, []int) {
-	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{13}
+	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *ValidateServiceTokenResponse) GetRunner() *Runner {
@@ -1041,7 +1093,7 @@ type EnrollRunnerRequest struct {
 
 func (x *EnrollRunnerRequest) Reset() {
 	*x = EnrollRunnerRequest{}
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[14]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1053,7 +1105,7 @@ func (x *EnrollRunnerRequest) String() string {
 func (*EnrollRunnerRequest) ProtoMessage() {}
 
 func (x *EnrollRunnerRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[14]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1066,7 +1118,7 @@ func (x *EnrollRunnerRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EnrollRunnerRequest.ProtoReflect.Descriptor instead.
 func (*EnrollRunnerRequest) Descriptor() ([]byte, []int) {
-	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{14}
+	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *EnrollRunnerRequest) GetServiceToken() string {
@@ -1087,7 +1139,7 @@ type EnrollRunnerResponse struct {
 
 func (x *EnrollRunnerResponse) Reset() {
 	*x = EnrollRunnerResponse{}
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[15]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1099,7 +1151,7 @@ func (x *EnrollRunnerResponse) String() string {
 func (*EnrollRunnerResponse) ProtoMessage() {}
 
 func (x *EnrollRunnerResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[15]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1112,7 +1164,7 @@ func (x *EnrollRunnerResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EnrollRunnerResponse.ProtoReflect.Descriptor instead.
 func (*EnrollRunnerResponse) Descriptor() ([]byte, []int) {
-	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{15}
+	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *EnrollRunnerResponse) GetIdentityJson() []byte {
@@ -1149,7 +1201,7 @@ type Container struct {
 
 func (x *Container) Reset() {
 	*x = Container{}
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[16]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1161,7 +1213,7 @@ func (x *Container) String() string {
 func (*Container) ProtoMessage() {}
 
 func (x *Container) ProtoReflect() protoreflect.Message {
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[16]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1174,7 +1226,7 @@ func (x *Container) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Container.ProtoReflect.Descriptor instead.
 func (*Container) Descriptor() ([]byte, []int) {
-	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{16}
+	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *Container) GetContainerId() string {
@@ -1232,7 +1284,7 @@ type Workload struct {
 
 func (x *Workload) Reset() {
 	*x = Workload{}
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[17]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1244,7 +1296,7 @@ func (x *Workload) String() string {
 func (*Workload) ProtoMessage() {}
 
 func (x *Workload) ProtoReflect() protoreflect.Message {
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[17]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1257,7 +1309,7 @@ func (x *Workload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Workload.ProtoReflect.Descriptor instead.
 func (*Workload) Descriptor() ([]byte, []int) {
-	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{17}
+	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *Workload) GetMeta() *EntityMeta {
@@ -1360,7 +1412,7 @@ type CreateWorkloadRequest struct {
 
 func (x *CreateWorkloadRequest) Reset() {
 	*x = CreateWorkloadRequest{}
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[18]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1372,7 +1424,7 @@ func (x *CreateWorkloadRequest) String() string {
 func (*CreateWorkloadRequest) ProtoMessage() {}
 
 func (x *CreateWorkloadRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[18]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1385,7 +1437,7 @@ func (x *CreateWorkloadRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateWorkloadRequest.ProtoReflect.Descriptor instead.
 func (*CreateWorkloadRequest) Descriptor() ([]byte, []int) {
-	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{18}
+	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *CreateWorkloadRequest) GetId() string {
@@ -1453,7 +1505,7 @@ type CreateWorkloadResponse struct {
 
 func (x *CreateWorkloadResponse) Reset() {
 	*x = CreateWorkloadResponse{}
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[19]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1465,7 +1517,7 @@ func (x *CreateWorkloadResponse) String() string {
 func (*CreateWorkloadResponse) ProtoMessage() {}
 
 func (x *CreateWorkloadResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[19]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1478,7 +1530,7 @@ func (x *CreateWorkloadResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateWorkloadResponse.ProtoReflect.Descriptor instead.
 func (*CreateWorkloadResponse) Descriptor() ([]byte, []int) {
-	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{19}
+	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *CreateWorkloadResponse) GetWorkload() *Workload {
@@ -1502,7 +1554,7 @@ type UpdateWorkloadRequest struct {
 
 func (x *UpdateWorkloadRequest) Reset() {
 	*x = UpdateWorkloadRequest{}
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[20]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1514,7 +1566,7 @@ func (x *UpdateWorkloadRequest) String() string {
 func (*UpdateWorkloadRequest) ProtoMessage() {}
 
 func (x *UpdateWorkloadRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[20]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1527,7 +1579,7 @@ func (x *UpdateWorkloadRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateWorkloadRequest.ProtoReflect.Descriptor instead.
 func (*UpdateWorkloadRequest) Descriptor() ([]byte, []int) {
-	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{20}
+	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *UpdateWorkloadRequest) GetId() string {
@@ -1581,7 +1633,7 @@ type UpdateWorkloadResponse struct {
 
 func (x *UpdateWorkloadResponse) Reset() {
 	*x = UpdateWorkloadResponse{}
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[21]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1593,7 +1645,7 @@ func (x *UpdateWorkloadResponse) String() string {
 func (*UpdateWorkloadResponse) ProtoMessage() {}
 
 func (x *UpdateWorkloadResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[21]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1606,7 +1658,7 @@ func (x *UpdateWorkloadResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateWorkloadResponse.ProtoReflect.Descriptor instead.
 func (*UpdateWorkloadResponse) Descriptor() ([]byte, []int) {
-	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{21}
+	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *UpdateWorkloadResponse) GetWorkload() *Workload {
@@ -1627,7 +1679,7 @@ type UpdateWorkloadStatusRequest struct {
 
 func (x *UpdateWorkloadStatusRequest) Reset() {
 	*x = UpdateWorkloadStatusRequest{}
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[22]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1639,7 +1691,7 @@ func (x *UpdateWorkloadStatusRequest) String() string {
 func (*UpdateWorkloadStatusRequest) ProtoMessage() {}
 
 func (x *UpdateWorkloadStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[22]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1652,7 +1704,7 @@ func (x *UpdateWorkloadStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateWorkloadStatusRequest.ProtoReflect.Descriptor instead.
 func (*UpdateWorkloadStatusRequest) Descriptor() ([]byte, []int) {
-	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{22}
+	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *UpdateWorkloadStatusRequest) GetId() string {
@@ -1685,7 +1737,7 @@ type UpdateWorkloadStatusResponse struct {
 
 func (x *UpdateWorkloadStatusResponse) Reset() {
 	*x = UpdateWorkloadStatusResponse{}
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[23]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1697,7 +1749,7 @@ func (x *UpdateWorkloadStatusResponse) String() string {
 func (*UpdateWorkloadStatusResponse) ProtoMessage() {}
 
 func (x *UpdateWorkloadStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[23]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1710,7 +1762,7 @@ func (x *UpdateWorkloadStatusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateWorkloadStatusResponse.ProtoReflect.Descriptor instead.
 func (*UpdateWorkloadStatusResponse) Descriptor() ([]byte, []int) {
-	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{23}
+	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *UpdateWorkloadStatusResponse) GetWorkload() *Workload {
@@ -1729,7 +1781,7 @@ type TouchWorkloadRequest struct {
 
 func (x *TouchWorkloadRequest) Reset() {
 	*x = TouchWorkloadRequest{}
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[24]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1741,7 +1793,7 @@ func (x *TouchWorkloadRequest) String() string {
 func (*TouchWorkloadRequest) ProtoMessage() {}
 
 func (x *TouchWorkloadRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[24]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1754,7 +1806,7 @@ func (x *TouchWorkloadRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TouchWorkloadRequest.ProtoReflect.Descriptor instead.
 func (*TouchWorkloadRequest) Descriptor() ([]byte, []int) {
-	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{24}
+	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *TouchWorkloadRequest) GetId() string {
@@ -1772,7 +1824,7 @@ type TouchWorkloadResponse struct {
 
 func (x *TouchWorkloadResponse) Reset() {
 	*x = TouchWorkloadResponse{}
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[25]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1784,7 +1836,7 @@ func (x *TouchWorkloadResponse) String() string {
 func (*TouchWorkloadResponse) ProtoMessage() {}
 
 func (x *TouchWorkloadResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[25]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1797,7 +1849,7 @@ func (x *TouchWorkloadResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TouchWorkloadResponse.ProtoReflect.Descriptor instead.
 func (*TouchWorkloadResponse) Descriptor() ([]byte, []int) {
-	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{25}
+	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{26}
 }
 
 type DeleteWorkloadRequest struct {
@@ -1809,7 +1861,7 @@ type DeleteWorkloadRequest struct {
 
 func (x *DeleteWorkloadRequest) Reset() {
 	*x = DeleteWorkloadRequest{}
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[26]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1821,7 +1873,7 @@ func (x *DeleteWorkloadRequest) String() string {
 func (*DeleteWorkloadRequest) ProtoMessage() {}
 
 func (x *DeleteWorkloadRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[26]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1834,7 +1886,7 @@ func (x *DeleteWorkloadRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteWorkloadRequest.ProtoReflect.Descriptor instead.
 func (*DeleteWorkloadRequest) Descriptor() ([]byte, []int) {
-	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{26}
+	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *DeleteWorkloadRequest) GetId() string {
@@ -1852,7 +1904,7 @@ type DeleteWorkloadResponse struct {
 
 func (x *DeleteWorkloadResponse) Reset() {
 	*x = DeleteWorkloadResponse{}
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[27]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1864,7 +1916,7 @@ func (x *DeleteWorkloadResponse) String() string {
 func (*DeleteWorkloadResponse) ProtoMessage() {}
 
 func (x *DeleteWorkloadResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[27]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1877,7 +1929,7 @@ func (x *DeleteWorkloadResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteWorkloadResponse.ProtoReflect.Descriptor instead.
 func (*DeleteWorkloadResponse) Descriptor() ([]byte, []int) {
-	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{27}
+	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{28}
 }
 
 type GetWorkloadRequest struct {
@@ -1889,7 +1941,7 @@ type GetWorkloadRequest struct {
 
 func (x *GetWorkloadRequest) Reset() {
 	*x = GetWorkloadRequest{}
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[28]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1901,7 +1953,7 @@ func (x *GetWorkloadRequest) String() string {
 func (*GetWorkloadRequest) ProtoMessage() {}
 
 func (x *GetWorkloadRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[28]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1914,7 +1966,7 @@ func (x *GetWorkloadRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetWorkloadRequest.ProtoReflect.Descriptor instead.
 func (*GetWorkloadRequest) Descriptor() ([]byte, []int) {
-	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{28}
+	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *GetWorkloadRequest) GetId() string {
@@ -1933,7 +1985,7 @@ type GetWorkloadResponse struct {
 
 func (x *GetWorkloadResponse) Reset() {
 	*x = GetWorkloadResponse{}
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[29]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1945,7 +1997,7 @@ func (x *GetWorkloadResponse) String() string {
 func (*GetWorkloadResponse) ProtoMessage() {}
 
 func (x *GetWorkloadResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[29]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1958,7 +2010,7 @@ func (x *GetWorkloadResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetWorkloadResponse.ProtoReflect.Descriptor instead.
 func (*GetWorkloadResponse) Descriptor() ([]byte, []int) {
-	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{29}
+	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *GetWorkloadResponse) GetWorkload() *Workload {
@@ -1979,7 +2031,7 @@ type ListWorkloadsByThreadRequest struct {
 
 func (x *ListWorkloadsByThreadRequest) Reset() {
 	*x = ListWorkloadsByThreadRequest{}
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[30]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1991,7 +2043,7 @@ func (x *ListWorkloadsByThreadRequest) String() string {
 func (*ListWorkloadsByThreadRequest) ProtoMessage() {}
 
 func (x *ListWorkloadsByThreadRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[30]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2004,7 +2056,7 @@ func (x *ListWorkloadsByThreadRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListWorkloadsByThreadRequest.ProtoReflect.Descriptor instead.
 func (*ListWorkloadsByThreadRequest) Descriptor() ([]byte, []int) {
-	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{30}
+	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *ListWorkloadsByThreadRequest) GetThreadId() string {
@@ -2038,7 +2090,7 @@ type ListWorkloadsByThreadResponse struct {
 
 func (x *ListWorkloadsByThreadResponse) Reset() {
 	*x = ListWorkloadsByThreadResponse{}
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[31]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2050,7 +2102,7 @@ func (x *ListWorkloadsByThreadResponse) String() string {
 func (*ListWorkloadsByThreadResponse) ProtoMessage() {}
 
 func (x *ListWorkloadsByThreadResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[31]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2063,7 +2115,7 @@ func (x *ListWorkloadsByThreadResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListWorkloadsByThreadResponse.ProtoReflect.Descriptor instead.
 func (*ListWorkloadsByThreadResponse) Descriptor() ([]byte, []int) {
-	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{31}
+	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *ListWorkloadsByThreadResponse) GetWorkloads() []*Workload {
@@ -2094,7 +2146,7 @@ type ListWorkloadsRequest struct {
 
 func (x *ListWorkloadsRequest) Reset() {
 	*x = ListWorkloadsRequest{}
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[32]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2106,7 +2158,7 @@ func (x *ListWorkloadsRequest) String() string {
 func (*ListWorkloadsRequest) ProtoMessage() {}
 
 func (x *ListWorkloadsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[32]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2119,7 +2171,7 @@ func (x *ListWorkloadsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListWorkloadsRequest.ProtoReflect.Descriptor instead.
 func (*ListWorkloadsRequest) Descriptor() ([]byte, []int) {
-	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{32}
+	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *ListWorkloadsRequest) GetPageSize() int32 {
@@ -2174,7 +2226,7 @@ type ListWorkloadsResponse struct {
 
 func (x *ListWorkloadsResponse) Reset() {
 	*x = ListWorkloadsResponse{}
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[33]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2186,7 +2238,7 @@ func (x *ListWorkloadsResponse) String() string {
 func (*ListWorkloadsResponse) ProtoMessage() {}
 
 func (x *ListWorkloadsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[33]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2199,7 +2251,7 @@ func (x *ListWorkloadsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListWorkloadsResponse.ProtoReflect.Descriptor instead.
 func (*ListWorkloadsResponse) Descriptor() ([]byte, []int) {
-	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{33}
+	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *ListWorkloadsResponse) GetWorkloads() []*Workload {
@@ -2214,6 +2266,86 @@ func (x *ListWorkloadsResponse) GetNextPageToken() string {
 		return x.NextPageToken
 	}
 	return ""
+}
+
+type BatchUpdateWorkloadSampledAtRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Entries       []*SampledAtEntry      `protobuf:"bytes,1,rep,name=entries,proto3" json:"entries,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BatchUpdateWorkloadSampledAtRequest) Reset() {
+	*x = BatchUpdateWorkloadSampledAtRequest{}
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[35]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BatchUpdateWorkloadSampledAtRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BatchUpdateWorkloadSampledAtRequest) ProtoMessage() {}
+
+func (x *BatchUpdateWorkloadSampledAtRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[35]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BatchUpdateWorkloadSampledAtRequest.ProtoReflect.Descriptor instead.
+func (*BatchUpdateWorkloadSampledAtRequest) Descriptor() ([]byte, []int) {
+	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{35}
+}
+
+func (x *BatchUpdateWorkloadSampledAtRequest) GetEntries() []*SampledAtEntry {
+	if x != nil {
+		return x.Entries
+	}
+	return nil
+}
+
+type BatchUpdateWorkloadSampledAtResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BatchUpdateWorkloadSampledAtResponse) Reset() {
+	*x = BatchUpdateWorkloadSampledAtResponse{}
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[36]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BatchUpdateWorkloadSampledAtResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BatchUpdateWorkloadSampledAtResponse) ProtoMessage() {}
+
+func (x *BatchUpdateWorkloadSampledAtResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[36]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BatchUpdateWorkloadSampledAtResponse.ProtoReflect.Descriptor instead.
+func (*BatchUpdateWorkloadSampledAtResponse) Descriptor() ([]byte, []int) {
+	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{36}
 }
 
 type Volume struct {
@@ -2235,7 +2367,7 @@ type Volume struct {
 
 func (x *Volume) Reset() {
 	*x = Volume{}
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[34]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2247,7 +2379,7 @@ func (x *Volume) String() string {
 func (*Volume) ProtoMessage() {}
 
 func (x *Volume) ProtoReflect() protoreflect.Message {
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[34]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2260,7 +2392,7 @@ func (x *Volume) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Volume.ProtoReflect.Descriptor instead.
 func (*Volume) Descriptor() ([]byte, []int) {
-	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{34}
+	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *Volume) GetMeta() *EntityMeta {
@@ -2356,7 +2488,7 @@ type CreateVolumeRequest struct {
 
 func (x *CreateVolumeRequest) Reset() {
 	*x = CreateVolumeRequest{}
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[35]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2368,7 +2500,7 @@ func (x *CreateVolumeRequest) String() string {
 func (*CreateVolumeRequest) ProtoMessage() {}
 
 func (x *CreateVolumeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[35]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2381,7 +2513,7 @@ func (x *CreateVolumeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateVolumeRequest.ProtoReflect.Descriptor instead.
 func (*CreateVolumeRequest) Descriptor() ([]byte, []int) {
-	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{35}
+	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *CreateVolumeRequest) GetId() string {
@@ -2449,7 +2581,7 @@ type CreateVolumeResponse struct {
 
 func (x *CreateVolumeResponse) Reset() {
 	*x = CreateVolumeResponse{}
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[36]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2461,7 +2593,7 @@ func (x *CreateVolumeResponse) String() string {
 func (*CreateVolumeResponse) ProtoMessage() {}
 
 func (x *CreateVolumeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[36]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2474,7 +2606,7 @@ func (x *CreateVolumeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateVolumeResponse.ProtoReflect.Descriptor instead.
 func (*CreateVolumeResponse) Descriptor() ([]byte, []int) {
-	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{36}
+	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *CreateVolumeResponse) GetVolume() *Volume {
@@ -2497,7 +2629,7 @@ type UpdateVolumeRequest struct {
 
 func (x *UpdateVolumeRequest) Reset() {
 	*x = UpdateVolumeRequest{}
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[37]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2509,7 +2641,7 @@ func (x *UpdateVolumeRequest) String() string {
 func (*UpdateVolumeRequest) ProtoMessage() {}
 
 func (x *UpdateVolumeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[37]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2522,7 +2654,7 @@ func (x *UpdateVolumeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateVolumeRequest.ProtoReflect.Descriptor instead.
 func (*UpdateVolumeRequest) Descriptor() ([]byte, []int) {
-	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{37}
+	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *UpdateVolumeRequest) GetId() string {
@@ -2569,7 +2701,7 @@ type UpdateVolumeResponse struct {
 
 func (x *UpdateVolumeResponse) Reset() {
 	*x = UpdateVolumeResponse{}
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[38]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2581,7 +2713,7 @@ func (x *UpdateVolumeResponse) String() string {
 func (*UpdateVolumeResponse) ProtoMessage() {}
 
 func (x *UpdateVolumeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[38]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2594,7 +2726,7 @@ func (x *UpdateVolumeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateVolumeResponse.ProtoReflect.Descriptor instead.
 func (*UpdateVolumeResponse) Descriptor() ([]byte, []int) {
-	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{38}
+	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *UpdateVolumeResponse) GetVolume() *Volume {
@@ -2613,7 +2745,7 @@ type GetVolumeRequest struct {
 
 func (x *GetVolumeRequest) Reset() {
 	*x = GetVolumeRequest{}
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[39]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2625,7 +2757,7 @@ func (x *GetVolumeRequest) String() string {
 func (*GetVolumeRequest) ProtoMessage() {}
 
 func (x *GetVolumeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[39]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2638,7 +2770,7 @@ func (x *GetVolumeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetVolumeRequest.ProtoReflect.Descriptor instead.
 func (*GetVolumeRequest) Descriptor() ([]byte, []int) {
-	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{39}
+	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *GetVolumeRequest) GetId() string {
@@ -2657,7 +2789,7 @@ type GetVolumeResponse struct {
 
 func (x *GetVolumeResponse) Reset() {
 	*x = GetVolumeResponse{}
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[40]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2669,7 +2801,7 @@ func (x *GetVolumeResponse) String() string {
 func (*GetVolumeResponse) ProtoMessage() {}
 
 func (x *GetVolumeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[40]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2682,7 +2814,7 @@ func (x *GetVolumeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetVolumeResponse.ProtoReflect.Descriptor instead.
 func (*GetVolumeResponse) Descriptor() ([]byte, []int) {
-	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{40}
+	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *GetVolumeResponse) GetVolume() *Volume {
@@ -2706,7 +2838,7 @@ type ListVolumesRequest struct {
 
 func (x *ListVolumesRequest) Reset() {
 	*x = ListVolumesRequest{}
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[41]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2718,7 +2850,7 @@ func (x *ListVolumesRequest) String() string {
 func (*ListVolumesRequest) ProtoMessage() {}
 
 func (x *ListVolumesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[41]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2731,7 +2863,7 @@ func (x *ListVolumesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListVolumesRequest.ProtoReflect.Descriptor instead.
 func (*ListVolumesRequest) Descriptor() ([]byte, []int) {
-	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{41}
+	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *ListVolumesRequest) GetPageSize() int32 {
@@ -2786,7 +2918,7 @@ type ListVolumesResponse struct {
 
 func (x *ListVolumesResponse) Reset() {
 	*x = ListVolumesResponse{}
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[42]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2798,7 +2930,7 @@ func (x *ListVolumesResponse) String() string {
 func (*ListVolumesResponse) ProtoMessage() {}
 
 func (x *ListVolumesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[42]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2811,7 +2943,7 @@ func (x *ListVolumesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListVolumesResponse.ProtoReflect.Descriptor instead.
 func (*ListVolumesResponse) Descriptor() ([]byte, []int) {
-	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{42}
+	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *ListVolumesResponse) GetVolumes() []*Volume {
@@ -2839,7 +2971,7 @@ type ListVolumesByThreadRequest struct {
 
 func (x *ListVolumesByThreadRequest) Reset() {
 	*x = ListVolumesByThreadRequest{}
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[43]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2851,7 +2983,7 @@ func (x *ListVolumesByThreadRequest) String() string {
 func (*ListVolumesByThreadRequest) ProtoMessage() {}
 
 func (x *ListVolumesByThreadRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[43]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2864,7 +2996,7 @@ func (x *ListVolumesByThreadRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListVolumesByThreadRequest.ProtoReflect.Descriptor instead.
 func (*ListVolumesByThreadRequest) Descriptor() ([]byte, []int) {
-	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{43}
+	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *ListVolumesByThreadRequest) GetThreadId() string {
@@ -2898,7 +3030,7 @@ type ListVolumesByThreadResponse struct {
 
 func (x *ListVolumesByThreadResponse) Reset() {
 	*x = ListVolumesByThreadResponse{}
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[44]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2910,7 +3042,7 @@ func (x *ListVolumesByThreadResponse) String() string {
 func (*ListVolumesByThreadResponse) ProtoMessage() {}
 
 func (x *ListVolumesByThreadResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[44]
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2923,7 +3055,7 @@ func (x *ListVolumesByThreadResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListVolumesByThreadResponse.ProtoReflect.Descriptor instead.
 func (*ListVolumesByThreadResponse) Descriptor() ([]byte, []int) {
-	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{44}
+	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *ListVolumesByThreadResponse) GetVolumes() []*Volume {
@@ -2940,6 +3072,86 @@ func (x *ListVolumesByThreadResponse) GetNextPageToken() string {
 	return ""
 }
 
+type BatchUpdateVolumeSampledAtRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Entries       []*SampledAtEntry      `protobuf:"bytes,1,rep,name=entries,proto3" json:"entries,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BatchUpdateVolumeSampledAtRequest) Reset() {
+	*x = BatchUpdateVolumeSampledAtRequest{}
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[48]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BatchUpdateVolumeSampledAtRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BatchUpdateVolumeSampledAtRequest) ProtoMessage() {}
+
+func (x *BatchUpdateVolumeSampledAtRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[48]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BatchUpdateVolumeSampledAtRequest.ProtoReflect.Descriptor instead.
+func (*BatchUpdateVolumeSampledAtRequest) Descriptor() ([]byte, []int) {
+	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{48}
+}
+
+func (x *BatchUpdateVolumeSampledAtRequest) GetEntries() []*SampledAtEntry {
+	if x != nil {
+		return x.Entries
+	}
+	return nil
+}
+
+type BatchUpdateVolumeSampledAtResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BatchUpdateVolumeSampledAtResponse) Reset() {
+	*x = BatchUpdateVolumeSampledAtResponse{}
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[49]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BatchUpdateVolumeSampledAtResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BatchUpdateVolumeSampledAtResponse) ProtoMessage() {}
+
+func (x *BatchUpdateVolumeSampledAtResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_agynio_api_runners_v1_runners_proto_msgTypes[49]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BatchUpdateVolumeSampledAtResponse.ProtoReflect.Descriptor instead.
+func (*BatchUpdateVolumeSampledAtResponse) Descriptor() ([]byte, []int) {
+	return file_agynio_api_runners_v1_runners_proto_rawDescGZIP(), []int{49}
+}
+
 var File_agynio_api_runners_v1_runners_proto protoreflect.FileDescriptor
 
 const file_agynio_api_runners_v1_runners_proto_rawDesc = "" +
@@ -2951,7 +3163,11 @@ const file_agynio_api_runners_v1_runners_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\xa5\x03\n" +
+	"updated_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"[\n" +
+	"\x0eSampledAtEntry\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x129\n" +
+	"\n" +
+	"sampled_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\tsampledAt\"\xa5\x03\n" +
 	"\x06Runner\x125\n" +
 	"\x04meta\x18\x01 \x01(\v2!.agynio.api.runners.v1.EntityMetaR\x04meta\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12,\n" +
@@ -3111,7 +3327,10 @@ const file_agynio_api_runners_v1_runners_proto_rawDesc = "" +
 	"\x0f_pending_sample\"~\n" +
 	"\x15ListWorkloadsResponse\x12=\n" +
 	"\tworkloads\x18\x01 \x03(\v2\x1f.agynio.api.runners.v1.WorkloadR\tworkloads\x12&\n" +
-	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\"\xac\x04\n" +
+	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\"f\n" +
+	"#BatchUpdateWorkloadSampledAtRequest\x12?\n" +
+	"\aentries\x18\x01 \x03(\v2%.agynio.api.runners.v1.SampledAtEntryR\aentries\"&\n" +
+	"$BatchUpdateWorkloadSampledAtResponse\"\xac\x04\n" +
 	"\x06Volume\x125\n" +
 	"\x04meta\x18\x01 \x01(\v2!.agynio.api.runners.v1.EntityMetaR\x04meta\x12$\n" +
 	"\vinstance_id\x18\x02 \x01(\tH\x00R\n" +
@@ -3181,7 +3400,10 @@ const file_agynio_api_runners_v1_runners_proto_rawDesc = "" +
 	"page_token\x18\x03 \x01(\tR\tpageToken\"~\n" +
 	"\x1bListVolumesByThreadResponse\x127\n" +
 	"\avolumes\x18\x01 \x03(\v2\x1d.agynio.api.runners.v1.VolumeR\avolumes\x12&\n" +
-	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken*\x7f\n" +
+	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\"d\n" +
+	"!BatchUpdateVolumeSampledAtRequest\x12?\n" +
+	"\aentries\x18\x01 \x03(\v2%.agynio.api.runners.v1.SampledAtEntryR\aentries\"$\n" +
+	"\"BatchUpdateVolumeSampledAtResponse*\x7f\n" +
 	"\fRunnerStatus\x12\x1d\n" +
 	"\x19RUNNER_STATUS_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15RUNNER_STATUS_PENDING\x10\x01\x12\x1a\n" +
@@ -3210,7 +3432,7 @@ const file_agynio_api_runners_v1_runners_proto_rawDesc = "" +
 	"\x14VOLUME_STATUS_ACTIVE\x10\x02\x12 \n" +
 	"\x1cVOLUME_STATUS_DEPROVISIONING\x10\x03\x12\x19\n" +
 	"\x15VOLUME_STATUS_DELETED\x10\x04\x12\x18\n" +
-	"\x14VOLUME_STATUS_FAILED\x10\x052\xa8\x11\n" +
+	"\x14VOLUME_STATUS_FAILED\x10\x052\xd6\x13\n" +
 	"\x0eRunnersService\x12m\n" +
 	"\x0eRegisterRunner\x12,.agynio.api.runners.v1.RegisterRunnerRequest\x1a-.agynio.api.runners.v1.RegisterRunnerResponse\x12^\n" +
 	"\tGetRunner\x12'.agynio.api.runners.v1.GetRunnerRequest\x1a(.agynio.api.runners.v1.GetRunnerResponse\x12d\n" +
@@ -3226,12 +3448,14 @@ const file_agynio_api_runners_v1_runners_proto_rawDesc = "" +
 	"\x0eDeleteWorkload\x12,.agynio.api.runners.v1.DeleteWorkloadRequest\x1a-.agynio.api.runners.v1.DeleteWorkloadResponse\x12d\n" +
 	"\vGetWorkload\x12).agynio.api.runners.v1.GetWorkloadRequest\x1a*.agynio.api.runners.v1.GetWorkloadResponse\x12\x82\x01\n" +
 	"\x15ListWorkloadsByThread\x123.agynio.api.runners.v1.ListWorkloadsByThreadRequest\x1a4.agynio.api.runners.v1.ListWorkloadsByThreadResponse\x12j\n" +
-	"\rListWorkloads\x12+.agynio.api.runners.v1.ListWorkloadsRequest\x1a,.agynio.api.runners.v1.ListWorkloadsResponse\x12g\n" +
+	"\rListWorkloads\x12+.agynio.api.runners.v1.ListWorkloadsRequest\x1a,.agynio.api.runners.v1.ListWorkloadsResponse\x12\x97\x01\n" +
+	"\x1cBatchUpdateWorkloadSampledAt\x12:.agynio.api.runners.v1.BatchUpdateWorkloadSampledAtRequest\x1a;.agynio.api.runners.v1.BatchUpdateWorkloadSampledAtResponse\x12g\n" +
 	"\fCreateVolume\x12*.agynio.api.runners.v1.CreateVolumeRequest\x1a+.agynio.api.runners.v1.CreateVolumeResponse\x12g\n" +
 	"\fUpdateVolume\x12*.agynio.api.runners.v1.UpdateVolumeRequest\x1a+.agynio.api.runners.v1.UpdateVolumeResponse\x12^\n" +
 	"\tGetVolume\x12'.agynio.api.runners.v1.GetVolumeRequest\x1a(.agynio.api.runners.v1.GetVolumeResponse\x12d\n" +
 	"\vListVolumes\x12).agynio.api.runners.v1.ListVolumesRequest\x1a*.agynio.api.runners.v1.ListVolumesResponse\x12|\n" +
-	"\x13ListVolumesByThread\x121.agynio.api.runners.v1.ListVolumesByThreadRequest\x1a2.agynio.api.runners.v1.ListVolumesByThreadResponseB\xe3\x01\n" +
+	"\x13ListVolumesByThread\x121.agynio.api.runners.v1.ListVolumesByThreadRequest\x1a2.agynio.api.runners.v1.ListVolumesByThreadResponse\x12\x91\x01\n" +
+	"\x1aBatchUpdateVolumeSampledAt\x128.agynio.api.runners.v1.BatchUpdateVolumeSampledAtRequest\x1a9.agynio.api.runners.v1.BatchUpdateVolumeSampledAtResponseB\xe3\x01\n" +
 	"\x19com.agynio.api.runners.v1B\fRunnersProtoP\x01ZAgithub.com/agynio/runners/.gen/go/agynio/api/runners/v1;runnersv1\xa2\x02\x03AAR\xaa\x02\x15Agynio.Api.Runners.V1\xca\x02\x15Agynio\\Api\\Runners\\V1\xe2\x02!Agynio\\Api\\Runners\\V1\\GPBMetadata\xea\x02\x18Agynio::Api::Runners::V1b\x06proto3"
 
 var (
@@ -3247,158 +3471,170 @@ func file_agynio_api_runners_v1_runners_proto_rawDescGZIP() []byte {
 }
 
 var file_agynio_api_runners_v1_runners_proto_enumTypes = make([]protoimpl.EnumInfo, 5)
-var file_agynio_api_runners_v1_runners_proto_msgTypes = make([]protoimpl.MessageInfo, 48)
+var file_agynio_api_runners_v1_runners_proto_msgTypes = make([]protoimpl.MessageInfo, 53)
 var file_agynio_api_runners_v1_runners_proto_goTypes = []any{
-	(RunnerStatus)(0),                     // 0: agynio.api.runners.v1.RunnerStatus
-	(WorkloadStatus)(0),                   // 1: agynio.api.runners.v1.WorkloadStatus
-	(ContainerRole)(0),                    // 2: agynio.api.runners.v1.ContainerRole
-	(ContainerStatus)(0),                  // 3: agynio.api.runners.v1.ContainerStatus
-	(VolumeStatus)(0),                     // 4: agynio.api.runners.v1.VolumeStatus
-	(*EntityMeta)(nil),                    // 5: agynio.api.runners.v1.EntityMeta
-	(*Runner)(nil),                        // 6: agynio.api.runners.v1.Runner
-	(*RegisterRunnerRequest)(nil),         // 7: agynio.api.runners.v1.RegisterRunnerRequest
-	(*RegisterRunnerResponse)(nil),        // 8: agynio.api.runners.v1.RegisterRunnerResponse
-	(*GetRunnerRequest)(nil),              // 9: agynio.api.runners.v1.GetRunnerRequest
-	(*GetRunnerResponse)(nil),             // 10: agynio.api.runners.v1.GetRunnerResponse
-	(*ListRunnersRequest)(nil),            // 11: agynio.api.runners.v1.ListRunnersRequest
-	(*ListRunnersResponse)(nil),           // 12: agynio.api.runners.v1.ListRunnersResponse
-	(*UpdateRunnerRequest)(nil),           // 13: agynio.api.runners.v1.UpdateRunnerRequest
-	(*UpdateRunnerResponse)(nil),          // 14: agynio.api.runners.v1.UpdateRunnerResponse
-	(*DeleteRunnerRequest)(nil),           // 15: agynio.api.runners.v1.DeleteRunnerRequest
-	(*DeleteRunnerResponse)(nil),          // 16: agynio.api.runners.v1.DeleteRunnerResponse
-	(*ValidateServiceTokenRequest)(nil),   // 17: agynio.api.runners.v1.ValidateServiceTokenRequest
-	(*ValidateServiceTokenResponse)(nil),  // 18: agynio.api.runners.v1.ValidateServiceTokenResponse
-	(*EnrollRunnerRequest)(nil),           // 19: agynio.api.runners.v1.EnrollRunnerRequest
-	(*EnrollRunnerResponse)(nil),          // 20: agynio.api.runners.v1.EnrollRunnerResponse
-	(*Container)(nil),                     // 21: agynio.api.runners.v1.Container
-	(*Workload)(nil),                      // 22: agynio.api.runners.v1.Workload
-	(*CreateWorkloadRequest)(nil),         // 23: agynio.api.runners.v1.CreateWorkloadRequest
-	(*CreateWorkloadResponse)(nil),        // 24: agynio.api.runners.v1.CreateWorkloadResponse
-	(*UpdateWorkloadRequest)(nil),         // 25: agynio.api.runners.v1.UpdateWorkloadRequest
-	(*UpdateWorkloadResponse)(nil),        // 26: agynio.api.runners.v1.UpdateWorkloadResponse
-	(*UpdateWorkloadStatusRequest)(nil),   // 27: agynio.api.runners.v1.UpdateWorkloadStatusRequest
-	(*UpdateWorkloadStatusResponse)(nil),  // 28: agynio.api.runners.v1.UpdateWorkloadStatusResponse
-	(*TouchWorkloadRequest)(nil),          // 29: agynio.api.runners.v1.TouchWorkloadRequest
-	(*TouchWorkloadResponse)(nil),         // 30: agynio.api.runners.v1.TouchWorkloadResponse
-	(*DeleteWorkloadRequest)(nil),         // 31: agynio.api.runners.v1.DeleteWorkloadRequest
-	(*DeleteWorkloadResponse)(nil),        // 32: agynio.api.runners.v1.DeleteWorkloadResponse
-	(*GetWorkloadRequest)(nil),            // 33: agynio.api.runners.v1.GetWorkloadRequest
-	(*GetWorkloadResponse)(nil),           // 34: agynio.api.runners.v1.GetWorkloadResponse
-	(*ListWorkloadsByThreadRequest)(nil),  // 35: agynio.api.runners.v1.ListWorkloadsByThreadRequest
-	(*ListWorkloadsByThreadResponse)(nil), // 36: agynio.api.runners.v1.ListWorkloadsByThreadResponse
-	(*ListWorkloadsRequest)(nil),          // 37: agynio.api.runners.v1.ListWorkloadsRequest
-	(*ListWorkloadsResponse)(nil),         // 38: agynio.api.runners.v1.ListWorkloadsResponse
-	(*Volume)(nil),                        // 39: agynio.api.runners.v1.Volume
-	(*CreateVolumeRequest)(nil),           // 40: agynio.api.runners.v1.CreateVolumeRequest
-	(*CreateVolumeResponse)(nil),          // 41: agynio.api.runners.v1.CreateVolumeResponse
-	(*UpdateVolumeRequest)(nil),           // 42: agynio.api.runners.v1.UpdateVolumeRequest
-	(*UpdateVolumeResponse)(nil),          // 43: agynio.api.runners.v1.UpdateVolumeResponse
-	(*GetVolumeRequest)(nil),              // 44: agynio.api.runners.v1.GetVolumeRequest
-	(*GetVolumeResponse)(nil),             // 45: agynio.api.runners.v1.GetVolumeResponse
-	(*ListVolumesRequest)(nil),            // 46: agynio.api.runners.v1.ListVolumesRequest
-	(*ListVolumesResponse)(nil),           // 47: agynio.api.runners.v1.ListVolumesResponse
-	(*ListVolumesByThreadRequest)(nil),    // 48: agynio.api.runners.v1.ListVolumesByThreadRequest
-	(*ListVolumesByThreadResponse)(nil),   // 49: agynio.api.runners.v1.ListVolumesByThreadResponse
-	nil,                                   // 50: agynio.api.runners.v1.Runner.LabelsEntry
-	nil,                                   // 51: agynio.api.runners.v1.RegisterRunnerRequest.LabelsEntry
-	nil,                                   // 52: agynio.api.runners.v1.UpdateRunnerRequest.LabelsEntry
-	(*timestamppb.Timestamp)(nil),         // 53: google.protobuf.Timestamp
+	(RunnerStatus)(0),                            // 0: agynio.api.runners.v1.RunnerStatus
+	(WorkloadStatus)(0),                          // 1: agynio.api.runners.v1.WorkloadStatus
+	(ContainerRole)(0),                           // 2: agynio.api.runners.v1.ContainerRole
+	(ContainerStatus)(0),                         // 3: agynio.api.runners.v1.ContainerStatus
+	(VolumeStatus)(0),                            // 4: agynio.api.runners.v1.VolumeStatus
+	(*EntityMeta)(nil),                           // 5: agynio.api.runners.v1.EntityMeta
+	(*SampledAtEntry)(nil),                       // 6: agynio.api.runners.v1.SampledAtEntry
+	(*Runner)(nil),                               // 7: agynio.api.runners.v1.Runner
+	(*RegisterRunnerRequest)(nil),                // 8: agynio.api.runners.v1.RegisterRunnerRequest
+	(*RegisterRunnerResponse)(nil),               // 9: agynio.api.runners.v1.RegisterRunnerResponse
+	(*GetRunnerRequest)(nil),                     // 10: agynio.api.runners.v1.GetRunnerRequest
+	(*GetRunnerResponse)(nil),                    // 11: agynio.api.runners.v1.GetRunnerResponse
+	(*ListRunnersRequest)(nil),                   // 12: agynio.api.runners.v1.ListRunnersRequest
+	(*ListRunnersResponse)(nil),                  // 13: agynio.api.runners.v1.ListRunnersResponse
+	(*UpdateRunnerRequest)(nil),                  // 14: agynio.api.runners.v1.UpdateRunnerRequest
+	(*UpdateRunnerResponse)(nil),                 // 15: agynio.api.runners.v1.UpdateRunnerResponse
+	(*DeleteRunnerRequest)(nil),                  // 16: agynio.api.runners.v1.DeleteRunnerRequest
+	(*DeleteRunnerResponse)(nil),                 // 17: agynio.api.runners.v1.DeleteRunnerResponse
+	(*ValidateServiceTokenRequest)(nil),          // 18: agynio.api.runners.v1.ValidateServiceTokenRequest
+	(*ValidateServiceTokenResponse)(nil),         // 19: agynio.api.runners.v1.ValidateServiceTokenResponse
+	(*EnrollRunnerRequest)(nil),                  // 20: agynio.api.runners.v1.EnrollRunnerRequest
+	(*EnrollRunnerResponse)(nil),                 // 21: agynio.api.runners.v1.EnrollRunnerResponse
+	(*Container)(nil),                            // 22: agynio.api.runners.v1.Container
+	(*Workload)(nil),                             // 23: agynio.api.runners.v1.Workload
+	(*CreateWorkloadRequest)(nil),                // 24: agynio.api.runners.v1.CreateWorkloadRequest
+	(*CreateWorkloadResponse)(nil),               // 25: agynio.api.runners.v1.CreateWorkloadResponse
+	(*UpdateWorkloadRequest)(nil),                // 26: agynio.api.runners.v1.UpdateWorkloadRequest
+	(*UpdateWorkloadResponse)(nil),               // 27: agynio.api.runners.v1.UpdateWorkloadResponse
+	(*UpdateWorkloadStatusRequest)(nil),          // 28: agynio.api.runners.v1.UpdateWorkloadStatusRequest
+	(*UpdateWorkloadStatusResponse)(nil),         // 29: agynio.api.runners.v1.UpdateWorkloadStatusResponse
+	(*TouchWorkloadRequest)(nil),                 // 30: agynio.api.runners.v1.TouchWorkloadRequest
+	(*TouchWorkloadResponse)(nil),                // 31: agynio.api.runners.v1.TouchWorkloadResponse
+	(*DeleteWorkloadRequest)(nil),                // 32: agynio.api.runners.v1.DeleteWorkloadRequest
+	(*DeleteWorkloadResponse)(nil),               // 33: agynio.api.runners.v1.DeleteWorkloadResponse
+	(*GetWorkloadRequest)(nil),                   // 34: agynio.api.runners.v1.GetWorkloadRequest
+	(*GetWorkloadResponse)(nil),                  // 35: agynio.api.runners.v1.GetWorkloadResponse
+	(*ListWorkloadsByThreadRequest)(nil),         // 36: agynio.api.runners.v1.ListWorkloadsByThreadRequest
+	(*ListWorkloadsByThreadResponse)(nil),        // 37: agynio.api.runners.v1.ListWorkloadsByThreadResponse
+	(*ListWorkloadsRequest)(nil),                 // 38: agynio.api.runners.v1.ListWorkloadsRequest
+	(*ListWorkloadsResponse)(nil),                // 39: agynio.api.runners.v1.ListWorkloadsResponse
+	(*BatchUpdateWorkloadSampledAtRequest)(nil),  // 40: agynio.api.runners.v1.BatchUpdateWorkloadSampledAtRequest
+	(*BatchUpdateWorkloadSampledAtResponse)(nil), // 41: agynio.api.runners.v1.BatchUpdateWorkloadSampledAtResponse
+	(*Volume)(nil),                               // 42: agynio.api.runners.v1.Volume
+	(*CreateVolumeRequest)(nil),                  // 43: agynio.api.runners.v1.CreateVolumeRequest
+	(*CreateVolumeResponse)(nil),                 // 44: agynio.api.runners.v1.CreateVolumeResponse
+	(*UpdateVolumeRequest)(nil),                  // 45: agynio.api.runners.v1.UpdateVolumeRequest
+	(*UpdateVolumeResponse)(nil),                 // 46: agynio.api.runners.v1.UpdateVolumeResponse
+	(*GetVolumeRequest)(nil),                     // 47: agynio.api.runners.v1.GetVolumeRequest
+	(*GetVolumeResponse)(nil),                    // 48: agynio.api.runners.v1.GetVolumeResponse
+	(*ListVolumesRequest)(nil),                   // 49: agynio.api.runners.v1.ListVolumesRequest
+	(*ListVolumesResponse)(nil),                  // 50: agynio.api.runners.v1.ListVolumesResponse
+	(*ListVolumesByThreadRequest)(nil),           // 51: agynio.api.runners.v1.ListVolumesByThreadRequest
+	(*ListVolumesByThreadResponse)(nil),          // 52: agynio.api.runners.v1.ListVolumesByThreadResponse
+	(*BatchUpdateVolumeSampledAtRequest)(nil),    // 53: agynio.api.runners.v1.BatchUpdateVolumeSampledAtRequest
+	(*BatchUpdateVolumeSampledAtResponse)(nil),   // 54: agynio.api.runners.v1.BatchUpdateVolumeSampledAtResponse
+	nil,                           // 55: agynio.api.runners.v1.Runner.LabelsEntry
+	nil,                           // 56: agynio.api.runners.v1.RegisterRunnerRequest.LabelsEntry
+	nil,                           // 57: agynio.api.runners.v1.UpdateRunnerRequest.LabelsEntry
+	(*timestamppb.Timestamp)(nil), // 58: google.protobuf.Timestamp
 }
 var file_agynio_api_runners_v1_runners_proto_depIdxs = []int32{
-	53, // 0: agynio.api.runners.v1.EntityMeta.created_at:type_name -> google.protobuf.Timestamp
-	53, // 1: agynio.api.runners.v1.EntityMeta.updated_at:type_name -> google.protobuf.Timestamp
-	5,  // 2: agynio.api.runners.v1.Runner.meta:type_name -> agynio.api.runners.v1.EntityMeta
-	0,  // 3: agynio.api.runners.v1.Runner.status:type_name -> agynio.api.runners.v1.RunnerStatus
-	50, // 4: agynio.api.runners.v1.Runner.labels:type_name -> agynio.api.runners.v1.Runner.LabelsEntry
-	51, // 5: agynio.api.runners.v1.RegisterRunnerRequest.labels:type_name -> agynio.api.runners.v1.RegisterRunnerRequest.LabelsEntry
-	6,  // 6: agynio.api.runners.v1.RegisterRunnerResponse.runner:type_name -> agynio.api.runners.v1.Runner
-	6,  // 7: agynio.api.runners.v1.GetRunnerResponse.runner:type_name -> agynio.api.runners.v1.Runner
-	6,  // 8: agynio.api.runners.v1.ListRunnersResponse.runners:type_name -> agynio.api.runners.v1.Runner
-	52, // 9: agynio.api.runners.v1.UpdateRunnerRequest.labels:type_name -> agynio.api.runners.v1.UpdateRunnerRequest.LabelsEntry
-	6,  // 10: agynio.api.runners.v1.UpdateRunnerResponse.runner:type_name -> agynio.api.runners.v1.Runner
-	6,  // 11: agynio.api.runners.v1.ValidateServiceTokenResponse.runner:type_name -> agynio.api.runners.v1.Runner
-	2,  // 12: agynio.api.runners.v1.Container.role:type_name -> agynio.api.runners.v1.ContainerRole
-	3,  // 13: agynio.api.runners.v1.Container.status:type_name -> agynio.api.runners.v1.ContainerStatus
-	5,  // 14: agynio.api.runners.v1.Workload.meta:type_name -> agynio.api.runners.v1.EntityMeta
-	1,  // 15: agynio.api.runners.v1.Workload.status:type_name -> agynio.api.runners.v1.WorkloadStatus
-	21, // 16: agynio.api.runners.v1.Workload.containers:type_name -> agynio.api.runners.v1.Container
-	53, // 17: agynio.api.runners.v1.Workload.last_activity_at:type_name -> google.protobuf.Timestamp
-	53, // 18: agynio.api.runners.v1.Workload.last_metering_sampled_at:type_name -> google.protobuf.Timestamp
-	53, // 19: agynio.api.runners.v1.Workload.removed_at:type_name -> google.protobuf.Timestamp
-	1,  // 20: agynio.api.runners.v1.CreateWorkloadRequest.status:type_name -> agynio.api.runners.v1.WorkloadStatus
-	21, // 21: agynio.api.runners.v1.CreateWorkloadRequest.containers:type_name -> agynio.api.runners.v1.Container
-	22, // 22: agynio.api.runners.v1.CreateWorkloadResponse.workload:type_name -> agynio.api.runners.v1.Workload
-	1,  // 23: agynio.api.runners.v1.UpdateWorkloadRequest.status:type_name -> agynio.api.runners.v1.WorkloadStatus
-	21, // 24: agynio.api.runners.v1.UpdateWorkloadRequest.containers:type_name -> agynio.api.runners.v1.Container
-	53, // 25: agynio.api.runners.v1.UpdateWorkloadRequest.removed_at:type_name -> google.protobuf.Timestamp
-	53, // 26: agynio.api.runners.v1.UpdateWorkloadRequest.last_metering_sampled_at:type_name -> google.protobuf.Timestamp
-	22, // 27: agynio.api.runners.v1.UpdateWorkloadResponse.workload:type_name -> agynio.api.runners.v1.Workload
-	1,  // 28: agynio.api.runners.v1.UpdateWorkloadStatusRequest.status:type_name -> agynio.api.runners.v1.WorkloadStatus
-	21, // 29: agynio.api.runners.v1.UpdateWorkloadStatusRequest.containers:type_name -> agynio.api.runners.v1.Container
-	22, // 30: agynio.api.runners.v1.UpdateWorkloadStatusResponse.workload:type_name -> agynio.api.runners.v1.Workload
-	22, // 31: agynio.api.runners.v1.GetWorkloadResponse.workload:type_name -> agynio.api.runners.v1.Workload
-	22, // 32: agynio.api.runners.v1.ListWorkloadsByThreadResponse.workloads:type_name -> agynio.api.runners.v1.Workload
-	1,  // 33: agynio.api.runners.v1.ListWorkloadsRequest.statuses:type_name -> agynio.api.runners.v1.WorkloadStatus
-	22, // 34: agynio.api.runners.v1.ListWorkloadsResponse.workloads:type_name -> agynio.api.runners.v1.Workload
-	5,  // 35: agynio.api.runners.v1.Volume.meta:type_name -> agynio.api.runners.v1.EntityMeta
-	4,  // 36: agynio.api.runners.v1.Volume.status:type_name -> agynio.api.runners.v1.VolumeStatus
-	53, // 37: agynio.api.runners.v1.Volume.removed_at:type_name -> google.protobuf.Timestamp
-	53, // 38: agynio.api.runners.v1.Volume.last_metering_sampled_at:type_name -> google.protobuf.Timestamp
-	4,  // 39: agynio.api.runners.v1.CreateVolumeRequest.status:type_name -> agynio.api.runners.v1.VolumeStatus
-	39, // 40: agynio.api.runners.v1.CreateVolumeResponse.volume:type_name -> agynio.api.runners.v1.Volume
-	4,  // 41: agynio.api.runners.v1.UpdateVolumeRequest.status:type_name -> agynio.api.runners.v1.VolumeStatus
-	53, // 42: agynio.api.runners.v1.UpdateVolumeRequest.removed_at:type_name -> google.protobuf.Timestamp
-	53, // 43: agynio.api.runners.v1.UpdateVolumeRequest.last_metering_sampled_at:type_name -> google.protobuf.Timestamp
-	39, // 44: agynio.api.runners.v1.UpdateVolumeResponse.volume:type_name -> agynio.api.runners.v1.Volume
-	39, // 45: agynio.api.runners.v1.GetVolumeResponse.volume:type_name -> agynio.api.runners.v1.Volume
-	4,  // 46: agynio.api.runners.v1.ListVolumesRequest.statuses:type_name -> agynio.api.runners.v1.VolumeStatus
-	39, // 47: agynio.api.runners.v1.ListVolumesResponse.volumes:type_name -> agynio.api.runners.v1.Volume
-	39, // 48: agynio.api.runners.v1.ListVolumesByThreadResponse.volumes:type_name -> agynio.api.runners.v1.Volume
-	7,  // 49: agynio.api.runners.v1.RunnersService.RegisterRunner:input_type -> agynio.api.runners.v1.RegisterRunnerRequest
-	9,  // 50: agynio.api.runners.v1.RunnersService.GetRunner:input_type -> agynio.api.runners.v1.GetRunnerRequest
-	11, // 51: agynio.api.runners.v1.RunnersService.ListRunners:input_type -> agynio.api.runners.v1.ListRunnersRequest
-	13, // 52: agynio.api.runners.v1.RunnersService.UpdateRunner:input_type -> agynio.api.runners.v1.UpdateRunnerRequest
-	15, // 53: agynio.api.runners.v1.RunnersService.DeleteRunner:input_type -> agynio.api.runners.v1.DeleteRunnerRequest
-	17, // 54: agynio.api.runners.v1.RunnersService.ValidateServiceToken:input_type -> agynio.api.runners.v1.ValidateServiceTokenRequest
-	19, // 55: agynio.api.runners.v1.RunnersService.EnrollRunner:input_type -> agynio.api.runners.v1.EnrollRunnerRequest
-	23, // 56: agynio.api.runners.v1.RunnersService.CreateWorkload:input_type -> agynio.api.runners.v1.CreateWorkloadRequest
-	25, // 57: agynio.api.runners.v1.RunnersService.UpdateWorkload:input_type -> agynio.api.runners.v1.UpdateWorkloadRequest
-	27, // 58: agynio.api.runners.v1.RunnersService.UpdateWorkloadStatus:input_type -> agynio.api.runners.v1.UpdateWorkloadStatusRequest
-	29, // 59: agynio.api.runners.v1.RunnersService.TouchWorkload:input_type -> agynio.api.runners.v1.TouchWorkloadRequest
-	31, // 60: agynio.api.runners.v1.RunnersService.DeleteWorkload:input_type -> agynio.api.runners.v1.DeleteWorkloadRequest
-	33, // 61: agynio.api.runners.v1.RunnersService.GetWorkload:input_type -> agynio.api.runners.v1.GetWorkloadRequest
-	35, // 62: agynio.api.runners.v1.RunnersService.ListWorkloadsByThread:input_type -> agynio.api.runners.v1.ListWorkloadsByThreadRequest
-	37, // 63: agynio.api.runners.v1.RunnersService.ListWorkloads:input_type -> agynio.api.runners.v1.ListWorkloadsRequest
-	40, // 64: agynio.api.runners.v1.RunnersService.CreateVolume:input_type -> agynio.api.runners.v1.CreateVolumeRequest
-	42, // 65: agynio.api.runners.v1.RunnersService.UpdateVolume:input_type -> agynio.api.runners.v1.UpdateVolumeRequest
-	44, // 66: agynio.api.runners.v1.RunnersService.GetVolume:input_type -> agynio.api.runners.v1.GetVolumeRequest
-	46, // 67: agynio.api.runners.v1.RunnersService.ListVolumes:input_type -> agynio.api.runners.v1.ListVolumesRequest
-	48, // 68: agynio.api.runners.v1.RunnersService.ListVolumesByThread:input_type -> agynio.api.runners.v1.ListVolumesByThreadRequest
-	8,  // 69: agynio.api.runners.v1.RunnersService.RegisterRunner:output_type -> agynio.api.runners.v1.RegisterRunnerResponse
-	10, // 70: agynio.api.runners.v1.RunnersService.GetRunner:output_type -> agynio.api.runners.v1.GetRunnerResponse
-	12, // 71: agynio.api.runners.v1.RunnersService.ListRunners:output_type -> agynio.api.runners.v1.ListRunnersResponse
-	14, // 72: agynio.api.runners.v1.RunnersService.UpdateRunner:output_type -> agynio.api.runners.v1.UpdateRunnerResponse
-	16, // 73: agynio.api.runners.v1.RunnersService.DeleteRunner:output_type -> agynio.api.runners.v1.DeleteRunnerResponse
-	18, // 74: agynio.api.runners.v1.RunnersService.ValidateServiceToken:output_type -> agynio.api.runners.v1.ValidateServiceTokenResponse
-	20, // 75: agynio.api.runners.v1.RunnersService.EnrollRunner:output_type -> agynio.api.runners.v1.EnrollRunnerResponse
-	24, // 76: agynio.api.runners.v1.RunnersService.CreateWorkload:output_type -> agynio.api.runners.v1.CreateWorkloadResponse
-	26, // 77: agynio.api.runners.v1.RunnersService.UpdateWorkload:output_type -> agynio.api.runners.v1.UpdateWorkloadResponse
-	28, // 78: agynio.api.runners.v1.RunnersService.UpdateWorkloadStatus:output_type -> agynio.api.runners.v1.UpdateWorkloadStatusResponse
-	30, // 79: agynio.api.runners.v1.RunnersService.TouchWorkload:output_type -> agynio.api.runners.v1.TouchWorkloadResponse
-	32, // 80: agynio.api.runners.v1.RunnersService.DeleteWorkload:output_type -> agynio.api.runners.v1.DeleteWorkloadResponse
-	34, // 81: agynio.api.runners.v1.RunnersService.GetWorkload:output_type -> agynio.api.runners.v1.GetWorkloadResponse
-	36, // 82: agynio.api.runners.v1.RunnersService.ListWorkloadsByThread:output_type -> agynio.api.runners.v1.ListWorkloadsByThreadResponse
-	38, // 83: agynio.api.runners.v1.RunnersService.ListWorkloads:output_type -> agynio.api.runners.v1.ListWorkloadsResponse
-	41, // 84: agynio.api.runners.v1.RunnersService.CreateVolume:output_type -> agynio.api.runners.v1.CreateVolumeResponse
-	43, // 85: agynio.api.runners.v1.RunnersService.UpdateVolume:output_type -> agynio.api.runners.v1.UpdateVolumeResponse
-	45, // 86: agynio.api.runners.v1.RunnersService.GetVolume:output_type -> agynio.api.runners.v1.GetVolumeResponse
-	47, // 87: agynio.api.runners.v1.RunnersService.ListVolumes:output_type -> agynio.api.runners.v1.ListVolumesResponse
-	49, // 88: agynio.api.runners.v1.RunnersService.ListVolumesByThread:output_type -> agynio.api.runners.v1.ListVolumesByThreadResponse
-	69, // [69:89] is the sub-list for method output_type
-	49, // [49:69] is the sub-list for method input_type
-	49, // [49:49] is the sub-list for extension type_name
-	49, // [49:49] is the sub-list for extension extendee
-	0,  // [0:49] is the sub-list for field type_name
+	58, // 0: agynio.api.runners.v1.EntityMeta.created_at:type_name -> google.protobuf.Timestamp
+	58, // 1: agynio.api.runners.v1.EntityMeta.updated_at:type_name -> google.protobuf.Timestamp
+	58, // 2: agynio.api.runners.v1.SampledAtEntry.sampled_at:type_name -> google.protobuf.Timestamp
+	5,  // 3: agynio.api.runners.v1.Runner.meta:type_name -> agynio.api.runners.v1.EntityMeta
+	0,  // 4: agynio.api.runners.v1.Runner.status:type_name -> agynio.api.runners.v1.RunnerStatus
+	55, // 5: agynio.api.runners.v1.Runner.labels:type_name -> agynio.api.runners.v1.Runner.LabelsEntry
+	56, // 6: agynio.api.runners.v1.RegisterRunnerRequest.labels:type_name -> agynio.api.runners.v1.RegisterRunnerRequest.LabelsEntry
+	7,  // 7: agynio.api.runners.v1.RegisterRunnerResponse.runner:type_name -> agynio.api.runners.v1.Runner
+	7,  // 8: agynio.api.runners.v1.GetRunnerResponse.runner:type_name -> agynio.api.runners.v1.Runner
+	7,  // 9: agynio.api.runners.v1.ListRunnersResponse.runners:type_name -> agynio.api.runners.v1.Runner
+	57, // 10: agynio.api.runners.v1.UpdateRunnerRequest.labels:type_name -> agynio.api.runners.v1.UpdateRunnerRequest.LabelsEntry
+	7,  // 11: agynio.api.runners.v1.UpdateRunnerResponse.runner:type_name -> agynio.api.runners.v1.Runner
+	7,  // 12: agynio.api.runners.v1.ValidateServiceTokenResponse.runner:type_name -> agynio.api.runners.v1.Runner
+	2,  // 13: agynio.api.runners.v1.Container.role:type_name -> agynio.api.runners.v1.ContainerRole
+	3,  // 14: agynio.api.runners.v1.Container.status:type_name -> agynio.api.runners.v1.ContainerStatus
+	5,  // 15: agynio.api.runners.v1.Workload.meta:type_name -> agynio.api.runners.v1.EntityMeta
+	1,  // 16: agynio.api.runners.v1.Workload.status:type_name -> agynio.api.runners.v1.WorkloadStatus
+	22, // 17: agynio.api.runners.v1.Workload.containers:type_name -> agynio.api.runners.v1.Container
+	58, // 18: agynio.api.runners.v1.Workload.last_activity_at:type_name -> google.protobuf.Timestamp
+	58, // 19: agynio.api.runners.v1.Workload.last_metering_sampled_at:type_name -> google.protobuf.Timestamp
+	58, // 20: agynio.api.runners.v1.Workload.removed_at:type_name -> google.protobuf.Timestamp
+	1,  // 21: agynio.api.runners.v1.CreateWorkloadRequest.status:type_name -> agynio.api.runners.v1.WorkloadStatus
+	22, // 22: agynio.api.runners.v1.CreateWorkloadRequest.containers:type_name -> agynio.api.runners.v1.Container
+	23, // 23: agynio.api.runners.v1.CreateWorkloadResponse.workload:type_name -> agynio.api.runners.v1.Workload
+	1,  // 24: agynio.api.runners.v1.UpdateWorkloadRequest.status:type_name -> agynio.api.runners.v1.WorkloadStatus
+	22, // 25: agynio.api.runners.v1.UpdateWorkloadRequest.containers:type_name -> agynio.api.runners.v1.Container
+	58, // 26: agynio.api.runners.v1.UpdateWorkloadRequest.removed_at:type_name -> google.protobuf.Timestamp
+	58, // 27: agynio.api.runners.v1.UpdateWorkloadRequest.last_metering_sampled_at:type_name -> google.protobuf.Timestamp
+	23, // 28: agynio.api.runners.v1.UpdateWorkloadResponse.workload:type_name -> agynio.api.runners.v1.Workload
+	1,  // 29: agynio.api.runners.v1.UpdateWorkloadStatusRequest.status:type_name -> agynio.api.runners.v1.WorkloadStatus
+	22, // 30: agynio.api.runners.v1.UpdateWorkloadStatusRequest.containers:type_name -> agynio.api.runners.v1.Container
+	23, // 31: agynio.api.runners.v1.UpdateWorkloadStatusResponse.workload:type_name -> agynio.api.runners.v1.Workload
+	23, // 32: agynio.api.runners.v1.GetWorkloadResponse.workload:type_name -> agynio.api.runners.v1.Workload
+	23, // 33: agynio.api.runners.v1.ListWorkloadsByThreadResponse.workloads:type_name -> agynio.api.runners.v1.Workload
+	1,  // 34: agynio.api.runners.v1.ListWorkloadsRequest.statuses:type_name -> agynio.api.runners.v1.WorkloadStatus
+	23, // 35: agynio.api.runners.v1.ListWorkloadsResponse.workloads:type_name -> agynio.api.runners.v1.Workload
+	6,  // 36: agynio.api.runners.v1.BatchUpdateWorkloadSampledAtRequest.entries:type_name -> agynio.api.runners.v1.SampledAtEntry
+	5,  // 37: agynio.api.runners.v1.Volume.meta:type_name -> agynio.api.runners.v1.EntityMeta
+	4,  // 38: agynio.api.runners.v1.Volume.status:type_name -> agynio.api.runners.v1.VolumeStatus
+	58, // 39: agynio.api.runners.v1.Volume.removed_at:type_name -> google.protobuf.Timestamp
+	58, // 40: agynio.api.runners.v1.Volume.last_metering_sampled_at:type_name -> google.protobuf.Timestamp
+	4,  // 41: agynio.api.runners.v1.CreateVolumeRequest.status:type_name -> agynio.api.runners.v1.VolumeStatus
+	42, // 42: agynio.api.runners.v1.CreateVolumeResponse.volume:type_name -> agynio.api.runners.v1.Volume
+	4,  // 43: agynio.api.runners.v1.UpdateVolumeRequest.status:type_name -> agynio.api.runners.v1.VolumeStatus
+	58, // 44: agynio.api.runners.v1.UpdateVolumeRequest.removed_at:type_name -> google.protobuf.Timestamp
+	58, // 45: agynio.api.runners.v1.UpdateVolumeRequest.last_metering_sampled_at:type_name -> google.protobuf.Timestamp
+	42, // 46: agynio.api.runners.v1.UpdateVolumeResponse.volume:type_name -> agynio.api.runners.v1.Volume
+	42, // 47: agynio.api.runners.v1.GetVolumeResponse.volume:type_name -> agynio.api.runners.v1.Volume
+	4,  // 48: agynio.api.runners.v1.ListVolumesRequest.statuses:type_name -> agynio.api.runners.v1.VolumeStatus
+	42, // 49: agynio.api.runners.v1.ListVolumesResponse.volumes:type_name -> agynio.api.runners.v1.Volume
+	42, // 50: agynio.api.runners.v1.ListVolumesByThreadResponse.volumes:type_name -> agynio.api.runners.v1.Volume
+	6,  // 51: agynio.api.runners.v1.BatchUpdateVolumeSampledAtRequest.entries:type_name -> agynio.api.runners.v1.SampledAtEntry
+	8,  // 52: agynio.api.runners.v1.RunnersService.RegisterRunner:input_type -> agynio.api.runners.v1.RegisterRunnerRequest
+	10, // 53: agynio.api.runners.v1.RunnersService.GetRunner:input_type -> agynio.api.runners.v1.GetRunnerRequest
+	12, // 54: agynio.api.runners.v1.RunnersService.ListRunners:input_type -> agynio.api.runners.v1.ListRunnersRequest
+	14, // 55: agynio.api.runners.v1.RunnersService.UpdateRunner:input_type -> agynio.api.runners.v1.UpdateRunnerRequest
+	16, // 56: agynio.api.runners.v1.RunnersService.DeleteRunner:input_type -> agynio.api.runners.v1.DeleteRunnerRequest
+	18, // 57: agynio.api.runners.v1.RunnersService.ValidateServiceToken:input_type -> agynio.api.runners.v1.ValidateServiceTokenRequest
+	20, // 58: agynio.api.runners.v1.RunnersService.EnrollRunner:input_type -> agynio.api.runners.v1.EnrollRunnerRequest
+	24, // 59: agynio.api.runners.v1.RunnersService.CreateWorkload:input_type -> agynio.api.runners.v1.CreateWorkloadRequest
+	26, // 60: agynio.api.runners.v1.RunnersService.UpdateWorkload:input_type -> agynio.api.runners.v1.UpdateWorkloadRequest
+	28, // 61: agynio.api.runners.v1.RunnersService.UpdateWorkloadStatus:input_type -> agynio.api.runners.v1.UpdateWorkloadStatusRequest
+	30, // 62: agynio.api.runners.v1.RunnersService.TouchWorkload:input_type -> agynio.api.runners.v1.TouchWorkloadRequest
+	32, // 63: agynio.api.runners.v1.RunnersService.DeleteWorkload:input_type -> agynio.api.runners.v1.DeleteWorkloadRequest
+	34, // 64: agynio.api.runners.v1.RunnersService.GetWorkload:input_type -> agynio.api.runners.v1.GetWorkloadRequest
+	36, // 65: agynio.api.runners.v1.RunnersService.ListWorkloadsByThread:input_type -> agynio.api.runners.v1.ListWorkloadsByThreadRequest
+	38, // 66: agynio.api.runners.v1.RunnersService.ListWorkloads:input_type -> agynio.api.runners.v1.ListWorkloadsRequest
+	40, // 67: agynio.api.runners.v1.RunnersService.BatchUpdateWorkloadSampledAt:input_type -> agynio.api.runners.v1.BatchUpdateWorkloadSampledAtRequest
+	43, // 68: agynio.api.runners.v1.RunnersService.CreateVolume:input_type -> agynio.api.runners.v1.CreateVolumeRequest
+	45, // 69: agynio.api.runners.v1.RunnersService.UpdateVolume:input_type -> agynio.api.runners.v1.UpdateVolumeRequest
+	47, // 70: agynio.api.runners.v1.RunnersService.GetVolume:input_type -> agynio.api.runners.v1.GetVolumeRequest
+	49, // 71: agynio.api.runners.v1.RunnersService.ListVolumes:input_type -> agynio.api.runners.v1.ListVolumesRequest
+	51, // 72: agynio.api.runners.v1.RunnersService.ListVolumesByThread:input_type -> agynio.api.runners.v1.ListVolumesByThreadRequest
+	53, // 73: agynio.api.runners.v1.RunnersService.BatchUpdateVolumeSampledAt:input_type -> agynio.api.runners.v1.BatchUpdateVolumeSampledAtRequest
+	9,  // 74: agynio.api.runners.v1.RunnersService.RegisterRunner:output_type -> agynio.api.runners.v1.RegisterRunnerResponse
+	11, // 75: agynio.api.runners.v1.RunnersService.GetRunner:output_type -> agynio.api.runners.v1.GetRunnerResponse
+	13, // 76: agynio.api.runners.v1.RunnersService.ListRunners:output_type -> agynio.api.runners.v1.ListRunnersResponse
+	15, // 77: agynio.api.runners.v1.RunnersService.UpdateRunner:output_type -> agynio.api.runners.v1.UpdateRunnerResponse
+	17, // 78: agynio.api.runners.v1.RunnersService.DeleteRunner:output_type -> agynio.api.runners.v1.DeleteRunnerResponse
+	19, // 79: agynio.api.runners.v1.RunnersService.ValidateServiceToken:output_type -> agynio.api.runners.v1.ValidateServiceTokenResponse
+	21, // 80: agynio.api.runners.v1.RunnersService.EnrollRunner:output_type -> agynio.api.runners.v1.EnrollRunnerResponse
+	25, // 81: agynio.api.runners.v1.RunnersService.CreateWorkload:output_type -> agynio.api.runners.v1.CreateWorkloadResponse
+	27, // 82: agynio.api.runners.v1.RunnersService.UpdateWorkload:output_type -> agynio.api.runners.v1.UpdateWorkloadResponse
+	29, // 83: agynio.api.runners.v1.RunnersService.UpdateWorkloadStatus:output_type -> agynio.api.runners.v1.UpdateWorkloadStatusResponse
+	31, // 84: agynio.api.runners.v1.RunnersService.TouchWorkload:output_type -> agynio.api.runners.v1.TouchWorkloadResponse
+	33, // 85: agynio.api.runners.v1.RunnersService.DeleteWorkload:output_type -> agynio.api.runners.v1.DeleteWorkloadResponse
+	35, // 86: agynio.api.runners.v1.RunnersService.GetWorkload:output_type -> agynio.api.runners.v1.GetWorkloadResponse
+	37, // 87: agynio.api.runners.v1.RunnersService.ListWorkloadsByThread:output_type -> agynio.api.runners.v1.ListWorkloadsByThreadResponse
+	39, // 88: agynio.api.runners.v1.RunnersService.ListWorkloads:output_type -> agynio.api.runners.v1.ListWorkloadsResponse
+	41, // 89: agynio.api.runners.v1.RunnersService.BatchUpdateWorkloadSampledAt:output_type -> agynio.api.runners.v1.BatchUpdateWorkloadSampledAtResponse
+	44, // 90: agynio.api.runners.v1.RunnersService.CreateVolume:output_type -> agynio.api.runners.v1.CreateVolumeResponse
+	46, // 91: agynio.api.runners.v1.RunnersService.UpdateVolume:output_type -> agynio.api.runners.v1.UpdateVolumeResponse
+	48, // 92: agynio.api.runners.v1.RunnersService.GetVolume:output_type -> agynio.api.runners.v1.GetVolumeResponse
+	50, // 93: agynio.api.runners.v1.RunnersService.ListVolumes:output_type -> agynio.api.runners.v1.ListVolumesResponse
+	52, // 94: agynio.api.runners.v1.RunnersService.ListVolumesByThread:output_type -> agynio.api.runners.v1.ListVolumesByThreadResponse
+	54, // 95: agynio.api.runners.v1.RunnersService.BatchUpdateVolumeSampledAt:output_type -> agynio.api.runners.v1.BatchUpdateVolumeSampledAtResponse
+	74, // [74:96] is the sub-list for method output_type
+	52, // [52:74] is the sub-list for method input_type
+	52, // [52:52] is the sub-list for extension type_name
+	52, // [52:52] is the sub-list for extension extendee
+	0,  // [0:52] is the sub-list for field type_name
 }
 
 func init() { file_agynio_api_runners_v1_runners_proto_init() }
@@ -3406,23 +3642,23 @@ func file_agynio_api_runners_v1_runners_proto_init() {
 	if File_agynio_api_runners_v1_runners_proto != nil {
 		return
 	}
-	file_agynio_api_runners_v1_runners_proto_msgTypes[1].OneofWrappers = []any{}
 	file_agynio_api_runners_v1_runners_proto_msgTypes[2].OneofWrappers = []any{}
-	file_agynio_api_runners_v1_runners_proto_msgTypes[6].OneofWrappers = []any{}
-	file_agynio_api_runners_v1_runners_proto_msgTypes[8].OneofWrappers = []any{}
-	file_agynio_api_runners_v1_runners_proto_msgTypes[17].OneofWrappers = []any{}
-	file_agynio_api_runners_v1_runners_proto_msgTypes[20].OneofWrappers = []any{}
-	file_agynio_api_runners_v1_runners_proto_msgTypes[32].OneofWrappers = []any{}
-	file_agynio_api_runners_v1_runners_proto_msgTypes[34].OneofWrappers = []any{}
+	file_agynio_api_runners_v1_runners_proto_msgTypes[3].OneofWrappers = []any{}
+	file_agynio_api_runners_v1_runners_proto_msgTypes[7].OneofWrappers = []any{}
+	file_agynio_api_runners_v1_runners_proto_msgTypes[9].OneofWrappers = []any{}
+	file_agynio_api_runners_v1_runners_proto_msgTypes[18].OneofWrappers = []any{}
+	file_agynio_api_runners_v1_runners_proto_msgTypes[21].OneofWrappers = []any{}
+	file_agynio_api_runners_v1_runners_proto_msgTypes[33].OneofWrappers = []any{}
 	file_agynio_api_runners_v1_runners_proto_msgTypes[37].OneofWrappers = []any{}
-	file_agynio_api_runners_v1_runners_proto_msgTypes[41].OneofWrappers = []any{}
+	file_agynio_api_runners_v1_runners_proto_msgTypes[40].OneofWrappers = []any{}
+	file_agynio_api_runners_v1_runners_proto_msgTypes[44].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_agynio_api_runners_v1_runners_proto_rawDesc), len(file_agynio_api_runners_v1_runners_proto_rawDesc)),
 			NumEnums:      5,
-			NumMessages:   48,
+			NumMessages:   53,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

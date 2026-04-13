@@ -254,6 +254,21 @@ func (s *Server) ListVolumes(ctx context.Context, req *runnersv1.ListVolumesRequ
 	return &runnersv1.ListVolumesResponse{Volumes: protoVolumes, NextPageToken: nextToken}, nil
 }
 
+func (s *Server) BatchUpdateVolumeSampledAt(ctx context.Context, req *runnersv1.BatchUpdateVolumeSampledAtRequest) (*runnersv1.BatchUpdateVolumeSampledAtResponse, error) {
+	entries := req.GetEntries()
+	if len(entries) == 0 {
+		return &runnersv1.BatchUpdateVolumeSampledAtResponse{}, nil
+	}
+	updates, err := parseSampledAtEntries(entries)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	if err := s.batchUpdateVolumeSampledAt(ctx, updates); err != nil {
+		return nil, status.Errorf(codes.Internal, "batch update volumes: %v", err)
+	}
+	return &runnersv1.BatchUpdateVolumeSampledAtResponse{}, nil
+}
+
 func (s *Server) insertVolume(ctx context.Context, input volumeInsertInput) (volumeRecord, error) {
 	row := s.pool.QueryRow(ctx,
 		fmt.Sprintf(`INSERT INTO volumes (id, volume_id, thread_id, runner_id, agent_id, organization_id, size_gb, status)
@@ -430,6 +445,14 @@ func (s *Server) listVolumes(ctx context.Context, statuses []string, organizatio
 		nextToken = encodePageToken(lastID)
 	}
 	return volumes, nextToken, nil
+}
+
+func (s *Server) batchUpdateVolumeSampledAt(ctx context.Context, entries []sampledAtEntry) error {
+	query, args := buildBatchSampledAtUpdateQuery("volumes", entries)
+	if _, err := s.pool.Exec(ctx, query, args...); err != nil {
+		return err
+	}
+	return nil
 }
 
 func scanVolume(row pgx.Row) (volumeRecord, error) {
