@@ -12,6 +12,7 @@ import (
 	"github.com/pashagolub/pgxmock/v3"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 var volumeRowColumns = []string{
@@ -225,6 +226,49 @@ func TestUpdateVolumeRequiresFields(t *testing.T) {
 	srv := New(Options{})
 
 	_, err := srv.UpdateVolume(context.Background(), &runnersv1.UpdateVolumeRequest{Id: uuid.NewString()})
+	if status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("expected InvalidArgument error, got %v", err)
+	}
+}
+
+func TestBatchUpdateVolumeSampledAt(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("failed to create mock pool: %v", err)
+	}
+
+	firstID := uuid.New()
+	secondID := uuid.New()
+	firstSampledAt := time.Now().UTC()
+	secondSampledAt := firstSampledAt.Add(3 * time.Minute)
+
+	query := "UPDATE volumes AS target SET last_metering_sampled_at = v.sampled_at, updated_at = NOW() FROM (VALUES ($1, $2), ($3, $4)) AS v(id, sampled_at) WHERE target.id = v.id"
+	mockPool.ExpectExec(regexp.QuoteMeta(query)).
+		WithArgs(firstID, firstSampledAt, secondID, secondSampledAt).
+		WillReturnResult(pgxmock.NewResult("UPDATE", 2))
+
+	srv := New(Options{Pool: mockPool})
+	_, err = srv.BatchUpdateVolumeSampledAt(context.Background(), &runnersv1.BatchUpdateVolumeSampledAtRequest{
+		Entries: []*runnersv1.SampledAtEntry{
+			{Id: firstID.String(), SampledAt: timestamppb.New(firstSampledAt)},
+			{Id: secondID.String(), SampledAt: timestamppb.New(secondSampledAt)},
+		},
+	})
+	if err != nil {
+		t.Fatalf("BatchUpdateVolumeSampledAt failed: %v", err)
+	}
+
+	if err := mockPool.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestBatchUpdateVolumeSampledAtInvalid(t *testing.T) {
+	srv := New(Options{})
+
+	_, err := srv.BatchUpdateVolumeSampledAt(context.Background(), &runnersv1.BatchUpdateVolumeSampledAtRequest{
+		Entries: []*runnersv1.SampledAtEntry{{Id: "not-a-uuid", SampledAt: timestamppb.Now()}},
+	})
 	if status.Code(err) != codes.InvalidArgument {
 		t.Fatalf("expected InvalidArgument error, got %v", err)
 	}

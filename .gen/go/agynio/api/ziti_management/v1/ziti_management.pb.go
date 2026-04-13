@@ -204,6 +204,7 @@ func (x *ManagedIdentity) GetCreatedAt() *timestamppb.Timestamp {
 type CreateAgentIdentityRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	AgentId       string                 `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	WorkloadId    string                 `protobuf:"bytes,2,opt,name=workload_id,json=workloadId,proto3" json:"workload_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -241,6 +242,13 @@ func (*CreateAgentIdentityRequest) Descriptor() ([]byte, []int) {
 func (x *CreateAgentIdentityRequest) GetAgentId() string {
 	if x != nil {
 		return x.AgentId
+	}
+	return ""
+}
+
+func (x *CreateAgentIdentityRequest) GetWorkloadId() string {
+	if x != nil {
+		return x.WorkloadId
 	}
 	return ""
 }
@@ -1232,6 +1240,7 @@ type ResolveIdentityResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	IdentityId    string                 `protobuf:"bytes,1,opt,name=identity_id,json=identityId,proto3" json:"identity_id,omitempty"`
 	IdentityType  v1.IdentityType        `protobuf:"varint,2,opt,name=identity_type,json=identityType,proto3,enum=agynio.api.identity.v1.IdentityType" json:"identity_type,omitempty"`
+	WorkloadId    *string                `protobuf:"bytes,3,opt,name=workload_id,json=workloadId,proto3,oneof" json:"workload_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1278,6 +1287,13 @@ func (x *ResolveIdentityResponse) GetIdentityType() v1.IdentityType {
 		return x.IdentityType
 	}
 	return v1.IdentityType(0)
+}
+
+func (x *ResolveIdentityResponse) GetWorkloadId() string {
+	if x != nil && x.WorkloadId != nil {
+		return *x.WorkloadId
+	}
+	return ""
 }
 
 type RequestServiceIdentityRequest struct {
@@ -1941,9 +1957,11 @@ const file_agynio_api_ziti_management_v1_ziti_management_proto_rawDesc = "" +
 	"\ridentity_type\x18\x03 \x01(\x0e2$.agynio.api.identity.v1.IdentityTypeR\fidentityType\x12&\n" +
 	"\x0fziti_service_id\x18\x04 \x01(\tR\rzitiServiceId\x129\n" +
 	"\n" +
-	"created_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"7\n" +
+	"created_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"X\n" +
 	"\x1aCreateAgentIdentityRequest\x12\x19\n" +
-	"\bagent_id\x18\x01 \x01(\tR\aagentId\"n\n" +
+	"\bagent_id\x18\x01 \x01(\tR\aagentId\x12\x1f\n" +
+	"\vworkload_id\x18\x02 \x01(\tR\n" +
+	"workloadId\"n\n" +
 	"\x1bCreateAgentIdentityResponse\x12(\n" +
 	"\x10ziti_identity_id\x18\x01 \x01(\tR\x0ezitiIdentityId\x12%\n" +
 	"\x0eenrollment_jwt\x18\x02 \x01(\tR\renrollmentJwt\"O\n" +
@@ -2006,11 +2024,14 @@ const file_agynio_api_ziti_management_v1_ziti_management_proto_rawDesc = "" +
 	"identities\x12&\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\"B\n" +
 	"\x16ResolveIdentityRequest\x12(\n" +
-	"\x10ziti_identity_id\x18\x01 \x01(\tR\x0ezitiIdentityId\"\x85\x01\n" +
+	"\x10ziti_identity_id\x18\x01 \x01(\tR\x0ezitiIdentityId\"\xbb\x01\n" +
 	"\x17ResolveIdentityResponse\x12\x1f\n" +
 	"\videntity_id\x18\x01 \x01(\tR\n" +
 	"identityId\x12I\n" +
-	"\ridentity_type\x18\x02 \x01(\x0e2$.agynio.api.identity.v1.IdentityTypeR\fidentityType\"n\n" +
+	"\ridentity_type\x18\x02 \x01(\x0e2$.agynio.api.identity.v1.IdentityTypeR\fidentityType\x12$\n" +
+	"\vworkload_id\x18\x03 \x01(\tH\x00R\n" +
+	"workloadId\x88\x01\x01B\x0e\n" +
+	"\f_workload_id\"n\n" +
 	"\x1dRequestServiceIdentityRequest\x12M\n" +
 	"\fservice_type\x18\x01 \x01(\x0e2*.agynio.api.ziti_management.v1.ServiceTypeR\vserviceType\"o\n" +
 	"\x1eRequestServiceIdentityResponse\x12(\n" +
@@ -2181,6 +2202,7 @@ func file_agynio_api_ziti_management_v1_ziti_management_proto_init() {
 		return
 	}
 	file_agynio_api_ziti_management_v1_ziti_management_proto_msgTypes[8].OneofWrappers = []any{}
+	file_agynio_api_ziti_management_v1_ziti_management_proto_msgTypes[21].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
