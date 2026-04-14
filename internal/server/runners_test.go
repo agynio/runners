@@ -349,23 +349,34 @@ func TestEnrollRunnerSuccess(t *testing.T) {
 	}
 
 	matcher := regexp.QuoteMeta(fmt.Sprintf(`SELECT %s FROM runners WHERE service_token_hash = $1`, runnerColumns))
+	updateServiceQuery := regexp.QuoteMeta(`UPDATE runners SET ziti_service_id = $1, ziti_service_name = $2, updated_at = NOW() WHERE id = $3`)
 	updateQuery := regexp.QuoteMeta(`UPDATE runners SET status = $1, ziti_identity_id = $2, updated_at = NOW() WHERE id = $3`)
 
 	runnerID := uuid.New()
 	identityID := uuid.New()
 	now := time.Now().UTC()
 	labelsJSON := []byte("{}")
-	serviceName := "runner-service"
+	serviceName := fmt.Sprintf("runner-%s", runnerID.String())
+	newServiceID := "service-id-new"
 	rows := pgxmock.NewRows([]string{"id", "name", "organization_id", "identity_id", "ziti_identity_id", "ziti_service_id", "ziti_service_name", "status", "labels", "created_at", "updated_at"}).
 		AddRow(runnerID, "runner-1", pgtype.UUID{Valid: false}, identityID, "", "service-id", serviceName, runnerStatusPending, labelsJSON, now, now)
 
 	token := "enroll-token"
 	mockPool.ExpectQuery(matcher).WithArgs(hashServiceToken(token)).WillReturnRows(rows)
+	mockPool.ExpectExec(updateServiceQuery).WithArgs(newServiceID, serviceName, runnerID).WillReturnResult(pgxmock.NewResult("UPDATE", 1))
 	mockPool.ExpectExec(updateQuery).WithArgs(runnerStatusEnrolled, "ziti-id", runnerID).WillReturnResult(pgxmock.NewResult("UPDATE", 1))
 
 	identityJSON := []byte("identity-json")
 	var gotReq *zitimanagementv1.CreateRunnerIdentityRequest
+	var gotServiceReq *zitimanagementv1.CreateServiceRequest
 	fakeClient := fakeZitiManagementClient{
+		createService: func(ctx context.Context, req *zitimanagementv1.CreateServiceRequest) (*zitimanagementv1.CreateServiceResponse, error) {
+			gotServiceReq = req
+			return &zitimanagementv1.CreateServiceResponse{
+				ZitiServiceId:   newServiceID,
+				ZitiServiceName: serviceName,
+			}, nil
+		},
 		createRunnerIdentity: func(ctx context.Context, req *zitimanagementv1.CreateRunnerIdentityRequest) (*zitimanagementv1.CreateRunnerIdentityResponse, error) {
 			gotReq = req
 			return &zitimanagementv1.CreateRunnerIdentityResponse{
@@ -397,6 +408,15 @@ func TestEnrollRunnerSuccess(t *testing.T) {
 	if gotReq == nil {
 		t.Fatal("expected CreateRunnerIdentity to be called")
 	}
+	if gotServiceReq == nil {
+		t.Fatal("expected CreateService to be called")
+	}
+	if gotServiceReq.GetName() != serviceName {
+		t.Fatalf("expected service name %q, got %q", serviceName, gotServiceReq.GetName())
+	}
+	if len(gotServiceReq.GetRoleAttributes()) != 1 || gotServiceReq.GetRoleAttributes()[0] != zitiRunnerServiceRole {
+		t.Fatalf("unexpected service role attributes: %v", gotServiceReq.GetRoleAttributes())
+	}
 	if gotReq.GetRunnerId() != runnerID.String() {
 		t.Fatalf("expected runner id %q, got %q", runnerID.String(), gotReq.GetRunnerId())
 	}
@@ -416,17 +436,26 @@ func TestEnrollRunnerZitiFailure(t *testing.T) {
 	}
 
 	matcher := regexp.QuoteMeta(fmt.Sprintf(`SELECT %s FROM runners WHERE service_token_hash = $1`, runnerColumns))
+	updateServiceQuery := regexp.QuoteMeta(`UPDATE runners SET ziti_service_id = $1, ziti_service_name = $2, updated_at = NOW() WHERE id = $3`)
 	runnerID := uuid.New()
 	identityID := uuid.New()
 	now := time.Now().UTC()
 	labelsJSON := []byte("{}")
+	serviceName := fmt.Sprintf("runner-%s", runnerID.String())
 	rows := pgxmock.NewRows([]string{"id", "name", "organization_id", "identity_id", "ziti_identity_id", "ziti_service_id", "ziti_service_name", "status", "labels", "created_at", "updated_at"}).
-		AddRow(runnerID, "runner-1", pgtype.UUID{Valid: false}, identityID, "", "service-id", "runner-service", runnerStatusPending, labelsJSON, now, now)
+		AddRow(runnerID, "runner-1", pgtype.UUID{Valid: false}, identityID, "", "service-id", serviceName, runnerStatusPending, labelsJSON, now, now)
 
 	token := "bad-ziti"
 	mockPool.ExpectQuery(matcher).WithArgs(hashServiceToken(token)).WillReturnRows(rows)
+	mockPool.ExpectExec(updateServiceQuery).WithArgs("service-id-new", serviceName, runnerID).WillReturnResult(pgxmock.NewResult("UPDATE", 1))
 
 	fakeClient := fakeZitiManagementClient{
+		createService: func(ctx context.Context, req *zitimanagementv1.CreateServiceRequest) (*zitimanagementv1.CreateServiceResponse, error) {
+			return &zitimanagementv1.CreateServiceResponse{
+				ZitiServiceId:   "service-id-new",
+				ZitiServiceName: serviceName,
+			}, nil
+		},
 		createRunnerIdentity: func(ctx context.Context, req *zitimanagementv1.CreateRunnerIdentityRequest) (*zitimanagementv1.CreateRunnerIdentityResponse, error) {
 			return nil, errors.New("ziti failure")
 		},

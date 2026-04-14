@@ -269,6 +269,11 @@ func (s *Server) EnrollRunner(ctx context.Context, req *runnersv1.EnrollRunnerRe
 		return nil, toStatusError(err)
 	}
 
+	runner, err = s.ensureRunnerService(ctx, runner)
+	if err != nil {
+		return nil, err
+	}
+
 	zitiResp, err := s.zitiManagementClient.CreateRunnerIdentity(ctx, &zitimanagementv1.CreateRunnerIdentityRequest{
 		RunnerId:       runner.Meta.ID.String(),
 		RoleAttributes: []string{zitiRunnerRoleAttribute},
@@ -286,6 +291,40 @@ func (s *Server) EnrollRunner(ctx context.Context, req *runnersv1.EnrollRunnerRe
 		ServiceName:  runner.ZitiServiceName,
 		IdentityId:   zitiResp.GetZitiIdentityId(),
 	}, nil
+}
+
+func (s *Server) ensureRunnerService(ctx context.Context, runner runnerRecord) (runnerRecord, error) {
+	if runner.ZitiServiceName == "" {
+		return runnerRecord{}, status.Error(codes.Internal, "runner missing ziti service name")
+	}
+
+	serviceResp, err := s.zitiManagementClient.CreateService(ctx, &zitimanagementv1.CreateServiceRequest{
+		Name:           runner.ZitiServiceName,
+		RoleAttributes: []string{zitiRunnerServiceRole},
+	})
+	if err != nil {
+		if status.Code(err) == codes.AlreadyExists {
+			if runner.ZitiServiceID == "" {
+				return runnerRecord{}, status.Error(codes.Internal, "runner missing ziti service id")
+			}
+			return runner, nil
+		}
+		return runnerRecord{}, status.Errorf(codes.Internal, "ensure ziti service: %v", err)
+	}
+
+	serviceID := serviceResp.GetZitiServiceId()
+	serviceName := serviceResp.GetZitiServiceName()
+	if serviceID == "" || serviceName == "" {
+		return runnerRecord{}, status.Error(codes.Internal, "create ziti service: missing fields")
+	}
+
+	if err := s.updateRunnerService(ctx, runner.Meta.ID, serviceID, serviceName); err != nil {
+		return runnerRecord{}, toStatusError(err)
+	}
+
+	runner.ZitiServiceID = serviceID
+	runner.ZitiServiceName = serviceName
+	return runner, nil
 }
 
 func (s *Server) writeRunnerAuthorization(ctx context.Context, runnerID uuid.UUID, organizationID *uuid.UUID) error {
@@ -442,6 +481,17 @@ func (s *Server) updateRunner(ctx context.Context, input runnerUpdateInput) (run
 
 func (s *Server) updateRunnerEnrollment(ctx context.Context, id uuid.UUID, statusValue string, zitiIdentityID string) error {
 	result, err := s.pool.Exec(ctx, `UPDATE runners SET status = $1, ziti_identity_id = $2, updated_at = NOW() WHERE id = $3`, statusValue, zitiIdentityID, id)
+	if err != nil {
+		return err
+	}
+	if result.RowsAffected() == 0 {
+		return NotFound("runner")
+	}
+	return nil
+}
+
+func (s *Server) updateRunnerService(ctx context.Context, id uuid.UUID, zitiServiceID, zitiServiceName string) error {
+	result, err := s.pool.Exec(ctx, `UPDATE runners SET ziti_service_id = $1, ziti_service_name = $2, updated_at = NOW() WHERE id = $3`, zitiServiceID, zitiServiceName, id)
 	if err != nil {
 		return err
 	}
