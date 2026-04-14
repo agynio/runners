@@ -22,12 +22,12 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     go mod download
 
 COPY buf.gen.yaml buf.yaml ./
-RUN buf generate https://github.com/agynio/api.git#commit=6dcb04a7bdc5f46b3cb13bce95561b7bf3daceaf \
+RUN buf generate buf.build/agynio/api \
     --include-imports \
-    --path proto/agynio/api/runners/v1 \
-    --path proto/agynio/api/identity/v1 \
-    --path proto/agynio/api/authorization/v1 \
-    --path proto/agynio/api/ziti_management/v1
+    --path agynio/api/runners/v1 \
+    --path agynio/api/identity/v1 \
+    --path agynio/api/authorization/v1 \
+    --path agynio/api/ziti_management/v1
 
 COPY . .
 
