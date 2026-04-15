@@ -12,16 +12,32 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-func TestBatchUpdateSampledAt(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
-	defer cancel()
+func TestBatchUpdateWorkloadSampledAtSingle(t *testing.T) {
+	ctx, runnerID := setupRunner(t)
 
-	runnerID := registerRunner(t, ctx)
-	t.Cleanup(func() {
-		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), testTimeout)
-		defer cleanupCancel()
-		_, _ = runnerClient.DeleteRunner(cleanupCtx, &runnersv1.DeleteRunnerRequest{Id: runnerID})
-	})
+	threadID := uuid.NewString()
+	agentID := uuid.NewString()
+	organizationID := uuid.NewString()
+
+	workloadID := uuid.NewString()
+	createWorkload(t, ctx, workloadID, runnerID, threadID, agentID, organizationID)
+	cleanupWorkload(t, workloadID)
+
+	sampledAt := time.Now().UTC().Truncate(time.Microsecond)
+	if _, err := runnerClient.BatchUpdateWorkloadSampledAt(ctx, &runnersv1.BatchUpdateWorkloadSampledAtRequest{
+		Entries: []*runnersv1.SampledAtEntry{{
+			Id:        workloadID,
+			SampledAt: timestamppb.New(sampledAt),
+		}},
+	}); err != nil {
+		t.Fatalf("BatchUpdateWorkloadSampledAt failed: %v", err)
+	}
+
+	assertWorkloadSampledAt(t, ctx, workloadID, sampledAt)
+}
+
+func TestBatchUpdateWorkloadSampledAtMultiple(t *testing.T) {
+	ctx, runnerID := setupRunner(t)
 
 	threadID := uuid.NewString()
 	agentID := uuid.NewString()
@@ -30,96 +46,234 @@ func TestBatchUpdateSampledAt(t *testing.T) {
 	workloadIDs := []string{uuid.NewString(), uuid.NewString()}
 	for _, workloadID := range workloadIDs {
 		createWorkload(t, ctx, workloadID, runnerID, threadID, agentID, organizationID)
-		workloadID := workloadID
-		t.Cleanup(func() {
-			cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), testTimeout)
-			defer cleanupCancel()
-			_, _ = runnerClient.DeleteWorkload(cleanupCtx, &runnersv1.DeleteWorkloadRequest{Id: workloadID})
-		})
-	}
-
-	volumeIDs := []string{uuid.NewString(), uuid.NewString()}
-	volumeExternalIDs := []string{uuid.NewString(), uuid.NewString()}
-	for i, volumeID := range volumeIDs {
-		createVolume(t, ctx, volumeID, volumeExternalIDs[i], runnerID, threadID, agentID, organizationID)
-		volumeID := volumeID
-		t.Cleanup(func() {
-			cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), testTimeout)
-			defer cleanupCancel()
-			_, _ = runnerClient.UpdateVolume(cleanupCtx, &runnersv1.UpdateVolumeRequest{
-				Id:        volumeID,
-				Status:    runnersv1.VolumeStatus_VOLUME_STATUS_DELETED.Enum(),
-				RemovedAt: timestamppb.New(time.Now().UTC()),
-			})
-		})
+		cleanupWorkload(t, workloadID)
 	}
 
 	baseTime := time.Now().UTC().Truncate(time.Microsecond)
 	workloadTimes := []time.Time{baseTime, baseTime.Add(2 * time.Minute)}
-	volumeTimes := []time.Time{baseTime.Add(3 * time.Minute), baseTime.Add(5 * time.Minute)}
 
-	workloadEntries := make([]*runnersv1.SampledAtEntry, 0, len(workloadIDs))
+	entries := make([]*runnersv1.SampledAtEntry, 0, len(workloadIDs))
 	for i, workloadID := range workloadIDs {
-		workloadEntries = append(workloadEntries, &runnersv1.SampledAtEntry{
+		entries = append(entries, &runnersv1.SampledAtEntry{
 			Id:        workloadID,
 			SampledAt: timestamppb.New(workloadTimes[i]),
 		})
 	}
 
 	if _, err := runnerClient.BatchUpdateWorkloadSampledAt(ctx, &runnersv1.BatchUpdateWorkloadSampledAtRequest{
-		Entries: workloadEntries,
+		Entries: entries,
 	}); err != nil {
 		t.Fatalf("BatchUpdateWorkloadSampledAt failed: %v", err)
 	}
 
 	for i, workloadID := range workloadIDs {
-		resp, err := runnerClient.GetWorkload(ctx, &runnersv1.GetWorkloadRequest{Id: workloadID})
-		if err != nil {
-			t.Fatalf("GetWorkload failed: %v", err)
-		}
-		workload := resp.GetWorkload()
-		if workload == nil {
-			t.Fatal("GetWorkload missing workload")
-		}
-		lastSampledAt := workload.GetLastMeteringSampledAt()
-		if lastSampledAt == nil {
-			t.Fatalf("workload %s missing last_metering_sampled_at", workloadID)
-		}
-		if !lastSampledAt.AsTime().Equal(workloadTimes[i]) {
-			t.Fatalf("workload %s sampled_at mismatch: got %s", workloadID, lastSampledAt.AsTime())
-		}
+		assertWorkloadSampledAt(t, ctx, workloadID, workloadTimes[i])
+	}
+}
+
+func TestBatchUpdateWorkloadSampledAtIdempotent(t *testing.T) {
+	ctx, runnerID := setupRunner(t)
+
+	threadID := uuid.NewString()
+	agentID := uuid.NewString()
+	organizationID := uuid.NewString()
+
+	workloadID := uuid.NewString()
+	createWorkload(t, ctx, workloadID, runnerID, threadID, agentID, organizationID)
+	cleanupWorkload(t, workloadID)
+
+	sampledAt := time.Now().UTC().Truncate(time.Microsecond)
+	req := &runnersv1.BatchUpdateWorkloadSampledAtRequest{
+		Entries: []*runnersv1.SampledAtEntry{{
+			Id:        workloadID,
+			SampledAt: timestamppb.New(sampledAt),
+		}},
 	}
 
-	volumeEntries := make([]*runnersv1.SampledAtEntry, 0, len(volumeIDs))
+	if _, err := runnerClient.BatchUpdateWorkloadSampledAt(ctx, req); err != nil {
+		t.Fatalf("BatchUpdateWorkloadSampledAt failed: %v", err)
+	}
+	if _, err := runnerClient.BatchUpdateWorkloadSampledAt(ctx, req); err != nil {
+		t.Fatalf("BatchUpdateWorkloadSampledAt idempotent failed: %v", err)
+	}
+
+	assertWorkloadSampledAt(t, ctx, workloadID, sampledAt)
+}
+
+func TestBatchUpdateVolumeSampledAtSingle(t *testing.T) {
+	ctx, runnerID := setupRunner(t)
+
+	threadID := uuid.NewString()
+	agentID := uuid.NewString()
+	organizationID := uuid.NewString()
+
+	volumeID := uuid.NewString()
+	volumeExternalID := uuid.NewString()
+	createVolume(t, ctx, volumeID, volumeExternalID, runnerID, threadID, agentID, organizationID)
+	cleanupVolume(t, volumeID)
+
+	sampledAt := time.Now().UTC().Truncate(time.Microsecond)
+	if _, err := runnerClient.BatchUpdateVolumeSampledAt(ctx, &runnersv1.BatchUpdateVolumeSampledAtRequest{
+		Entries: []*runnersv1.SampledAtEntry{{
+			Id:        volumeID,
+			SampledAt: timestamppb.New(sampledAt),
+		}},
+	}); err != nil {
+		t.Fatalf("BatchUpdateVolumeSampledAt failed: %v", err)
+	}
+
+	assertVolumeSampledAt(t, ctx, volumeID, sampledAt)
+}
+
+func TestBatchUpdateVolumeSampledAtMultiple(t *testing.T) {
+	ctx, runnerID := setupRunner(t)
+
+	threadID := uuid.NewString()
+	agentID := uuid.NewString()
+	organizationID := uuid.NewString()
+
+	volumeIDs := []string{uuid.NewString(), uuid.NewString()}
+	volumeExternalIDs := []string{uuid.NewString(), uuid.NewString()}
 	for i, volumeID := range volumeIDs {
-		volumeEntries = append(volumeEntries, &runnersv1.SampledAtEntry{
+		createVolume(t, ctx, volumeID, volumeExternalIDs[i], runnerID, threadID, agentID, organizationID)
+		cleanupVolume(t, volumeID)
+	}
+
+	baseTime := time.Now().UTC().Truncate(time.Microsecond)
+	volumeTimes := []time.Time{baseTime.Add(3 * time.Minute), baseTime.Add(5 * time.Minute)}
+
+	entries := make([]*runnersv1.SampledAtEntry, 0, len(volumeIDs))
+	for i, volumeID := range volumeIDs {
+		entries = append(entries, &runnersv1.SampledAtEntry{
 			Id:        volumeID,
 			SampledAt: timestamppb.New(volumeTimes[i]),
 		})
 	}
 
 	if _, err := runnerClient.BatchUpdateVolumeSampledAt(ctx, &runnersv1.BatchUpdateVolumeSampledAtRequest{
-		Entries: volumeEntries,
+		Entries: entries,
 	}); err != nil {
 		t.Fatalf("BatchUpdateVolumeSampledAt failed: %v", err)
 	}
 
 	for i, volumeID := range volumeIDs {
-		resp, err := runnerClient.GetVolume(ctx, &runnersv1.GetVolumeRequest{Id: volumeID})
-		if err != nil {
-			t.Fatalf("GetVolume failed: %v", err)
-		}
-		volume := resp.GetVolume()
-		if volume == nil {
-			t.Fatal("GetVolume missing volume")
-		}
-		lastSampledAt := volume.GetLastMeteringSampledAt()
-		if lastSampledAt == nil {
-			t.Fatalf("volume %s missing last_metering_sampled_at", volumeID)
-		}
-		if !lastSampledAt.AsTime().Equal(volumeTimes[i]) {
-			t.Fatalf("volume %s sampled_at mismatch: got %s", volumeID, lastSampledAt.AsTime())
-		}
+		assertVolumeSampledAt(t, ctx, volumeID, volumeTimes[i])
+	}
+}
+
+func TestBatchUpdateVolumeSampledAtIdempotent(t *testing.T) {
+	ctx, runnerID := setupRunner(t)
+
+	threadID := uuid.NewString()
+	agentID := uuid.NewString()
+	organizationID := uuid.NewString()
+
+	volumeID := uuid.NewString()
+	volumeExternalID := uuid.NewString()
+	createVolume(t, ctx, volumeID, volumeExternalID, runnerID, threadID, agentID, organizationID)
+	cleanupVolume(t, volumeID)
+
+	sampledAt := time.Now().UTC().Truncate(time.Microsecond)
+	req := &runnersv1.BatchUpdateVolumeSampledAtRequest{
+		Entries: []*runnersv1.SampledAtEntry{{
+			Id:        volumeID,
+			SampledAt: timestamppb.New(sampledAt),
+		}},
+	}
+
+	if _, err := runnerClient.BatchUpdateVolumeSampledAt(ctx, req); err != nil {
+		t.Fatalf("BatchUpdateVolumeSampledAt failed: %v", err)
+	}
+	if _, err := runnerClient.BatchUpdateVolumeSampledAt(ctx, req); err != nil {
+		t.Fatalf("BatchUpdateVolumeSampledAt idempotent failed: %v", err)
+	}
+
+	assertVolumeSampledAt(t, ctx, volumeID, sampledAt)
+}
+
+func setupRunner(t *testing.T) (context.Context, string) {
+	t.Helper()
+	ctx := newTestContext(t)
+	runnerID := registerRunner(t, ctx)
+	cleanupRunner(t, runnerID)
+	return ctx, runnerID
+}
+
+func newTestContext(t *testing.T) context.Context {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	t.Cleanup(cancel)
+	return ctx
+}
+
+func cleanupRunner(t *testing.T, runnerID string) {
+	t.Helper()
+	t.Cleanup(func() {
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), testTimeout)
+		defer cleanupCancel()
+		_, _ = runnerClient.DeleteRunner(cleanupCtx, &runnersv1.DeleteRunnerRequest{Id: runnerID})
+	})
+}
+
+func cleanupWorkload(t *testing.T, workloadID string) {
+	t.Helper()
+	t.Cleanup(func() {
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), testTimeout)
+		defer cleanupCancel()
+		_, _ = runnerClient.DeleteWorkload(cleanupCtx, &runnersv1.DeleteWorkloadRequest{Id: workloadID})
+	})
+}
+
+func cleanupVolume(t *testing.T, volumeID string) {
+	t.Helper()
+	t.Cleanup(func() {
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), testTimeout)
+		defer cleanupCancel()
+		_, _ = runnerClient.UpdateVolume(cleanupCtx, &runnersv1.UpdateVolumeRequest{
+			Id:        volumeID,
+			Status:    runnersv1.VolumeStatus_VOLUME_STATUS_DELETED.Enum(),
+			RemovedAt: timestamppb.New(time.Now().UTC()),
+		})
+	})
+}
+
+func assertWorkloadSampledAt(t *testing.T, ctx context.Context, workloadID string, expected time.Time) {
+	t.Helper()
+	resp, err := runnerClient.GetWorkload(ctx, &runnersv1.GetWorkloadRequest{Id: workloadID})
+	if err != nil {
+		t.Fatalf("GetWorkload failed: %v", err)
+	}
+	workload := resp.GetWorkload()
+	if workload == nil {
+		t.Fatal("GetWorkload missing workload")
+	}
+	lastSampledAt := workload.GetLastMeteringSampledAt()
+	if lastSampledAt == nil {
+		t.Fatalf("workload %s missing last_metering_sampled_at (expected %s)", workloadID, expected)
+	}
+	actual := lastSampledAt.AsTime()
+	if !actual.Equal(expected) {
+		t.Fatalf("workload %s sampled_at mismatch: got %s, want %s", workloadID, actual, expected)
+	}
+}
+
+func assertVolumeSampledAt(t *testing.T, ctx context.Context, volumeID string, expected time.Time) {
+	t.Helper()
+	resp, err := runnerClient.GetVolume(ctx, &runnersv1.GetVolumeRequest{Id: volumeID})
+	if err != nil {
+		t.Fatalf("GetVolume failed: %v", err)
+	}
+	volume := resp.GetVolume()
+	if volume == nil {
+		t.Fatal("GetVolume missing volume")
+	}
+	lastSampledAt := volume.GetLastMeteringSampledAt()
+	if lastSampledAt == nil {
+		t.Fatalf("volume %s missing last_metering_sampled_at (expected %s)", volumeID, expected)
+	}
+	actual := lastSampledAt.AsTime()
+	if !actual.Equal(expected) {
+		t.Fatalf("volume %s sampled_at mismatch: got %s, want %s", volumeID, actual, expected)
 	}
 }
 
