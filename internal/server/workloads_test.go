@@ -284,7 +284,7 @@ func TestBatchUpdateWorkloadSampledAt(t *testing.T) {
 	firstSampledAt := time.Now().UTC()
 	secondSampledAt := firstSampledAt.Add(2 * time.Minute)
 
-	query := "UPDATE workloads AS target SET last_metering_sampled_at = v.sampled_at, updated_at = NOW() FROM (VALUES ($1, $2), ($3, $4)) AS v(id, sampled_at) WHERE target.id = v.id"
+	query := "UPDATE workloads AS target SET last_metering_sampled_at = v.sampled_at, updated_at = NOW() FROM (VALUES ($1::uuid, $2::timestamptz), ($3::uuid, $4::timestamptz)) AS v(id, sampled_at) WHERE target.id = v.id"
 	mockPool.ExpectExec(regexp.QuoteMeta(query)).
 		WithArgs(firstID, firstSampledAt, secondID, secondSampledAt).
 		WillReturnResult(pgxmock.NewResult("UPDATE", 2))

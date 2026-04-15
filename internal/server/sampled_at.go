@@ -25,7 +25,7 @@ func buildBatchSampledAtUpdateQuery(table string, entries []sampledAtEntry) (str
 			query.WriteString(", ")
 		}
 		argPos := len(args) + 1
-		fmt.Fprintf(&query, "($%d, $%d)", argPos, argPos+1)
+		fmt.Fprintf(&query, "($%d::uuid, $%d::timestamptz)", argPos, argPos+1)
 		args = append(args, entry.ID, entry.SampledAt)
 	}
 	query.WriteString(") AS v(id, sampled_at) WHERE target.id = v.id")
