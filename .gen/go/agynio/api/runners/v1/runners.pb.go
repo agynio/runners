@@ -416,8 +416,10 @@ type Runner struct {
 	Labels         map[string]string      `protobuf:"bytes,6,rep,name=labels,proto3" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	// Per-runner OpenZiti service name (e.g. "runner-{id}")
 	OpenzitiServiceName string `protobuf:"bytes,7,opt,name=openziti_service_name,json=openzitiServiceName,proto3" json:"openziti_service_name,omitempty"`
-	unknownFields       protoimpl.UnknownFields
-	sizeCache           protoimpl.SizeCache
+	// Capabilities supported by this runner. Free-form strings (e.g., "privileged", "dind").
+	Capabilities  []string `protobuf:"bytes,8,rep,name=capabilities,proto3" json:"capabilities,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Runner) Reset() {
@@ -499,13 +501,22 @@ func (x *Runner) GetOpenzitiServiceName() string {
 	return ""
 }
 
+func (x *Runner) GetCapabilities() []string {
+	if x != nil {
+		return x.Capabilities
+	}
+	return nil
+}
+
 type RegisterRunnerRequest struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	Name           string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	OrganizationId *string                `protobuf:"bytes,2,opt,name=organization_id,json=organizationId,proto3,oneof" json:"organization_id,omitempty"`
 	Labels         map[string]string      `protobuf:"bytes,3,rep,name=labels,proto3" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// Capabilities supported by this runner. Free-form strings (e.g., "privileged", "dind").
+	Capabilities  []string `protobuf:"bytes,4,rep,name=capabilities,proto3" json:"capabilities,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *RegisterRunnerRequest) Reset() {
@@ -555,6 +566,13 @@ func (x *RegisterRunnerRequest) GetOrganizationId() string {
 func (x *RegisterRunnerRequest) GetLabels() map[string]string {
 	if x != nil {
 		return x.Labels
+	}
+	return nil
+}
+
+func (x *RegisterRunnerRequest) GetCapabilities() []string {
+	if x != nil {
+		return x.Capabilities
 	}
 	return nil
 }
@@ -816,7 +834,9 @@ type UpdateRunnerRequest struct {
 	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	Name  *string                `protobuf:"bytes,2,opt,name=name,proto3,oneof" json:"name,omitempty"`
 	// Labels replace the existing map; omitted keys are removed.
-	Labels        map[string]string `protobuf:"bytes,3,rep,name=labels,proto3" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Labels map[string]string `protobuf:"bytes,3,rep,name=labels,proto3" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// Capabilities replace the existing list; an empty list clears all capabilities.
+	Capabilities  []string `protobuf:"bytes,4,rep,name=capabilities,proto3" json:"capabilities,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -868,6 +888,13 @@ func (x *UpdateRunnerRequest) GetName() string {
 func (x *UpdateRunnerRequest) GetLabels() map[string]string {
 	if x != nil {
 		return x.Labels
+	}
+	return nil
+}
+
+func (x *UpdateRunnerRequest) GetCapabilities() []string {
+	if x != nil {
+		return x.Capabilities
 	}
 	return nil
 }
@@ -3199,7 +3226,7 @@ const file_agynio_api_runners_v1_runners_proto_rawDesc = "" +
 	"\x0eSampledAtEntry\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x129\n" +
 	"\n" +
-	"sampled_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\tsampledAt\"\xa5\x03\n" +
+	"sampled_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\tsampledAt\"\xc9\x03\n" +
 	"\x06Runner\x125\n" +
 	"\x04meta\x18\x01 \x01(\v2!.agynio.api.runners.v1.EntityMetaR\x04meta\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12,\n" +
@@ -3208,15 +3235,17 @@ const file_agynio_api_runners_v1_runners_proto_rawDesc = "" +
 	"identityId\x12;\n" +
 	"\x06status\x18\x05 \x01(\x0e2#.agynio.api.runners.v1.RunnerStatusR\x06status\x12A\n" +
 	"\x06labels\x18\x06 \x03(\v2).agynio.api.runners.v1.Runner.LabelsEntryR\x06labels\x122\n" +
-	"\x15openziti_service_name\x18\a \x01(\tR\x13openzitiServiceName\x1a9\n" +
+	"\x15openziti_service_name\x18\a \x01(\tR\x13openzitiServiceName\x12\"\n" +
+	"\fcapabilities\x18\b \x03(\tR\fcapabilities\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\x12\n" +
-	"\x10_organization_id\"\xfa\x01\n" +
+	"\x10_organization_id\"\x9e\x02\n" +
 	"\x15RegisterRunnerRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12,\n" +
 	"\x0forganization_id\x18\x02 \x01(\tH\x00R\x0eorganizationId\x88\x01\x01\x12P\n" +
-	"\x06labels\x18\x03 \x03(\v28.agynio.api.runners.v1.RegisterRunnerRequest.LabelsEntryR\x06labels\x1a9\n" +
+	"\x06labels\x18\x03 \x03(\v28.agynio.api.runners.v1.RegisterRunnerRequest.LabelsEntryR\x06labels\x12\"\n" +
+	"\fcapabilities\x18\x04 \x03(\tR\fcapabilities\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\x12\n" +
@@ -3236,11 +3265,12 @@ const file_agynio_api_runners_v1_runners_proto_rawDesc = "" +
 	"\x10_organization_id\"v\n" +
 	"\x13ListRunnersResponse\x127\n" +
 	"\arunners\x18\x01 \x03(\v2\x1d.agynio.api.runners.v1.RunnerR\arunners\x12&\n" +
-	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\"\xd2\x01\n" +
+	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\"\xf6\x01\n" +
 	"\x13UpdateRunnerRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
 	"\x04name\x18\x02 \x01(\tH\x00R\x04name\x88\x01\x01\x12N\n" +
-	"\x06labels\x18\x03 \x03(\v26.agynio.api.runners.v1.UpdateRunnerRequest.LabelsEntryR\x06labels\x1a9\n" +
+	"\x06labels\x18\x03 \x03(\v26.agynio.api.runners.v1.UpdateRunnerRequest.LabelsEntryR\x06labels\x12\"\n" +
+	"\fcapabilities\x18\x04 \x03(\tR\fcapabilities\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\a\n" +

@@ -28,7 +28,7 @@ const (
 	zitiRunnerRoleAttribute = "runners"
 	zitiRunnerServiceRole   = "runner-services"
 
-	runnerColumns = `id, name, organization_id, identity_id, ziti_identity_id, ziti_service_id, ziti_service_name, status, labels, created_at, updated_at`
+	runnerColumns = `id, name, organization_id, identity_id, ziti_identity_id, ziti_service_id, ziti_service_name, status, labels, capabilities, created_at, updated_at`
 )
 
 type runnerRecord struct {
@@ -41,6 +41,7 @@ type runnerRecord struct {
 	ZitiServiceName string
 	Status          string
 	Labels          map[string]string
+	Capabilities    []string
 }
 
 type runnerInsertInput struct {
@@ -54,12 +55,39 @@ type runnerInsertInput struct {
 	ServiceTokenHash string
 	Status           string
 	Labels           map[string]string
+	Capabilities     []string
 }
 
 type runnerUpdateInput struct {
-	ID     uuid.UUID
-	Name   *string
-	Labels *map[string]string
+	ID           uuid.UUID
+	Name         *string
+	Labels       *map[string]string
+	Capabilities *[]string
+}
+
+func decodeCapabilities(value []byte) ([]string, error) {
+	if value == nil {
+		return nil, fmt.Errorf("capabilities is NULL")
+	}
+	var capabilities []string
+	if err := json.Unmarshal(value, &capabilities); err != nil {
+		return nil, fmt.Errorf("decode capabilities: %w", err)
+	}
+	if capabilities == nil {
+		return nil, fmt.Errorf("capabilities must be a JSON array")
+	}
+	return capabilities, nil
+}
+
+func encodeCapabilities(capabilities []string) ([]byte, error) {
+	if capabilities == nil {
+		capabilities = []string{}
+	}
+	data, err := json.Marshal(capabilities)
+	if err != nil {
+		return nil, fmt.Errorf("encode capabilities: %w", err)
+	}
+	return data, nil
 }
 
 func (s *Server) RegisterRunner(ctx context.Context, req *runnersv1.RegisterRunnerRequest) (*runnersv1.RegisterRunnerResponse, error) {
@@ -71,6 +99,7 @@ func (s *Server) RegisterRunner(ctx context.Context, req *runnersv1.RegisterRunn
 	if labels == nil {
 		labels = map[string]string{}
 	}
+	capabilities := append([]string(nil), req.GetCapabilities()...)
 
 	var organizationID *uuid.UUID
 	if req.OrganizationId != nil {
@@ -121,6 +150,7 @@ func (s *Server) RegisterRunner(ctx context.Context, req *runnersv1.RegisterRunn
 		ServiceTokenHash: tokenHash,
 		Status:           runnerStatusPending,
 		Labels:           labels,
+		Capabilities:     capabilities,
 	})
 	if err != nil {
 		s.cleanupRunnerAuthorization(ctx, runnerID, organizationID)
@@ -170,8 +200,17 @@ func (s *Server) UpdateRunner(ctx context.Context, req *runnersv1.UpdateRunnerRe
 		value := req.Labels
 		labels = &value
 	}
+	// NOTE: proto3 repeated fields do not track presence on the wire. A nil
+	// slice indicates the caller did not set capabilities; when provided, the
+	// list replaces existing capabilities.
+	capabilitiesProvided := req.Capabilities != nil
+	var capabilities *[]string
+	if capabilitiesProvided {
+		value := append([]string(nil), req.GetCapabilities()...)
+		capabilities = &value
+	}
 
-	runner, err := s.updateRunner(ctx, runnerUpdateInput{ID: id, Name: name, Labels: labels})
+	runner, err := s.updateRunner(ctx, runnerUpdateInput{ID: id, Name: name, Labels: labels, Capabilities: capabilities})
 	if err != nil {
 		return nil, toStatusError(err)
 	}
@@ -321,9 +360,13 @@ func (s *Server) insertRunner(ctx context.Context, input runnerInsertInput) (run
 	if err != nil {
 		return runnerRecord{}, err
 	}
+	capabilitiesJSON, err := encodeCapabilities(input.Capabilities)
+	if err != nil {
+		return runnerRecord{}, err
+	}
 	row := s.pool.QueryRow(ctx,
-		fmt.Sprintf(`INSERT INTO runners (id, name, organization_id, identity_id, ziti_identity_id, ziti_service_id, ziti_service_name, service_token_hash, status, labels)
-	    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		fmt.Sprintf(`INSERT INTO runners (id, name, organization_id, identity_id, ziti_identity_id, ziti_service_id, ziti_service_name, service_token_hash, status, labels, capabilities)
+	    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 	    RETURNING %s`, runnerColumns),
 		input.ID,
 		input.Name,
@@ -335,6 +378,7 @@ func (s *Server) insertRunner(ctx context.Context, input runnerInsertInput) (run
 		input.ServiceTokenHash,
 		input.Status,
 		labelsJSON,
+		capabilitiesJSON,
 	)
 	runner, err := scanRunner(row)
 	if err != nil {
@@ -419,15 +463,25 @@ func (s *Server) updateRunner(ctx context.Context, input runnerUpdateInput) (run
 		labelsValue = pgtype.Text{String: string(labelsJSON), Valid: true}
 	}
 
+	capabilitiesValue := pgtype.Text{Valid: false}
+	if input.Capabilities != nil {
+		capabilitiesJSON, err := encodeCapabilities(*input.Capabilities)
+		if err != nil {
+			return runnerRecord{}, err
+		}
+		capabilitiesValue = pgtype.Text{String: string(capabilitiesJSON), Valid: true}
+	}
+
 	nameValue := pgtype.Text{Valid: false}
 	if input.Name != nil {
 		nameValue = pgtype.Text{String: *input.Name, Valid: true}
 	}
 
 	row := s.pool.QueryRow(ctx,
-		fmt.Sprintf(`UPDATE runners SET name = COALESCE($1, name), labels = COALESCE($2::jsonb, labels), updated_at = NOW() WHERE id = $3 RETURNING %s`, runnerColumns),
+		fmt.Sprintf(`UPDATE runners SET name = COALESCE($1, name), labels = COALESCE($2::jsonb, labels), capabilities = COALESCE($3::jsonb, capabilities), updated_at = NOW() WHERE id = $4 RETURNING %s`, runnerColumns),
 		nameValue,
 		labelsValue,
+		capabilitiesValue,
 		input.ID,
 	)
 	runner, err := scanRunner(row)
@@ -456,6 +510,7 @@ func scanRunner(row pgx.Row) (runnerRecord, error) {
 		runner     runnerRecord
 		orgID      pgtype.UUID
 		labelsData []byte
+		capData    []byte
 	)
 	if err := row.Scan(
 		&runner.Meta.ID,
@@ -467,6 +522,7 @@ func scanRunner(row pgx.Row) (runnerRecord, error) {
 		&runner.ZitiServiceName,
 		&runner.Status,
 		&labelsData,
+		&capData,
 		&runner.Meta.CreatedAt,
 		&runner.Meta.UpdatedAt,
 	); err != nil {
@@ -478,6 +534,11 @@ func scanRunner(row pgx.Row) (runnerRecord, error) {
 	if runner.Labels == nil {
 		runner.Labels = map[string]string{}
 	}
+	capabilities, err := decodeCapabilities(capData)
+	if err != nil {
+		return runnerRecord{}, err
+	}
+	runner.Capabilities = capabilities
 	if orgID.Valid {
 		value := uuid.UUID(orgID.Bytes)
 		runner.OrganizationID = &value
@@ -496,6 +557,7 @@ func toProtoRunner(record runnerRecord) (*runnersv1.Runner, error) {
 		IdentityId:          record.IdentityID.String(),
 		Status:              status,
 		Labels:              record.Labels,
+		Capabilities:        append([]string(nil), record.Capabilities...),
 		OpenzitiServiceName: record.ZitiServiceName,
 	}
 	if record.OrganizationID != nil {
