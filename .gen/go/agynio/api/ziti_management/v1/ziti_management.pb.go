@@ -30,6 +30,7 @@ const (
 	ServiceType_SERVICE_TYPE_GATEWAY      ServiceType = 1
 	ServiceType_SERVICE_TYPE_ORCHESTRATOR ServiceType = 2
 	ServiceType_SERVICE_TYPE_LLM_PROXY    ServiceType = 4
+	ServiceType_SERVICE_TYPE_TRACING      ServiceType = 5
 )
 
 // Enum value maps for ServiceType.
@@ -39,12 +40,14 @@ var (
 		1: "SERVICE_TYPE_GATEWAY",
 		2: "SERVICE_TYPE_ORCHESTRATOR",
 		4: "SERVICE_TYPE_LLM_PROXY",
+		5: "SERVICE_TYPE_TRACING",
 	}
 	ServiceType_value = map[string]int32{
 		"SERVICE_TYPE_UNSPECIFIED":  0,
 		"SERVICE_TYPE_GATEWAY":      1,
 		"SERVICE_TYPE_ORCHESTRATOR": 2,
 		"SERVICE_TYPE_LLM_PROXY":    4,
+		"SERVICE_TYPE_TRACING":      5,
 	}
 )
 
@@ -2061,12 +2064,13 @@ const file_agynio_api_ziti_management_v1_ziti_management_proto_rawDesc = "" +
 	"\x0eenrollment_jwt\x18\x02 \x01(\tR\renrollmentJwt\"G\n" +
 	"\x1bDeleteDeviceIdentityRequest\x12(\n" +
 	"\x10ziti_identity_id\x18\x01 \x01(\tR\x0ezitiIdentityId\"\x1e\n" +
-	"\x1cDeleteDeviceIdentityResponse*\x9b\x01\n" +
+	"\x1cDeleteDeviceIdentityResponse*\xb5\x01\n" +
 	"\vServiceType\x12\x1c\n" +
 	"\x18SERVICE_TYPE_UNSPECIFIED\x10\x00\x12\x18\n" +
 	"\x14SERVICE_TYPE_GATEWAY\x10\x01\x12\x1d\n" +
 	"\x19SERVICE_TYPE_ORCHESTRATOR\x10\x02\x12\x1a\n" +
-	"\x16SERVICE_TYPE_LLM_PROXY\x10\x04\"\x04\b\x03\x10\x03*\x13SERVICE_TYPE_RUNNER*t\n" +
+	"\x16SERVICE_TYPE_LLM_PROXY\x10\x04\x12\x18\n" +
+	"\x14SERVICE_TYPE_TRACING\x10\x05\"\x04\b\x03\x10\x03*\x13SERVICE_TYPE_RUNNER*t\n" +
 	"\x11ServicePolicyType\x12#\n" +
 	"\x1fSERVICE_POLICY_TYPE_UNSPECIFIED\x10\x00\x12\x1c\n" +
 	"\x18SERVICE_POLICY_TYPE_BIND\x10\x01\x12\x1c\n" +

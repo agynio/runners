@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"maps"
 	"regexp"
+	"slices"
 	"testing"
 	"time"
 
@@ -175,18 +176,23 @@ func TestRegisterRunnerPersistsLabels(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to marshal labels: %v", err)
 	}
+	capabilities := []string{"gpu", "docker"}
+	capabilitiesJSON, err := json.Marshal(capabilities)
+	if err != nil {
+		t.Fatalf("failed to marshal capabilities: %v", err)
+	}
 
 	runnerID := uuid.New()
 	identityID := uuid.New()
 	now := time.Now().UTC()
 	zitiServiceID := "service-id"
 	zitiServiceName := "runner-service"
-	rows := pgxmock.NewRows([]string{"id", "name", "organization_id", "identity_id", "ziti_identity_id", "ziti_service_id", "ziti_service_name", "status", "labels", "created_at", "updated_at"}).
-		AddRow(runnerID, "runner-1", pgtype.UUID{Valid: false}, identityID, "", zitiServiceID, zitiServiceName, runnerStatusPending, labelsJSON, now, now)
+	rows := pgxmock.NewRows([]string{"id", "name", "organization_id", "identity_id", "ziti_identity_id", "ziti_service_id", "ziti_service_name", "status", "labels", "capabilities", "created_at", "updated_at"}).
+		AddRow(runnerID, "runner-1", pgtype.UUID{Valid: false}, identityID, "", zitiServiceID, zitiServiceName, runnerStatusPending, labelsJSON, capabilitiesJSON, now, now)
 
-	matcher := regexp.QuoteMeta(fmt.Sprintf("INSERT INTO runners (id, name, organization_id, identity_id, ziti_identity_id, ziti_service_id, ziti_service_name, service_token_hash, status, labels)\n\t    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)\n\t    RETURNING %s", runnerColumns))
+	matcher := regexp.QuoteMeta(fmt.Sprintf("INSERT INTO runners (id, name, organization_id, identity_id, ziti_identity_id, ziti_service_id, ziti_service_name, service_token_hash, status, labels, capabilities)\n\t    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)\n\t    RETURNING %s", runnerColumns))
 	mockPool.ExpectQuery(matcher).
-		WithArgs(pgxmock.AnyArg(), "runner-1", pgxmock.AnyArg(), pgxmock.AnyArg(), "", zitiServiceID, zitiServiceName, pgxmock.AnyArg(), runnerStatusPending, labelsJSON).
+		WithArgs(pgxmock.AnyArg(), "runner-1", pgxmock.AnyArg(), pgxmock.AnyArg(), "", zitiServiceID, zitiServiceName, pgxmock.AnyArg(), runnerStatusPending, labelsJSON, capabilitiesJSON).
 		WillReturnRows(rows)
 
 	var gotIdentityReq *identityv1.RegisterIdentityRequest
@@ -222,8 +228,9 @@ func TestRegisterRunnerPersistsLabels(t *testing.T) {
 	})
 
 	resp, err := srv.RegisterRunner(context.Background(), &runnersv1.RegisterRunnerRequest{
-		Name:   "runner-1",
-		Labels: labels,
+		Name:         "runner-1",
+		Labels:       labels,
+		Capabilities: capabilities,
 	})
 	if err != nil {
 		t.Fatalf("RegisterRunner failed: %v", err)
@@ -236,6 +243,9 @@ func TestRegisterRunnerPersistsLabels(t *testing.T) {
 	}
 	if !maps.Equal(resp.GetRunner().GetLabels(), labels) {
 		t.Fatalf("expected labels %v, got %v", labels, resp.GetRunner().GetLabels())
+	}
+	if !slices.Equal(resp.GetRunner().GetCapabilities(), capabilities) {
+		t.Fatalf("expected capabilities %v, got %v", capabilities, resp.GetRunner().GetCapabilities())
 	}
 	if resp.GetServiceToken() == "" {
 		t.Fatal("expected service token")
@@ -274,21 +284,32 @@ func TestUpdateRunnerUpdatesLabels(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to marshal labels: %v", err)
 	}
+	capabilities := []string{"containerd", "gpu"}
+	capabilitiesJSON, err := json.Marshal(capabilities)
+	if err != nil {
+		t.Fatalf("failed to marshal capabilities: %v", err)
+	}
 	now := time.Now().UTC()
-	rows := pgxmock.NewRows([]string{"id", "name", "organization_id", "identity_id", "ziti_identity_id", "ziti_service_id", "ziti_service_name", "status", "labels", "created_at", "updated_at"}).
-		AddRow(runnerID, "runner-updated", pgtype.UUID{Valid: false}, identityID, "", "service-id", "runner-service", runnerStatusOffline, labelsJSON, now, now)
+	rows := pgxmock.NewRows([]string{"id", "name", "organization_id", "identity_id", "ziti_identity_id", "ziti_service_id", "ziti_service_name", "status", "labels", "capabilities", "created_at", "updated_at"}).
+		AddRow(runnerID, "runner-updated", pgtype.UUID{Valid: false}, identityID, "", "service-id", "runner-service", runnerStatusOffline, labelsJSON, capabilitiesJSON, now, now)
 
-	matcher := regexp.QuoteMeta(fmt.Sprintf(`UPDATE runners SET name = COALESCE($1, name), labels = COALESCE($2::jsonb, labels), updated_at = NOW() WHERE id = $3 RETURNING %s`, runnerColumns))
+	matcher := regexp.QuoteMeta(fmt.Sprintf(`UPDATE runners SET name = COALESCE($1, name), labels = COALESCE($2::jsonb, labels), capabilities = COALESCE($3::jsonb, capabilities), updated_at = NOW() WHERE id = $4 RETURNING %s`, runnerColumns))
 	mockPool.ExpectQuery(matcher).
-		WithArgs(pgtype.Text{String: "runner-updated", Valid: true}, pgtype.Text{String: string(labelsJSON), Valid: true}, runnerID).
+		WithArgs(
+			pgtype.Text{String: "runner-updated", Valid: true},
+			pgtype.Text{String: string(labelsJSON), Valid: true},
+			pgtype.Text{String: string(capabilitiesJSON), Valid: true},
+			runnerID,
+		).
 		WillReturnRows(rows)
 
 	srv := New(Options{Pool: mockPool})
 	name := "runner-updated"
 	resp, err := srv.UpdateRunner(context.Background(), &runnersv1.UpdateRunnerRequest{
-		Id:     runnerID.String(),
-		Name:   &name,
-		Labels: labels,
+		Id:           runnerID.String(),
+		Name:         &name,
+		Labels:       labels,
+		Capabilities: capabilities,
 	})
 	if err != nil {
 		t.Fatalf("UpdateRunner failed: %v", err)
@@ -301,6 +322,9 @@ func TestUpdateRunnerUpdatesLabels(t *testing.T) {
 	}
 	if !maps.Equal(resp.GetRunner().GetLabels(), labels) {
 		t.Fatalf("expected labels %v, got %v", labels, resp.GetRunner().GetLabels())
+	}
+	if !slices.Equal(resp.GetRunner().GetCapabilities(), capabilities) {
+		t.Fatalf("expected capabilities %v, got %v", capabilities, resp.GetRunner().GetCapabilities())
 	}
 
 	if err := mockPool.ExpectationsWereMet(); err != nil {
@@ -355,9 +379,10 @@ func TestEnrollRunnerSuccess(t *testing.T) {
 	identityID := uuid.New()
 	now := time.Now().UTC()
 	labelsJSON := []byte("{}")
+	capabilitiesJSON := []byte("[]")
 	serviceName := "runner-service"
-	rows := pgxmock.NewRows([]string{"id", "name", "organization_id", "identity_id", "ziti_identity_id", "ziti_service_id", "ziti_service_name", "status", "labels", "created_at", "updated_at"}).
-		AddRow(runnerID, "runner-1", pgtype.UUID{Valid: false}, identityID, "", "service-id", serviceName, runnerStatusPending, labelsJSON, now, now)
+	rows := pgxmock.NewRows([]string{"id", "name", "organization_id", "identity_id", "ziti_identity_id", "ziti_service_id", "ziti_service_name", "status", "labels", "capabilities", "created_at", "updated_at"}).
+		AddRow(runnerID, "runner-1", pgtype.UUID{Valid: false}, identityID, "", "service-id", serviceName, runnerStatusPending, labelsJSON, capabilitiesJSON, now, now)
 
 	token := "enroll-token"
 	mockPool.ExpectQuery(matcher).WithArgs(hashServiceToken(token)).WillReturnRows(rows)
@@ -420,8 +445,9 @@ func TestEnrollRunnerZitiFailure(t *testing.T) {
 	identityID := uuid.New()
 	now := time.Now().UTC()
 	labelsJSON := []byte("{}")
-	rows := pgxmock.NewRows([]string{"id", "name", "organization_id", "identity_id", "ziti_identity_id", "ziti_service_id", "ziti_service_name", "status", "labels", "created_at", "updated_at"}).
-		AddRow(runnerID, "runner-1", pgtype.UUID{Valid: false}, identityID, "", "service-id", "runner-service", runnerStatusPending, labelsJSON, now, now)
+	capabilitiesJSON := []byte("[]")
+	rows := pgxmock.NewRows([]string{"id", "name", "organization_id", "identity_id", "ziti_identity_id", "ziti_service_id", "ziti_service_name", "status", "labels", "capabilities", "created_at", "updated_at"}).
+		AddRow(runnerID, "runner-1", pgtype.UUID{Valid: false}, identityID, "", "service-id", "runner-service", runnerStatusPending, labelsJSON, capabilitiesJSON, now, now)
 
 	token := "bad-ziti"
 	mockPool.ExpectQuery(matcher).WithArgs(hashServiceToken(token)).WillReturnRows(rows)
@@ -460,11 +486,12 @@ func TestDeleteRunnerCallsZitiCleanup(t *testing.T) {
 	identityID := uuid.New()
 	now := time.Now().UTC()
 	labelsJSON := []byte("{}")
+	capabilitiesJSON := []byte("[]")
 	zitiServiceID := "service-id"
 	zitiServiceName := "runner-service"
 	zitiIdentityID := "ziti-identity"
-	rows := pgxmock.NewRows([]string{"id", "name", "organization_id", "identity_id", "ziti_identity_id", "ziti_service_id", "ziti_service_name", "status", "labels", "created_at", "updated_at"}).
-		AddRow(runnerID, "runner-1", pgtype.UUID{Valid: false}, identityID, zitiIdentityID, zitiServiceID, zitiServiceName, runnerStatusOffline, labelsJSON, now, now)
+	rows := pgxmock.NewRows([]string{"id", "name", "organization_id", "identity_id", "ziti_identity_id", "ziti_service_id", "ziti_service_name", "status", "labels", "capabilities", "created_at", "updated_at"}).
+		AddRow(runnerID, "runner-1", pgtype.UUID{Valid: false}, identityID, zitiIdentityID, zitiServiceID, zitiServiceName, runnerStatusOffline, labelsJSON, capabilitiesJSON, now, now)
 
 	mockPool.ExpectQuery(regexp.QuoteMeta(query)).WithArgs(runnerID).WillReturnRows(rows)
 	mockPool.ExpectExec(deleteQuery).WithArgs(runnerID).WillReturnResult(pgxmock.NewResult("DELETE", 1))
@@ -522,8 +549,9 @@ func TestDeleteRunnerBestEffortZitiFailure(t *testing.T) {
 	identityID := uuid.New()
 	now := time.Now().UTC()
 	labelsJSON := []byte("{}")
-	rows := pgxmock.NewRows([]string{"id", "name", "organization_id", "identity_id", "ziti_identity_id", "ziti_service_id", "ziti_service_name", "status", "labels", "created_at", "updated_at"}).
-		AddRow(runnerID, "runner-1", pgtype.UUID{Valid: false}, identityID, "ziti-identity", "service-id", "runner-service", runnerStatusOffline, labelsJSON, now, now)
+	capabilitiesJSON := []byte("[]")
+	rows := pgxmock.NewRows([]string{"id", "name", "organization_id", "identity_id", "ziti_identity_id", "ziti_service_id", "ziti_service_name", "status", "labels", "capabilities", "created_at", "updated_at"}).
+		AddRow(runnerID, "runner-1", pgtype.UUID{Valid: false}, identityID, "ziti-identity", "service-id", "runner-service", runnerStatusOffline, labelsJSON, capabilitiesJSON, now, now)
 
 	mockPool.ExpectQuery(regexp.QuoteMeta(query)).WithArgs(runnerID).WillReturnRows(rows)
 	mockPool.ExpectExec(deleteQuery).WithArgs(runnerID).WillReturnResult(pgxmock.NewResult("DELETE", 1))
