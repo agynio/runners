@@ -260,14 +260,7 @@ func (s *Server) TouchWorkload(ctx context.Context, req *runnersv1.TouchWorkload
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "id: %v", err)
 	}
-	workload, err := s.getWorkloadByID(ctx, id)
-	if err != nil {
-		return nil, toStatusError(err)
-	}
-	if workload.AgentID != callerID {
-		return nil, status.Error(codes.PermissionDenied, "permission denied")
-	}
-	if err := s.touchWorkload(ctx, id); err != nil {
+	if err := s.touchWorkloadForAgent(ctx, id, callerID); err != nil {
 		return nil, toStatusError(err)
 	}
 	return &runnersv1.TouchWorkloadResponse{}, nil
@@ -524,13 +517,17 @@ func (s *Server) softDeleteWorkload(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-func (s *Server) touchWorkload(ctx context.Context, id uuid.UUID) error {
-	result, err := s.pool.Exec(ctx, `UPDATE workloads SET last_activity_at = NOW(), updated_at = NOW() WHERE id = $1`, id)
+func (s *Server) touchWorkloadForAgent(ctx context.Context, id uuid.UUID, agentID uuid.UUID) error {
+	result, err := s.pool.Exec(ctx, `UPDATE workloads SET last_activity_at = NOW(), updated_at = NOW() WHERE id = $1 AND agent_id = $2`, id, agentID)
 	if err != nil {
 		return err
 	}
 	if result.RowsAffected() == 0 {
-		return NotFound("workload")
+		_, err := s.getWorkloadByID(ctx, id)
+		if err != nil {
+			return err
+		}
+		return PermissionDenied()
 	}
 	return nil
 }

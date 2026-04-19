@@ -400,6 +400,71 @@ func TestRegisterRunnerClusterScopedRequiresAdmin(t *testing.T) {
 	}
 }
 
+func TestGetRunnerRequiresMember(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("failed to create mock pool: %v", err)
+	}
+
+	runnerID := uuid.New()
+	organizationID := uuid.New()
+	callerID := uuid.New()
+	identityID := uuid.New()
+	now := time.Now().UTC()
+	labelsJSON := []byte("{}")
+	capabilitiesJSON := []byte("[]")
+	rows := pgxmock.NewRows([]string{"id", "name", "organization_id", "identity_id", "ziti_identity_id", "ziti_service_id", "ziti_service_name", "status", "labels", "capabilities", "created_at", "updated_at"}).
+		AddRow(runnerID, "runner-1", pgtype.UUID{Bytes: organizationID, Valid: true}, identityID, "", "service-id", "runner-service", runnerStatusOffline, labelsJSON, capabilitiesJSON, now, now)
+
+	query := fmt.Sprintf(`SELECT %s FROM runners WHERE id = $1`, runnerColumns)
+	mockPool.ExpectQuery(regexp.QuoteMeta(query)).WithArgs(runnerID).WillReturnRows(rows)
+
+	authorizationClient := fakeAuthorizationClient{
+		check: func(ctx context.Context, req *authorizationv1.CheckRequest) (*authorizationv1.CheckResponse, error) {
+			return &authorizationv1.CheckResponse{Allowed: false}, nil
+		},
+	}
+
+	srv := New(Options{Pool: mockPool, AuthorizationClient: authorizationClient})
+	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(identityMetadata, callerID.String()))
+	_, err = srv.GetRunner(ctx, &runnersv1.GetRunnerRequest{Id: runnerID.String()})
+	if status.Code(err) != codes.PermissionDenied {
+		t.Fatalf("expected PermissionDenied error, got %v", err)
+	}
+
+	if err := mockPool.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestListRunnersRequiresMember(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("failed to create mock pool: %v", err)
+	}
+
+	organizationID := uuid.New()
+	callerID := uuid.New()
+
+	authorizationClient := fakeAuthorizationClient{
+		check: func(ctx context.Context, req *authorizationv1.CheckRequest) (*authorizationv1.CheckResponse, error) {
+			return &authorizationv1.CheckResponse{Allowed: false}, nil
+		},
+	}
+
+	srv := New(Options{Pool: mockPool, AuthorizationClient: authorizationClient})
+	organizationIDValue := organizationID.String()
+	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(identityMetadata, callerID.String()))
+	_, err = srv.ListRunners(ctx, &runnersv1.ListRunnersRequest{OrganizationId: &organizationIDValue})
+	if status.Code(err) != codes.PermissionDenied {
+		t.Fatalf("expected PermissionDenied error, got %v", err)
+	}
+
+	if err := mockPool.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
 func TestUpdateRunnerUpdatesLabels(t *testing.T) {
 	mockPool, err := pgxmock.NewPool()
 	if err != nil {
