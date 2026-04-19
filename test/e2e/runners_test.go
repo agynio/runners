@@ -17,12 +17,13 @@ const testTimeout = 60 * time.Second
 func TestRunnerLifecycle(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
+	adminCtx := adminContext(ctx)
 
 	registerLabels := map[string]string{
 		"region": "test",
 		"tier":   "e2e",
 	}
-	registerResp, err := runnerClient.RegisterRunner(ctx, &runnersv1.RegisterRunnerRequest{
+	registerResp, err := runnerClient.RegisterRunner(adminCtx, &runnersv1.RegisterRunnerRequest{
 		Name:   "e2e-runner",
 		Labels: registerLabels,
 	})
@@ -49,10 +50,11 @@ func TestRunnerLifecycle(t *testing.T) {
 	t.Cleanup(func() {
 		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), testTimeout)
 		defer cleanupCancel()
+		cleanupCtx = adminContext(cleanupCtx)
 		_, _ = runnerClient.DeleteRunner(cleanupCtx, &runnersv1.DeleteRunnerRequest{Id: runnerID})
 	})
 
-	validateResp, err := runnerClient.ValidateServiceToken(ctx, &runnersv1.ValidateServiceTokenRequest{
+	validateResp, err := runnerClient.ValidateServiceToken(adminCtx, &runnersv1.ValidateServiceTokenRequest{
 		TokenHash: token,
 	})
 	if err != nil {
@@ -66,8 +68,9 @@ func TestRunnerLifecycle(t *testing.T) {
 	threadID := uuid.NewString()
 	agentID := uuid.NewString()
 	organizationID := uuid.NewString()
+	ensureOrganizationMember(t, adminCtx, clusterAdminIdentityID, organizationID)
 
-	createResp, err := runnerClient.CreateWorkload(ctx, &runnersv1.CreateWorkloadRequest{
+	createResp, err := runnerClient.CreateWorkload(adminCtx, &runnersv1.CreateWorkloadRequest{
 		Id:             workloadID,
 		RunnerId:       runnerID,
 		ThreadId:       threadID,
@@ -92,6 +95,7 @@ func TestRunnerLifecycle(t *testing.T) {
 	t.Cleanup(func() {
 		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), testTimeout)
 		defer cleanupCancel()
+		cleanupCtx = adminContext(cleanupCtx)
 		_, _ = runnerClient.DeleteWorkload(cleanupCtx, &runnersv1.DeleteWorkloadRequest{Id: workloadID})
 	})
 
@@ -99,7 +103,7 @@ func TestRunnerLifecycle(t *testing.T) {
 		t.Fatalf("CreateWorkload returned unexpected ID")
 	}
 
-	updateResp, err := runnerClient.UpdateWorkloadStatus(ctx, &runnersv1.UpdateWorkloadStatusRequest{
+	updateResp, err := runnerClient.UpdateWorkloadStatus(adminCtx, &runnersv1.UpdateWorkloadStatusRequest{
 		Id:     workloadID,
 		Status: runnersv1.WorkloadStatus_WORKLOAD_STATUS_RUNNING,
 		Containers: []*runnersv1.Container{
@@ -119,11 +123,12 @@ func TestRunnerLifecycle(t *testing.T) {
 		t.Fatalf("UpdateWorkloadStatus did not return running status")
 	}
 
-	if _, err := runnerClient.TouchWorkload(ctx, &runnersv1.TouchWorkloadRequest{Id: workloadID}); err != nil {
+	agentCtx := agentContext(ctx, agentID)
+	if _, err := runnerClient.TouchWorkload(agentCtx, &runnersv1.TouchWorkloadRequest{Id: workloadID}); err != nil {
 		t.Fatalf("TouchWorkload failed: %v", err)
 	}
 
-	getResp, err := runnerClient.GetWorkload(ctx, &runnersv1.GetWorkloadRequest{Id: workloadID})
+	getResp, err := runnerClient.GetWorkload(adminCtx, &runnersv1.GetWorkloadRequest{Id: workloadID})
 	if err != nil {
 		t.Fatalf("GetWorkload failed: %v", err)
 	}
@@ -131,7 +136,7 @@ func TestRunnerLifecycle(t *testing.T) {
 		t.Fatalf("GetWorkload returned unexpected thread ID")
 	}
 
-	listByThreadResp, err := runnerClient.ListWorkloadsByThread(ctx, &runnersv1.ListWorkloadsByThreadRequest{
+	listByThreadResp, err := runnerClient.ListWorkloadsByThread(adminCtx, &runnersv1.ListWorkloadsByThreadRequest{
 		ThreadId:  threadID,
 		PageSize:  10,
 		PageToken: "",
@@ -143,7 +148,7 @@ func TestRunnerLifecycle(t *testing.T) {
 		t.Fatalf("ListWorkloadsByThread missing workload")
 	}
 
-	listResp, err := runnerClient.ListWorkloads(ctx, &runnersv1.ListWorkloadsRequest{
+	listResp, err := runnerClient.ListWorkloads(adminCtx, &runnersv1.ListWorkloadsRequest{
 		PageSize: 10,
 		Statuses: []runnersv1.WorkloadStatus{runnersv1.WorkloadStatus_WORKLOAD_STATUS_RUNNING},
 	})
@@ -154,11 +159,11 @@ func TestRunnerLifecycle(t *testing.T) {
 		t.Fatalf("ListWorkloads missing workload")
 	}
 
-	if _, err := runnerClient.DeleteWorkload(ctx, &runnersv1.DeleteWorkloadRequest{Id: workloadID}); err != nil {
+	if _, err := runnerClient.DeleteWorkload(adminCtx, &runnersv1.DeleteWorkloadRequest{Id: workloadID}); err != nil {
 		t.Fatalf("DeleteWorkload failed: %v", err)
 	}
 
-	deletedResp, err := runnerClient.GetWorkload(ctx, &runnersv1.GetWorkloadRequest{Id: workloadID})
+	deletedResp, err := runnerClient.GetWorkload(adminCtx, &runnersv1.GetWorkloadRequest{Id: workloadID})
 	if err != nil {
 		t.Fatalf("GetWorkload after delete failed: %v", err)
 	}
@@ -169,7 +174,7 @@ func TestRunnerLifecycle(t *testing.T) {
 		t.Fatalf("expected removed_at after delete")
 	}
 
-	if _, err := runnerClient.DeleteRunner(ctx, &runnersv1.DeleteRunnerRequest{Id: runnerID}); err != nil {
+	if _, err := runnerClient.DeleteRunner(adminCtx, &runnersv1.DeleteRunnerRequest{Id: runnerID}); err != nil {
 		t.Fatalf("DeleteRunner failed: %v", err)
 	}
 }
