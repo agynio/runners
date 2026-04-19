@@ -24,6 +24,12 @@ func (e *AlreadyExistsError) Error() string {
 	return fmt.Sprintf("%s already exists", e.Resource)
 }
 
+type PermissionDeniedError struct{}
+
+func (e *PermissionDeniedError) Error() string {
+	return "permission denied"
+}
+
 type InvalidPageTokenError struct {
 	Err error
 }
@@ -44,6 +50,10 @@ func AlreadyExists(resource string) error {
 	return &AlreadyExistsError{Resource: resource}
 }
 
+func PermissionDenied() error {
+	return &PermissionDeniedError{}
+}
+
 func InvalidPageToken(err error) error {
 	return &InvalidPageTokenError{Err: err}
 }
@@ -56,6 +66,10 @@ func toStatusError(err error) error {
 	var exists *AlreadyExistsError
 	if errors.As(err, &exists) {
 		return status.Error(codes.AlreadyExists, exists.Error())
+	}
+	var denied *PermissionDeniedError
+	if errors.As(err, &denied) {
+		return status.Error(codes.PermissionDenied, denied.Error())
 	}
 	return status.Errorf(codes.Internal, "internal error: %v", err)
 }

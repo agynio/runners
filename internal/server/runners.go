@@ -91,6 +91,10 @@ func encodeCapabilities(capabilities []string) ([]byte, error) {
 }
 
 func (s *Server) RegisterRunner(ctx context.Context, req *runnersv1.RegisterRunnerRequest) (*runnersv1.RegisterRunnerResponse, error) {
+	callerID, err := identityFromMetadata(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, "unauthenticated: %v", err)
+	}
 	name := strings.TrimSpace(req.GetName())
 	if name == "" {
 		return nil, status.Error(codes.InvalidArgument, "name must be provided")
@@ -108,6 +112,14 @@ func (s *Server) RegisterRunner(ctx context.Context, req *runnersv1.RegisterRunn
 			return nil, status.Errorf(codes.InvalidArgument, "organization_id: %v", err)
 		}
 		organizationID = &parsed
+	}
+
+	if organizationID == nil {
+		if err := s.requireClusterAdmin(ctx, callerID); err != nil {
+			return nil, err
+		}
+	} else if err := s.requireOrgOwner(ctx, callerID, *organizationID); err != nil {
+		return nil, err
 	}
 
 	runnerID := uuid.New()
@@ -165,6 +177,10 @@ func (s *Server) RegisterRunner(ctx context.Context, req *runnersv1.RegisterRunn
 }
 
 func (s *Server) GetRunner(ctx context.Context, req *runnersv1.GetRunnerRequest) (*runnersv1.GetRunnerResponse, error) {
+	callerID, err := identityFromMetadata(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, "unauthenticated: %v", err)
+	}
 	id, err := parseUUID(req.GetId())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "id: %v", err)
@@ -172,6 +188,11 @@ func (s *Server) GetRunner(ctx context.Context, req *runnersv1.GetRunnerRequest)
 	runner, err := s.getRunnerByID(ctx, id)
 	if err != nil {
 		return nil, toStatusError(err)
+	}
+	if runner.OrganizationID != nil {
+		if err := s.requireOrgMember(ctx, callerID, *runner.OrganizationID); err != nil {
+			return nil, err
+		}
 	}
 	protoRunner, err := toProtoRunner(runner)
 	if err != nil {
@@ -181,6 +202,10 @@ func (s *Server) GetRunner(ctx context.Context, req *runnersv1.GetRunnerRequest)
 }
 
 func (s *Server) UpdateRunner(ctx context.Context, req *runnersv1.UpdateRunnerRequest) (*runnersv1.UpdateRunnerResponse, error) {
+	callerID, err := identityFromMetadata(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, "unauthenticated: %v", err)
+	}
 	id, err := parseUUID(req.GetId())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "id: %v", err)
@@ -210,6 +235,18 @@ func (s *Server) UpdateRunner(ctx context.Context, req *runnersv1.UpdateRunnerRe
 		capabilities = &value
 	}
 
+	runnerRecord, err := s.getRunnerByID(ctx, id)
+	if err != nil {
+		return nil, toStatusError(err)
+	}
+	if runnerRecord.OrganizationID == nil {
+		if err := s.requireClusterAdmin(ctx, callerID); err != nil {
+			return nil, err
+		}
+	} else if err := s.requireOrgOwner(ctx, callerID, *runnerRecord.OrganizationID); err != nil {
+		return nil, err
+	}
+
 	runner, err := s.updateRunner(ctx, runnerUpdateInput{ID: id, Name: name, Labels: labels, Capabilities: capabilities})
 	if err != nil {
 		return nil, toStatusError(err)
@@ -222,6 +259,10 @@ func (s *Server) UpdateRunner(ctx context.Context, req *runnersv1.UpdateRunnerRe
 }
 
 func (s *Server) ListRunners(ctx context.Context, req *runnersv1.ListRunnersRequest) (*runnersv1.ListRunnersResponse, error) {
+	callerID, err := identityFromMetadata(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, "unauthenticated: %v", err)
+	}
 	var organizationID *uuid.UUID
 	if req.OrganizationId != nil {
 		parsed, err := parseUUID(req.GetOrganizationId())
@@ -229,6 +270,11 @@ func (s *Server) ListRunners(ctx context.Context, req *runnersv1.ListRunnersRequ
 			return nil, status.Errorf(codes.InvalidArgument, "organization_id: %v", err)
 		}
 		organizationID = &parsed
+	}
+	if organizationID != nil {
+		if err := s.requireOrgMember(ctx, callerID, *organizationID); err != nil {
+			return nil, err
+		}
 	}
 
 	runners, nextToken, err := s.listRunners(ctx, organizationID, req.GetPageSize(), req.GetPageToken())
@@ -238,6 +284,25 @@ func (s *Server) ListRunners(ctx context.Context, req *runnersv1.ListRunnersRequ
 			return nil, status.Errorf(codes.InvalidArgument, "invalid page_token: %v", invalidToken.Err)
 		}
 		return nil, status.Errorf(codes.Internal, "list runners: %v", err)
+	}
+
+	if organizationID == nil {
+		memberCache := map[uuid.UUID]bool{}
+		filtered := make([]runnerRecord, 0, len(runners))
+		for _, runner := range runners {
+			if runner.OrganizationID == nil {
+				filtered = append(filtered, runner)
+				continue
+			}
+			allowed, err := s.memberAllowed(ctx, callerID, *runner.OrganizationID, memberCache)
+			if err != nil {
+				return nil, err
+			}
+			if allowed {
+				filtered = append(filtered, runner)
+			}
+		}
+		runners = filtered
 	}
 
 	protoRunners := make([]*runnersv1.Runner, 0, len(runners))
@@ -252,6 +317,10 @@ func (s *Server) ListRunners(ctx context.Context, req *runnersv1.ListRunnersRequ
 }
 
 func (s *Server) DeleteRunner(ctx context.Context, req *runnersv1.DeleteRunnerRequest) (*runnersv1.DeleteRunnerResponse, error) {
+	callerID, err := identityFromMetadata(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, "unauthenticated: %v", err)
+	}
 	id, err := parseUUID(req.GetId())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "id: %v", err)
@@ -260,6 +329,13 @@ func (s *Server) DeleteRunner(ctx context.Context, req *runnersv1.DeleteRunnerRe
 	runner, err := s.getRunnerByID(ctx, id)
 	if err != nil {
 		return nil, toStatusError(err)
+	}
+	if runner.OrganizationID == nil {
+		if err := s.requireClusterAdmin(ctx, callerID); err != nil {
+			return nil, err
+		}
+	} else if err := s.requireOrgOwner(ctx, callerID, *runner.OrganizationID); err != nil {
+		return nil, err
 	}
 
 	if runner.ZitiServiceID != "" || runner.ZitiIdentityID != "" {
@@ -329,6 +405,9 @@ func (s *Server) EnrollRunner(ctx context.Context, req *runnersv1.EnrollRunnerRe
 
 func (s *Server) writeRunnerAuthorization(ctx context.Context, runnerID uuid.UUID, organizationID *uuid.UUID) error {
 	tuple := runnerAuthorizationTuple(runnerID, organizationID)
+	if tuple == nil {
+		return nil
+	}
 	if _, err := s.authorizationClient.Write(ctx, &authorizationv1.WriteRequest{Writes: []*authorizationv1.TupleKey{tuple}}); err != nil {
 		return status.Errorf(codes.Internal, "authorization write: %v", err)
 	}
@@ -337,6 +416,9 @@ func (s *Server) writeRunnerAuthorization(ctx context.Context, runnerID uuid.UUI
 
 func (s *Server) cleanupRunnerAuthorization(ctx context.Context, runnerID uuid.UUID, organizationID *uuid.UUID) {
 	tuple := runnerAuthorizationTuple(runnerID, organizationID)
+	if tuple == nil {
+		return
+	}
 	_, _ = s.authorizationClient.Write(ctx, &authorizationv1.WriteRequest{Deletes: []*authorizationv1.TupleKey{tuple}})
 }
 
@@ -348,11 +430,7 @@ func runnerAuthorizationTuple(runnerID uuid.UUID, organizationID *uuid.UUID) *au
 			Object:   organizationObject(*organizationID),
 		}
 	}
-	return &authorizationv1.TupleKey{
-		User:     identityObject(runnerID),
-		Relation: clusterWriterRelation,
-		Object:   clusterObject,
-	}
+	return nil
 }
 
 func (s *Server) insertRunner(ctx context.Context, input runnerInsertInput) (runnerRecord, error) {

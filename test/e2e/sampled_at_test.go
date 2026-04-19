@@ -18,6 +18,7 @@ func TestBatchUpdateWorkloadSampledAtSingle(t *testing.T) {
 	threadID := uuid.NewString()
 	agentID := uuid.NewString()
 	organizationID := uuid.NewString()
+	ensureOrganizationMember(t, ctx, clusterAdminIdentityID, organizationID)
 
 	workloadID := uuid.NewString()
 	createWorkload(t, ctx, workloadID, runnerID, threadID, agentID, organizationID)
@@ -42,6 +43,7 @@ func TestBatchUpdateWorkloadSampledAtMultiple(t *testing.T) {
 	threadID := uuid.NewString()
 	agentID := uuid.NewString()
 	organizationID := uuid.NewString()
+	ensureOrganizationMember(t, ctx, clusterAdminIdentityID, organizationID)
 
 	workloadIDs := []string{uuid.NewString(), uuid.NewString()}
 	for _, workloadID := range workloadIDs {
@@ -77,6 +79,7 @@ func TestBatchUpdateWorkloadSampledAtIdempotent(t *testing.T) {
 	threadID := uuid.NewString()
 	agentID := uuid.NewString()
 	organizationID := uuid.NewString()
+	ensureOrganizationMember(t, ctx, clusterAdminIdentityID, organizationID)
 
 	workloadID := uuid.NewString()
 	createWorkload(t, ctx, workloadID, runnerID, threadID, agentID, organizationID)
@@ -106,6 +109,7 @@ func TestBatchUpdateVolumeSampledAtSingle(t *testing.T) {
 	threadID := uuid.NewString()
 	agentID := uuid.NewString()
 	organizationID := uuid.NewString()
+	ensureOrganizationMember(t, ctx, clusterAdminIdentityID, organizationID)
 
 	volumeID := uuid.NewString()
 	volumeExternalID := uuid.NewString()
@@ -131,6 +135,7 @@ func TestBatchUpdateVolumeSampledAtMultiple(t *testing.T) {
 	threadID := uuid.NewString()
 	agentID := uuid.NewString()
 	organizationID := uuid.NewString()
+	ensureOrganizationMember(t, ctx, clusterAdminIdentityID, organizationID)
 
 	volumeIDs := []string{uuid.NewString(), uuid.NewString()}
 	volumeExternalIDs := []string{uuid.NewString(), uuid.NewString()}
@@ -167,6 +172,7 @@ func TestBatchUpdateVolumeSampledAtIdempotent(t *testing.T) {
 	threadID := uuid.NewString()
 	agentID := uuid.NewString()
 	organizationID := uuid.NewString()
+	ensureOrganizationMember(t, ctx, clusterAdminIdentityID, organizationID)
 
 	volumeID := uuid.NewString()
 	volumeExternalID := uuid.NewString()
@@ -203,7 +209,7 @@ func newTestContext(t *testing.T) context.Context {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	t.Cleanup(cancel)
-	return ctx
+	return adminContext(ctx)
 }
 
 func cleanupRunner(t *testing.T, runnerID string) {
@@ -211,6 +217,7 @@ func cleanupRunner(t *testing.T, runnerID string) {
 	t.Cleanup(func() {
 		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), testTimeout)
 		defer cleanupCancel()
+		cleanupCtx = adminContext(cleanupCtx)
 		_, _ = runnerClient.DeleteRunner(cleanupCtx, &runnersv1.DeleteRunnerRequest{Id: runnerID})
 	})
 }
@@ -220,6 +227,7 @@ func cleanupWorkload(t *testing.T, workloadID string) {
 	t.Cleanup(func() {
 		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), testTimeout)
 		defer cleanupCancel()
+		cleanupCtx = adminContext(cleanupCtx)
 		_, _ = runnerClient.DeleteWorkload(cleanupCtx, &runnersv1.DeleteWorkloadRequest{Id: workloadID})
 	})
 }
@@ -229,6 +237,7 @@ func cleanupVolume(t *testing.T, volumeID string) {
 	t.Cleanup(func() {
 		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), testTimeout)
 		defer cleanupCancel()
+		cleanupCtx = adminContext(cleanupCtx)
 		_, _ = runnerClient.UpdateVolume(cleanupCtx, &runnersv1.UpdateVolumeRequest{
 			Id:        volumeID,
 			Status:    runnersv1.VolumeStatus_VOLUME_STATUS_DELETED.Enum(),

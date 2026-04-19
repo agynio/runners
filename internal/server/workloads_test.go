@@ -8,10 +8,12 @@ import (
 	"testing"
 	"time"
 
+	authorizationv1 "github.com/agynio/runners/.gen/go/agynio/api/authorization/v1"
 	runnersv1 "github.com/agynio/runners/.gen/go/agynio/api/runners/v1"
 	"github.com/google/uuid"
 	"github.com/pashagolub/pgxmock/v3"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -46,6 +48,7 @@ func TestListWorkloadsFiltersOrganization(t *testing.T) {
 	threadID := uuid.New()
 	agentID := uuid.New()
 	organizationID := uuid.New()
+	callerID := uuid.New()
 	now := time.Now().UTC()
 	containersJSON := []byte("[]")
 
@@ -57,9 +60,18 @@ func TestListWorkloadsFiltersOrganization(t *testing.T) {
 		WithArgs(organizationID, 51).
 		WillReturnRows(rows)
 
-	srv := New(Options{Pool: mockPool})
+	var gotCheckReq *authorizationv1.CheckRequest
+	authorizationClient := fakeAuthorizationClient{
+		check: func(ctx context.Context, req *authorizationv1.CheckRequest) (*authorizationv1.CheckResponse, error) {
+			gotCheckReq = req
+			return &authorizationv1.CheckResponse{Allowed: true}, nil
+		},
+	}
+
+	srv := New(Options{Pool: mockPool, AuthorizationClient: authorizationClient})
 	organizationIDValue := organizationID.String()
-	resp, err := srv.ListWorkloads(context.Background(), &runnersv1.ListWorkloadsRequest{OrganizationId: &organizationIDValue})
+	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(identityMetadata, callerID.String()))
+	resp, err := srv.ListWorkloads(ctx, &runnersv1.ListWorkloadsRequest{OrganizationId: &organizationIDValue})
 	if err != nil {
 		t.Fatalf("ListWorkloads failed: %v", err)
 	}
@@ -68,6 +80,12 @@ func TestListWorkloadsFiltersOrganization(t *testing.T) {
 	}
 	if resp.GetWorkloads()[0].GetOrganizationId() != organizationID.String() {
 		t.Fatalf("expected organization id %q, got %q", organizationID.String(), resp.GetWorkloads()[0].GetOrganizationId())
+	}
+	if gotCheckReq == nil {
+		t.Fatal("expected authorization Check to be called")
+	}
+	if gotCheckReq.GetTupleKey().GetRelation() != organizationMemberRelation {
+		t.Fatalf("expected member relation, got %s", gotCheckReq.GetTupleKey().GetRelation())
 	}
 
 	if err := mockPool.ExpectationsWereMet(); err != nil {
@@ -86,6 +104,7 @@ func TestListWorkloadsFiltersRunner(t *testing.T) {
 	threadID := uuid.New()
 	agentID := uuid.New()
 	organizationID := uuid.New()
+	callerID := uuid.New()
 	now := time.Now().UTC()
 	containersJSON := []byte("[]")
 
@@ -97,9 +116,18 @@ func TestListWorkloadsFiltersRunner(t *testing.T) {
 		WithArgs(runnerID, 51).
 		WillReturnRows(rows)
 
-	srv := New(Options{Pool: mockPool})
+	var gotCheckReq *authorizationv1.CheckRequest
+	authorizationClient := fakeAuthorizationClient{
+		check: func(ctx context.Context, req *authorizationv1.CheckRequest) (*authorizationv1.CheckResponse, error) {
+			gotCheckReq = req
+			return &authorizationv1.CheckResponse{Allowed: true}, nil
+		},
+	}
+
+	srv := New(Options{Pool: mockPool, AuthorizationClient: authorizationClient})
 	runnerIDValue := runnerID.String()
-	resp, err := srv.ListWorkloads(context.Background(), &runnersv1.ListWorkloadsRequest{RunnerId: &runnerIDValue})
+	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(identityMetadata, callerID.String()))
+	resp, err := srv.ListWorkloads(ctx, &runnersv1.ListWorkloadsRequest{RunnerId: &runnerIDValue})
 	if err != nil {
 		t.Fatalf("ListWorkloads failed: %v", err)
 	}
@@ -108,6 +136,9 @@ func TestListWorkloadsFiltersRunner(t *testing.T) {
 	}
 	if resp.GetWorkloads()[0].GetRunnerId() != runnerID.String() {
 		t.Fatalf("expected runner id %q, got %q", runnerID.String(), resp.GetWorkloads()[0].GetRunnerId())
+	}
+	if gotCheckReq == nil {
+		t.Fatal("expected authorization Check to be called")
 	}
 
 	if err := mockPool.ExpectationsWereMet(); err != nil {
@@ -126,6 +157,7 @@ func TestListWorkloadsPendingSample(t *testing.T) {
 	threadID := uuid.New()
 	agentID := uuid.New()
 	organizationID := uuid.New()
+	callerID := uuid.New()
 	now := time.Now().UTC()
 	containersJSON := []byte("[]")
 
@@ -137,14 +169,26 @@ func TestListWorkloadsPendingSample(t *testing.T) {
 		WithArgs(51).
 		WillReturnRows(rows)
 
-	srv := New(Options{Pool: mockPool})
+	var gotCheckReq *authorizationv1.CheckRequest
+	authorizationClient := fakeAuthorizationClient{
+		check: func(ctx context.Context, req *authorizationv1.CheckRequest) (*authorizationv1.CheckResponse, error) {
+			gotCheckReq = req
+			return &authorizationv1.CheckResponse{Allowed: true}, nil
+		},
+	}
+
+	srv := New(Options{Pool: mockPool, AuthorizationClient: authorizationClient})
 	pendingSample := true
-	resp, err := srv.ListWorkloads(context.Background(), &runnersv1.ListWorkloadsRequest{PendingSample: &pendingSample})
+	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(identityMetadata, callerID.String()))
+	resp, err := srv.ListWorkloads(ctx, &runnersv1.ListWorkloadsRequest{PendingSample: &pendingSample})
 	if err != nil {
 		t.Fatalf("ListWorkloads failed: %v", err)
 	}
 	if len(resp.GetWorkloads()) != 1 {
 		t.Fatalf("expected 1 workload, got %d", len(resp.GetWorkloads()))
+	}
+	if gotCheckReq == nil {
+		t.Fatal("expected authorization Check to be called")
 	}
 
 	if err := mockPool.ExpectationsWereMet(); err != nil {
@@ -154,6 +198,7 @@ func TestListWorkloadsPendingSample(t *testing.T) {
 
 func TestListWorkloadsInvalidUUID(t *testing.T) {
 	srv := New(Options{})
+	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(identityMetadata, uuid.NewString()))
 
 	cases := []struct {
 		name string
@@ -177,11 +222,78 @@ func TestListWorkloadsInvalidUUID(t *testing.T) {
 
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
-			_, err := srv.ListWorkloads(context.Background(), testCase.req)
+			_, err := srv.ListWorkloads(ctx, testCase.req)
 			if status.Code(err) != codes.InvalidArgument {
 				t.Fatalf("expected InvalidArgument error, got %v", err)
 			}
 		})
+	}
+}
+
+func TestListWorkloadsRequiresMember(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("failed to create mock pool: %v", err)
+	}
+
+	organizationID := uuid.New()
+	callerID := uuid.New()
+
+	authorizationClient := fakeAuthorizationClient{
+		check: func(ctx context.Context, req *authorizationv1.CheckRequest) (*authorizationv1.CheckResponse, error) {
+			return &authorizationv1.CheckResponse{Allowed: false}, nil
+		},
+	}
+
+	srv := New(Options{Pool: mockPool, AuthorizationClient: authorizationClient})
+	organizationIDValue := organizationID.String()
+	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(identityMetadata, callerID.String()))
+	_, err = srv.ListWorkloads(ctx, &runnersv1.ListWorkloadsRequest{OrganizationId: &organizationIDValue})
+	if status.Code(err) != codes.PermissionDenied {
+		t.Fatalf("expected PermissionDenied error, got %v", err)
+	}
+
+	if err := mockPool.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestGetWorkloadRequiresMember(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("failed to create mock pool: %v", err)
+	}
+
+	workloadID := uuid.New()
+	runnerID := uuid.New()
+	threadID := uuid.New()
+	agentID := uuid.New()
+	organizationID := uuid.New()
+	callerID := uuid.New()
+	now := time.Now().UTC()
+	containersJSON := []byte("[]")
+
+	rows := pgxmock.NewRows(workloadRowColumns).
+		AddRow(workloadID, runnerID, threadID, agentID, organizationID, workloadStatusRunning, containersJSON, "ziti-id", int32(0), int64(0), nil, now, nil, nil, now, now)
+
+	query := fmt.Sprintf("SELECT %s FROM workloads WHERE id = $1", workloadColumns)
+	mockPool.ExpectQuery(regexp.QuoteMeta(query)).WithArgs(workloadID).WillReturnRows(rows)
+
+	authorizationClient := fakeAuthorizationClient{
+		check: func(ctx context.Context, req *authorizationv1.CheckRequest) (*authorizationv1.CheckResponse, error) {
+			return &authorizationv1.CheckResponse{Allowed: false}, nil
+		},
+	}
+
+	srv := New(Options{Pool: mockPool, AuthorizationClient: authorizationClient})
+	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(identityMetadata, callerID.String()))
+	_, err = srv.GetWorkload(ctx, &runnersv1.GetWorkloadRequest{Id: workloadID.String()})
+	if status.Code(err) != codes.PermissionDenied {
+		t.Fatalf("expected PermissionDenied error, got %v", err)
+	}
+
+	if err := mockPool.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
 	}
 }
 
@@ -192,15 +304,56 @@ func TestTouchWorkload(t *testing.T) {
 	}
 
 	workloadID := uuid.New()
-	query := "UPDATE workloads SET last_activity_at = NOW(), updated_at = NOW() WHERE id = $1"
+	agentID := uuid.New()
+	callerID := agentID
+
+	query := "UPDATE workloads SET last_activity_at = NOW(), updated_at = NOW() WHERE id = $1 AND agent_id = $2"
 	mockPool.ExpectExec(regexp.QuoteMeta(query)).
-		WithArgs(workloadID).
+		WithArgs(workloadID, callerID).
 		WillReturnResult(pgxmock.NewResult("UPDATE", 1))
 
 	srv := New(Options{Pool: mockPool})
-	_, err = srv.TouchWorkload(context.Background(), &runnersv1.TouchWorkloadRequest{Id: workloadID.String()})
+	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(identityMetadata, callerID.String()))
+	_, err = srv.TouchWorkload(ctx, &runnersv1.TouchWorkloadRequest{Id: workloadID.String()})
 	if err != nil {
 		t.Fatalf("TouchWorkload failed: %v", err)
+	}
+
+	if err := mockPool.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestTouchWorkloadRequiresAgentIdentity(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("failed to create mock pool: %v", err)
+	}
+
+	workloadID := uuid.New()
+	agentID := uuid.New()
+	callerID := uuid.New()
+	runnerID := uuid.New()
+	threadID := uuid.New()
+	organizationID := uuid.New()
+	now := time.Now().UTC()
+	containersJSON := []byte("[]")
+
+	query := "UPDATE workloads SET last_activity_at = NOW(), updated_at = NOW() WHERE id = $1 AND agent_id = $2"
+	mockPool.ExpectExec(regexp.QuoteMeta(query)).
+		WithArgs(workloadID, callerID).
+		WillReturnResult(pgxmock.NewResult("UPDATE", 0))
+
+	getQuery := fmt.Sprintf(`SELECT %s FROM workloads WHERE id = $1`, workloadColumns)
+	rows := pgxmock.NewRows(workloadRowColumns).
+		AddRow(workloadID, runnerID, threadID, agentID, organizationID, workloadStatusRunning, containersJSON, "ziti-id", int32(0), int64(0), nil, now, nil, nil, now, now)
+	mockPool.ExpectQuery(regexp.QuoteMeta(getQuery)).WithArgs(workloadID).WillReturnRows(rows)
+
+	srv := New(Options{Pool: mockPool})
+	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(identityMetadata, callerID.String()))
+	_, err = srv.TouchWorkload(ctx, &runnersv1.TouchWorkloadRequest{Id: workloadID.String()})
+	if status.Code(err) != codes.PermissionDenied {
+		t.Fatalf("expected PermissionDenied error, got %v", err)
 	}
 
 	if err := mockPool.ExpectationsWereMet(); err != nil {

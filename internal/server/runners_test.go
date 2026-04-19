@@ -21,6 +21,7 @@ import (
 	"github.com/pashagolub/pgxmock/v3"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
 
@@ -135,11 +136,15 @@ func (f fakeIdentityClient) ResolveNickname(ctx context.Context, req *identityv1
 }
 
 type fakeAuthorizationClient struct {
+	check func(ctx context.Context, req *authorizationv1.CheckRequest) (*authorizationv1.CheckResponse, error)
 	write func(ctx context.Context, req *authorizationv1.WriteRequest) (*authorizationv1.WriteResponse, error)
 }
 
 func (f fakeAuthorizationClient) Check(ctx context.Context, req *authorizationv1.CheckRequest, opts ...grpc.CallOption) (*authorizationv1.CheckResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "not implemented")
+	if f.check == nil {
+		return nil, status.Error(codes.Unimplemented, "not implemented")
+	}
+	return f.check(ctx, req)
 }
 
 func (f fakeAuthorizationClient) BatchCheck(ctx context.Context, req *authorizationv1.BatchCheckRequest, opts ...grpc.CallOption) (*authorizationv1.BatchCheckResponse, error) {
@@ -183,16 +188,18 @@ func TestRegisterRunnerPersistsLabels(t *testing.T) {
 	}
 
 	runnerID := uuid.New()
+	organizationID := uuid.New()
+	callerID := uuid.New()
 	identityID := uuid.New()
 	now := time.Now().UTC()
 	zitiServiceID := "service-id"
 	zitiServiceName := "runner-service"
 	rows := pgxmock.NewRows([]string{"id", "name", "organization_id", "identity_id", "ziti_identity_id", "ziti_service_id", "ziti_service_name", "status", "labels", "capabilities", "created_at", "updated_at"}).
-		AddRow(runnerID, "runner-1", pgtype.UUID{Valid: false}, identityID, "", zitiServiceID, zitiServiceName, runnerStatusPending, labelsJSON, capabilitiesJSON, now, now)
+		AddRow(runnerID, "runner-1", pgtype.UUID{Bytes: organizationID, Valid: true}, identityID, "", zitiServiceID, zitiServiceName, runnerStatusPending, labelsJSON, capabilitiesJSON, now, now)
 
 	matcher := regexp.QuoteMeta(fmt.Sprintf("INSERT INTO runners (id, name, organization_id, identity_id, ziti_identity_id, ziti_service_id, ziti_service_name, service_token_hash, status, labels, capabilities)\n\t    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)\n\t    RETURNING %s", runnerColumns))
 	mockPool.ExpectQuery(matcher).
-		WithArgs(pgxmock.AnyArg(), "runner-1", pgxmock.AnyArg(), pgxmock.AnyArg(), "", zitiServiceID, zitiServiceName, pgxmock.AnyArg(), runnerStatusPending, labelsJSON, capabilitiesJSON).
+		WithArgs(pgxmock.AnyArg(), "runner-1", pgtype.UUID{Bytes: organizationID, Valid: true}, pgxmock.AnyArg(), "", zitiServiceID, zitiServiceName, pgxmock.AnyArg(), runnerStatusPending, labelsJSON, capabilitiesJSON).
 		WillReturnRows(rows)
 
 	var gotIdentityReq *identityv1.RegisterIdentityRequest
@@ -202,8 +209,13 @@ func TestRegisterRunnerPersistsLabels(t *testing.T) {
 			return &identityv1.RegisterIdentityResponse{}, nil
 		},
 	}
+	var gotCheckReq *authorizationv1.CheckRequest
 	var gotWriteReq *authorizationv1.WriteRequest
 	authorizationClient := fakeAuthorizationClient{
+		check: func(ctx context.Context, req *authorizationv1.CheckRequest) (*authorizationv1.CheckResponse, error) {
+			gotCheckReq = req
+			return &authorizationv1.CheckResponse{Allowed: true}, nil
+		},
 		write: func(ctx context.Context, req *authorizationv1.WriteRequest) (*authorizationv1.WriteResponse, error) {
 			gotWriteReq = req
 			return &authorizationv1.WriteResponse{}, nil
@@ -227,10 +239,13 @@ func TestRegisterRunnerPersistsLabels(t *testing.T) {
 		ZitiManagementClient: zitiClient,
 	})
 
-	resp, err := srv.RegisterRunner(context.Background(), &runnersv1.RegisterRunnerRequest{
-		Name:         "runner-1",
-		Labels:       labels,
-		Capabilities: capabilities,
+	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(identityMetadata, callerID.String()))
+	organizationValue := organizationID.String()
+	resp, err := srv.RegisterRunner(ctx, &runnersv1.RegisterRunnerRequest{
+		Name:           "runner-1",
+		OrganizationId: &organizationValue,
+		Labels:         labels,
+		Capabilities:   capabilities,
 	})
 	if err != nil {
 		t.Fatalf("RegisterRunner failed: %v", err)
@@ -253,8 +268,29 @@ func TestRegisterRunnerPersistsLabels(t *testing.T) {
 	if gotIdentityReq == nil {
 		t.Fatal("expected RegisterIdentity to be called")
 	}
+	if gotCheckReq == nil {
+		t.Fatal("expected authorization Check to be called")
+	}
 	if gotWriteReq == nil {
 		t.Fatal("expected authorization Write to be called")
+	}
+	if gotCheckReq.GetTupleKey().GetUser() != fmt.Sprintf("identity:%s", callerID) {
+		t.Fatalf("expected check user identity:%s, got %s", callerID, gotCheckReq.GetTupleKey().GetUser())
+	}
+	if gotCheckReq.GetTupleKey().GetRelation() != "owner" {
+		t.Fatalf("expected owner relation, got %s", gotCheckReq.GetTupleKey().GetRelation())
+	}
+	if gotCheckReq.GetTupleKey().GetObject() != fmt.Sprintf("organization:%s", organizationID) {
+		t.Fatalf("expected organization:%s object, got %s", organizationID, gotCheckReq.GetTupleKey().GetObject())
+	}
+	if len(gotWriteReq.GetWrites()) != 1 {
+		t.Fatalf("expected one write tuple, got %d", len(gotWriteReq.GetWrites()))
+	}
+	if gotWriteReq.GetWrites()[0].GetRelation() != organizationMemberRelation {
+		t.Fatalf("expected member relation, got %s", gotWriteReq.GetWrites()[0].GetRelation())
+	}
+	if gotWriteReq.GetWrites()[0].GetObject() != fmt.Sprintf("organization:%s", organizationID) {
+		t.Fatalf("expected organization:%s write object, got %s", organizationID, gotWriteReq.GetWrites()[0].GetObject())
 	}
 	if gotServiceReq == nil {
 		t.Fatal("expected CreateService to be called")
@@ -271,6 +307,164 @@ func TestRegisterRunnerPersistsLabels(t *testing.T) {
 	}
 }
 
+func TestRegisterRunnerClusterScopedRequiresAdmin(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("failed to create mock pool: %v", err)
+	}
+
+	labels := map[string]string{"tier": "gpu"}
+	labelsJSON, err := json.Marshal(labels)
+	if err != nil {
+		t.Fatalf("failed to marshal labels: %v", err)
+	}
+	capabilities := []string{"gpu"}
+	capabilitiesJSON, err := json.Marshal(capabilities)
+	if err != nil {
+		t.Fatalf("failed to marshal capabilities: %v", err)
+	}
+
+	runnerID := uuid.New()
+	callerID := uuid.New()
+	identityID := uuid.New()
+	now := time.Now().UTC()
+	zitiServiceID := "service-id"
+	zitiServiceName := "runner-service"
+	rows := pgxmock.NewRows([]string{"id", "name", "organization_id", "identity_id", "ziti_identity_id", "ziti_service_id", "ziti_service_name", "status", "labels", "capabilities", "created_at", "updated_at"}).
+		AddRow(runnerID, "runner-1", pgtype.UUID{Valid: false}, identityID, "", zitiServiceID, zitiServiceName, runnerStatusPending, labelsJSON, capabilitiesJSON, now, now)
+
+	matcher := regexp.QuoteMeta(fmt.Sprintf("INSERT INTO runners (id, name, organization_id, identity_id, ziti_identity_id, ziti_service_id, ziti_service_name, service_token_hash, status, labels, capabilities)\n\t    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)\n\t    RETURNING %s", runnerColumns))
+	mockPool.ExpectQuery(matcher).
+		WithArgs(pgxmock.AnyArg(), "runner-1", pgxmock.AnyArg(), pgxmock.AnyArg(), "", zitiServiceID, zitiServiceName, pgxmock.AnyArg(), runnerStatusPending, labelsJSON, capabilitiesJSON).
+		WillReturnRows(rows)
+
+	identityClient := fakeIdentityClient{
+		registerIdentity: func(ctx context.Context, req *identityv1.RegisterIdentityRequest) (*identityv1.RegisterIdentityResponse, error) {
+			return &identityv1.RegisterIdentityResponse{}, nil
+		},
+	}
+
+	var gotCheckReq *authorizationv1.CheckRequest
+	writeCalled := false
+	authorizationClient := fakeAuthorizationClient{
+		check: func(ctx context.Context, req *authorizationv1.CheckRequest) (*authorizationv1.CheckResponse, error) {
+			gotCheckReq = req
+			return &authorizationv1.CheckResponse{Allowed: true}, nil
+		},
+		write: func(ctx context.Context, req *authorizationv1.WriteRequest) (*authorizationv1.WriteResponse, error) {
+			writeCalled = true
+			return &authorizationv1.WriteResponse{}, nil
+		},
+	}
+
+	zitiClient := fakeZitiManagementClient{
+		createService: func(ctx context.Context, req *zitimanagementv1.CreateServiceRequest) (*zitimanagementv1.CreateServiceResponse, error) {
+			return &zitimanagementv1.CreateServiceResponse{
+				ZitiServiceId:   zitiServiceID,
+				ZitiServiceName: zitiServiceName,
+			}, nil
+		},
+	}
+
+	srv := New(Options{
+		Pool:                 mockPool,
+		IdentityClient:       identityClient,
+		AuthorizationClient:  authorizationClient,
+		ZitiManagementClient: zitiClient,
+	})
+
+	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(identityMetadata, callerID.String()))
+	_, err = srv.RegisterRunner(ctx, &runnersv1.RegisterRunnerRequest{
+		Name:         "runner-1",
+		Labels:       labels,
+		Capabilities: capabilities,
+	})
+	if err != nil {
+		t.Fatalf("RegisterRunner failed: %v", err)
+	}
+	if gotCheckReq == nil {
+		t.Fatal("expected authorization Check to be called")
+	}
+	if gotCheckReq.GetTupleKey().GetRelation() != clusterAdminRelation {
+		t.Fatalf("expected admin relation, got %s", gotCheckReq.GetTupleKey().GetRelation())
+	}
+	if gotCheckReq.GetTupleKey().GetObject() != clusterObject {
+		t.Fatalf("expected cluster object %s, got %s", clusterObject, gotCheckReq.GetTupleKey().GetObject())
+	}
+	if writeCalled {
+		t.Fatal("did not expect authorization Write for cluster-scoped runner")
+	}
+
+	if err := mockPool.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestGetRunnerRequiresMember(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("failed to create mock pool: %v", err)
+	}
+
+	runnerID := uuid.New()
+	organizationID := uuid.New()
+	callerID := uuid.New()
+	identityID := uuid.New()
+	now := time.Now().UTC()
+	labelsJSON := []byte("{}")
+	capabilitiesJSON := []byte("[]")
+	rows := pgxmock.NewRows([]string{"id", "name", "organization_id", "identity_id", "ziti_identity_id", "ziti_service_id", "ziti_service_name", "status", "labels", "capabilities", "created_at", "updated_at"}).
+		AddRow(runnerID, "runner-1", pgtype.UUID{Bytes: organizationID, Valid: true}, identityID, "", "service-id", "runner-service", runnerStatusOffline, labelsJSON, capabilitiesJSON, now, now)
+
+	query := fmt.Sprintf(`SELECT %s FROM runners WHERE id = $1`, runnerColumns)
+	mockPool.ExpectQuery(regexp.QuoteMeta(query)).WithArgs(runnerID).WillReturnRows(rows)
+
+	authorizationClient := fakeAuthorizationClient{
+		check: func(ctx context.Context, req *authorizationv1.CheckRequest) (*authorizationv1.CheckResponse, error) {
+			return &authorizationv1.CheckResponse{Allowed: false}, nil
+		},
+	}
+
+	srv := New(Options{Pool: mockPool, AuthorizationClient: authorizationClient})
+	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(identityMetadata, callerID.String()))
+	_, err = srv.GetRunner(ctx, &runnersv1.GetRunnerRequest{Id: runnerID.String()})
+	if status.Code(err) != codes.PermissionDenied {
+		t.Fatalf("expected PermissionDenied error, got %v", err)
+	}
+
+	if err := mockPool.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestListRunnersRequiresMember(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("failed to create mock pool: %v", err)
+	}
+
+	organizationID := uuid.New()
+	callerID := uuid.New()
+
+	authorizationClient := fakeAuthorizationClient{
+		check: func(ctx context.Context, req *authorizationv1.CheckRequest) (*authorizationv1.CheckResponse, error) {
+			return &authorizationv1.CheckResponse{Allowed: false}, nil
+		},
+	}
+
+	srv := New(Options{Pool: mockPool, AuthorizationClient: authorizationClient})
+	organizationIDValue := organizationID.String()
+	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(identityMetadata, callerID.String()))
+	_, err = srv.ListRunners(ctx, &runnersv1.ListRunnersRequest{OrganizationId: &organizationIDValue})
+	if status.Code(err) != codes.PermissionDenied {
+		t.Fatalf("expected PermissionDenied error, got %v", err)
+	}
+
+	if err := mockPool.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
 func TestUpdateRunnerUpdatesLabels(t *testing.T) {
 	mockPool, err := pgxmock.NewPool()
 	if err != nil {
@@ -278,6 +472,8 @@ func TestUpdateRunnerUpdatesLabels(t *testing.T) {
 	}
 
 	runnerID := uuid.New()
+	organizationID := uuid.New()
+	callerID := uuid.New()
 	identityID := uuid.New()
 	labels := map[string]string{"env": "prod", "type": "cpu"}
 	labelsJSON, err := json.Marshal(labels)
@@ -290,8 +486,13 @@ func TestUpdateRunnerUpdatesLabels(t *testing.T) {
 		t.Fatalf("failed to marshal capabilities: %v", err)
 	}
 	now := time.Now().UTC()
-	rows := pgxmock.NewRows([]string{"id", "name", "organization_id", "identity_id", "ziti_identity_id", "ziti_service_id", "ziti_service_name", "status", "labels", "capabilities", "created_at", "updated_at"}).
-		AddRow(runnerID, "runner-updated", pgtype.UUID{Valid: false}, identityID, "", "service-id", "runner-service", runnerStatusOffline, labelsJSON, capabilitiesJSON, now, now)
+	getRows := pgxmock.NewRows([]string{"id", "name", "organization_id", "identity_id", "ziti_identity_id", "ziti_service_id", "ziti_service_name", "status", "labels", "capabilities", "created_at", "updated_at"}).
+		AddRow(runnerID, "runner-updated", pgtype.UUID{Bytes: organizationID, Valid: true}, identityID, "", "service-id", "runner-service", runnerStatusOffline, labelsJSON, capabilitiesJSON, now, now)
+	updateRows := pgxmock.NewRows([]string{"id", "name", "organization_id", "identity_id", "ziti_identity_id", "ziti_service_id", "ziti_service_name", "status", "labels", "capabilities", "created_at", "updated_at"}).
+		AddRow(runnerID, "runner-updated", pgtype.UUID{Bytes: organizationID, Valid: true}, identityID, "", "service-id", "runner-service", runnerStatusOffline, labelsJSON, capabilitiesJSON, now, now)
+
+	getQuery := regexp.QuoteMeta(fmt.Sprintf(`SELECT %s FROM runners WHERE id = $1`, runnerColumns))
+	mockPool.ExpectQuery(getQuery).WithArgs(runnerID).WillReturnRows(getRows)
 
 	matcher := regexp.QuoteMeta(fmt.Sprintf(`UPDATE runners SET name = COALESCE($1, name), labels = COALESCE($2::jsonb, labels), capabilities = COALESCE($3::jsonb, capabilities), updated_at = NOW() WHERE id = $4 RETURNING %s`, runnerColumns))
 	mockPool.ExpectQuery(matcher).
@@ -301,11 +502,20 @@ func TestUpdateRunnerUpdatesLabels(t *testing.T) {
 			pgtype.Text{String: string(capabilitiesJSON), Valid: true},
 			runnerID,
 		).
-		WillReturnRows(rows)
+		WillReturnRows(updateRows)
 
-	srv := New(Options{Pool: mockPool})
+	var gotCheckReq *authorizationv1.CheckRequest
+	authorizationClient := fakeAuthorizationClient{
+		check: func(ctx context.Context, req *authorizationv1.CheckRequest) (*authorizationv1.CheckResponse, error) {
+			gotCheckReq = req
+			return &authorizationv1.CheckResponse{Allowed: true}, nil
+		},
+	}
+
+	srv := New(Options{Pool: mockPool, AuthorizationClient: authorizationClient})
 	name := "runner-updated"
-	resp, err := srv.UpdateRunner(context.Background(), &runnersv1.UpdateRunnerRequest{
+	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(identityMetadata, callerID.String()))
+	resp, err := srv.UpdateRunner(ctx, &runnersv1.UpdateRunnerRequest{
 		Id:           runnerID.String(),
 		Name:         &name,
 		Labels:       labels,
@@ -325,6 +535,12 @@ func TestUpdateRunnerUpdatesLabels(t *testing.T) {
 	}
 	if !slices.Equal(resp.GetRunner().GetCapabilities(), capabilities) {
 		t.Fatalf("expected capabilities %v, got %v", capabilities, resp.GetRunner().GetCapabilities())
+	}
+	if gotCheckReq == nil {
+		t.Fatal("expected authorization Check to be called")
+	}
+	if gotCheckReq.GetTupleKey().GetRelation() != "owner" {
+		t.Fatalf("expected owner relation, got %s", gotCheckReq.GetTupleKey().GetRelation())
 	}
 
 	if err := mockPool.ExpectationsWereMet(); err != nil {
@@ -483,6 +699,8 @@ func TestDeleteRunnerCallsZitiCleanup(t *testing.T) {
 	deleteQuery := regexp.QuoteMeta(`DELETE FROM runners WHERE id = $1`)
 
 	runnerID := uuid.New()
+	organizationID := uuid.New()
+	callerID := uuid.New()
 	identityID := uuid.New()
 	now := time.Now().UTC()
 	labelsJSON := []byte("{}")
@@ -491,7 +709,7 @@ func TestDeleteRunnerCallsZitiCleanup(t *testing.T) {
 	zitiServiceName := "runner-service"
 	zitiIdentityID := "ziti-identity"
 	rows := pgxmock.NewRows([]string{"id", "name", "organization_id", "identity_id", "ziti_identity_id", "ziti_service_id", "ziti_service_name", "status", "labels", "capabilities", "created_at", "updated_at"}).
-		AddRow(runnerID, "runner-1", pgtype.UUID{Valid: false}, identityID, zitiIdentityID, zitiServiceID, zitiServiceName, runnerStatusOffline, labelsJSON, capabilitiesJSON, now, now)
+		AddRow(runnerID, "runner-1", pgtype.UUID{Bytes: organizationID, Valid: true}, identityID, zitiIdentityID, zitiServiceID, zitiServiceName, runnerStatusOffline, labelsJSON, capabilitiesJSON, now, now)
 
 	mockPool.ExpectQuery(regexp.QuoteMeta(query)).WithArgs(runnerID).WillReturnRows(rows)
 	mockPool.ExpectExec(deleteQuery).WithArgs(runnerID).WillReturnResult(pgxmock.NewResult("DELETE", 1))
@@ -504,7 +722,12 @@ func TestDeleteRunnerCallsZitiCleanup(t *testing.T) {
 		},
 	}
 
+	var gotCheckReq *authorizationv1.CheckRequest
 	authorizationClient := fakeAuthorizationClient{
+		check: func(ctx context.Context, req *authorizationv1.CheckRequest) (*authorizationv1.CheckResponse, error) {
+			gotCheckReq = req
+			return &authorizationv1.CheckResponse{Allowed: true}, nil
+		},
 		write: func(ctx context.Context, req *authorizationv1.WriteRequest) (*authorizationv1.WriteResponse, error) {
 			return &authorizationv1.WriteResponse{}, nil
 		},
@@ -516,7 +739,8 @@ func TestDeleteRunnerCallsZitiCleanup(t *testing.T) {
 		ZitiManagementClient: zitiClient,
 	})
 
-	_, err = srv.DeleteRunner(context.Background(), &runnersv1.DeleteRunnerRequest{Id: runnerID.String()})
+	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(identityMetadata, callerID.String()))
+	_, err = srv.DeleteRunner(ctx, &runnersv1.DeleteRunnerRequest{Id: runnerID.String()})
 	if err != nil {
 		t.Fatalf("DeleteRunner failed: %v", err)
 	}
@@ -529,6 +753,9 @@ func TestDeleteRunnerCallsZitiCleanup(t *testing.T) {
 	}
 	if gotDeleteReq.GetZitiServiceId() != zitiServiceID {
 		t.Fatalf("expected ziti service id %q, got %q", zitiServiceID, gotDeleteReq.GetZitiServiceId())
+	}
+	if gotCheckReq == nil {
+		t.Fatal("expected authorization Check to be called")
 	}
 
 	if err := mockPool.ExpectationsWereMet(); err != nil {
@@ -546,12 +773,14 @@ func TestDeleteRunnerBestEffortZitiFailure(t *testing.T) {
 	deleteQuery := regexp.QuoteMeta(`DELETE FROM runners WHERE id = $1`)
 
 	runnerID := uuid.New()
+	organizationID := uuid.New()
+	callerID := uuid.New()
 	identityID := uuid.New()
 	now := time.Now().UTC()
 	labelsJSON := []byte("{}")
 	capabilitiesJSON := []byte("[]")
 	rows := pgxmock.NewRows([]string{"id", "name", "organization_id", "identity_id", "ziti_identity_id", "ziti_service_id", "ziti_service_name", "status", "labels", "capabilities", "created_at", "updated_at"}).
-		AddRow(runnerID, "runner-1", pgtype.UUID{Valid: false}, identityID, "ziti-identity", "service-id", "runner-service", runnerStatusOffline, labelsJSON, capabilitiesJSON, now, now)
+		AddRow(runnerID, "runner-1", pgtype.UUID{Bytes: organizationID, Valid: true}, identityID, "ziti-identity", "service-id", "runner-service", runnerStatusOffline, labelsJSON, capabilitiesJSON, now, now)
 
 	mockPool.ExpectQuery(regexp.QuoteMeta(query)).WithArgs(runnerID).WillReturnRows(rows)
 	mockPool.ExpectExec(deleteQuery).WithArgs(runnerID).WillReturnResult(pgxmock.NewResult("DELETE", 1))
@@ -564,7 +793,12 @@ func TestDeleteRunnerBestEffortZitiFailure(t *testing.T) {
 		},
 	}
 
+	var gotCheckReq *authorizationv1.CheckRequest
 	authorizationClient := fakeAuthorizationClient{
+		check: func(ctx context.Context, req *authorizationv1.CheckRequest) (*authorizationv1.CheckResponse, error) {
+			gotCheckReq = req
+			return &authorizationv1.CheckResponse{Allowed: true}, nil
+		},
 		write: func(ctx context.Context, req *authorizationv1.WriteRequest) (*authorizationv1.WriteResponse, error) {
 			return &authorizationv1.WriteResponse{}, nil
 		},
@@ -576,12 +810,16 @@ func TestDeleteRunnerBestEffortZitiFailure(t *testing.T) {
 		ZitiManagementClient: zitiClient,
 	})
 
-	_, err = srv.DeleteRunner(context.Background(), &runnersv1.DeleteRunnerRequest{Id: runnerID.String()})
+	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(identityMetadata, callerID.String()))
+	_, err = srv.DeleteRunner(ctx, &runnersv1.DeleteRunnerRequest{Id: runnerID.String()})
 	if err != nil {
 		t.Fatalf("DeleteRunner failed: %v", err)
 	}
 	if gotDeleteReq == nil {
 		t.Fatal("expected DeleteRunnerIdentity to be called")
+	}
+	if gotCheckReq == nil {
+		t.Fatal("expected authorization Check to be called")
 	}
 
 	if err := mockPool.ExpectationsWereMet(); err != nil {
