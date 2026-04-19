@@ -179,6 +179,10 @@ func (s *Server) UpdateVolume(ctx context.Context, req *runnersv1.UpdateVolumeRe
 }
 
 func (s *Server) GetVolume(ctx context.Context, req *runnersv1.GetVolumeRequest) (*runnersv1.GetVolumeResponse, error) {
+	callerID, err := identityFromMetadata(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, "unauthenticated: %v", err)
+	}
 	id, err := parseUUID(req.GetId())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "id: %v", err)
@@ -186,6 +190,9 @@ func (s *Server) GetVolume(ctx context.Context, req *runnersv1.GetVolumeRequest)
 	volume, err := s.getVolumeByID(ctx, id)
 	if err != nil {
 		return nil, toStatusError(err)
+	}
+	if err := s.requireOrgMember(ctx, callerID, volume.OrganizationID); err != nil {
+		return nil, err
 	}
 	protoVolume, err := toProtoVolume(volume)
 	if err != nil {
@@ -195,6 +202,10 @@ func (s *Server) GetVolume(ctx context.Context, req *runnersv1.GetVolumeRequest)
 }
 
 func (s *Server) ListVolumesByThread(ctx context.Context, req *runnersv1.ListVolumesByThreadRequest) (*runnersv1.ListVolumesByThreadResponse, error) {
+	callerID, err := identityFromMetadata(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, "unauthenticated: %v", err)
+	}
 	threadID, err := parseUUID(req.GetThreadId())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "thread_id: %v", err)
@@ -207,7 +218,18 @@ func (s *Server) ListVolumesByThread(ctx context.Context, req *runnersv1.ListVol
 		}
 		return nil, status.Errorf(codes.Internal, "list volumes: %v", err)
 	}
-	protoVolumes, err := toProtoVolumeList(volumes)
+	memberCache := map[uuid.UUID]bool{}
+	filtered := make([]volumeRecord, 0, len(volumes))
+	for _, volume := range volumes {
+		allowed, err := s.memberAllowed(ctx, callerID, volume.OrganizationID, memberCache)
+		if err != nil {
+			return nil, err
+		}
+		if allowed {
+			filtered = append(filtered, volume)
+		}
+	}
+	protoVolumes, err := toProtoVolumeList(filtered)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "convert volumes: %v", err)
 	}
@@ -215,6 +237,10 @@ func (s *Server) ListVolumesByThread(ctx context.Context, req *runnersv1.ListVol
 }
 
 func (s *Server) ListVolumes(ctx context.Context, req *runnersv1.ListVolumesRequest) (*runnersv1.ListVolumesResponse, error) {
+	callerID, err := identityFromMetadata(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, "unauthenticated: %v", err)
+	}
 	statuses, err := volumeStatusesToStrings(req.GetStatuses())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "statuses: %v", err)
@@ -226,6 +252,11 @@ func (s *Server) ListVolumes(ctx context.Context, req *runnersv1.ListVolumesRequ
 			return nil, status.Errorf(codes.InvalidArgument, "organization_id: %v", err)
 		}
 		organizationID = &parsed
+	}
+	if organizationID != nil {
+		if err := s.requireOrgMember(ctx, callerID, *organizationID); err != nil {
+			return nil, err
+		}
 	}
 
 	var runnerID *uuid.UUID
@@ -246,6 +277,20 @@ func (s *Server) ListVolumes(ctx context.Context, req *runnersv1.ListVolumesRequ
 			return nil, status.Errorf(codes.InvalidArgument, "invalid page_token: %v", invalidToken.Err)
 		}
 		return nil, status.Errorf(codes.Internal, "list volumes: %v", err)
+	}
+	if organizationID == nil {
+		memberCache := map[uuid.UUID]bool{}
+		filtered := make([]volumeRecord, 0, len(volumes))
+		for _, volume := range volumes {
+			allowed, err := s.memberAllowed(ctx, callerID, volume.OrganizationID, memberCache)
+			if err != nil {
+				return nil, err
+			}
+			if allowed {
+				filtered = append(filtered, volume)
+			}
+		}
+		volumes = filtered
 	}
 	protoVolumes, err := toProtoVolumeList(volumes)
 	if err != nil {

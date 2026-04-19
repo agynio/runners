@@ -252,9 +252,20 @@ func (s *Server) UpdateWorkloadStatus(ctx context.Context, req *runnersv1.Update
 }
 
 func (s *Server) TouchWorkload(ctx context.Context, req *runnersv1.TouchWorkloadRequest) (*runnersv1.TouchWorkloadResponse, error) {
+	callerID, err := identityFromMetadata(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, "unauthenticated: %v", err)
+	}
 	id, err := parseUUID(req.GetId())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "id: %v", err)
+	}
+	workload, err := s.getWorkloadByID(ctx, id)
+	if err != nil {
+		return nil, toStatusError(err)
+	}
+	if workload.AgentID != callerID {
+		return nil, status.Error(codes.PermissionDenied, "permission denied")
 	}
 	if err := s.touchWorkload(ctx, id); err != nil {
 		return nil, toStatusError(err)
@@ -274,6 +285,10 @@ func (s *Server) DeleteWorkload(ctx context.Context, req *runnersv1.DeleteWorklo
 }
 
 func (s *Server) GetWorkload(ctx context.Context, req *runnersv1.GetWorkloadRequest) (*runnersv1.GetWorkloadResponse, error) {
+	callerID, err := identityFromMetadata(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, "unauthenticated: %v", err)
+	}
 	id, err := parseUUID(req.GetId())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "id: %v", err)
@@ -281,6 +296,9 @@ func (s *Server) GetWorkload(ctx context.Context, req *runnersv1.GetWorkloadRequ
 	workload, err := s.getWorkloadByID(ctx, id)
 	if err != nil {
 		return nil, toStatusError(err)
+	}
+	if err := s.requireOrgMember(ctx, callerID, workload.OrganizationID); err != nil {
+		return nil, err
 	}
 	protoWorkload, err := toProtoWorkload(workload)
 	if err != nil {
@@ -290,6 +308,10 @@ func (s *Server) GetWorkload(ctx context.Context, req *runnersv1.GetWorkloadRequ
 }
 
 func (s *Server) ListWorkloadsByThread(ctx context.Context, req *runnersv1.ListWorkloadsByThreadRequest) (*runnersv1.ListWorkloadsByThreadResponse, error) {
+	callerID, err := identityFromMetadata(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, "unauthenticated: %v", err)
+	}
 	threadID, err := parseUUID(req.GetThreadId())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "thread_id: %v", err)
@@ -302,7 +324,18 @@ func (s *Server) ListWorkloadsByThread(ctx context.Context, req *runnersv1.ListW
 		}
 		return nil, status.Errorf(codes.Internal, "list workloads: %v", err)
 	}
-	protoWorkloads, err := toProtoWorkloadList(workloads)
+	memberCache := map[uuid.UUID]bool{}
+	filtered := make([]workloadRecord, 0, len(workloads))
+	for _, workload := range workloads {
+		allowed, err := s.memberAllowed(ctx, callerID, workload.OrganizationID, memberCache)
+		if err != nil {
+			return nil, err
+		}
+		if allowed {
+			filtered = append(filtered, workload)
+		}
+	}
+	protoWorkloads, err := toProtoWorkloadList(filtered)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "convert workloads: %v", err)
 	}
@@ -310,6 +343,10 @@ func (s *Server) ListWorkloadsByThread(ctx context.Context, req *runnersv1.ListW
 }
 
 func (s *Server) ListWorkloads(ctx context.Context, req *runnersv1.ListWorkloadsRequest) (*runnersv1.ListWorkloadsResponse, error) {
+	callerID, err := identityFromMetadata(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, "unauthenticated: %v", err)
+	}
 	statuses, err := workloadStatusesToStrings(req.GetStatuses())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "statuses: %v", err)
@@ -321,6 +358,11 @@ func (s *Server) ListWorkloads(ctx context.Context, req *runnersv1.ListWorkloads
 			return nil, status.Errorf(codes.InvalidArgument, "organization_id: %v", err)
 		}
 		organizationID = &parsed
+	}
+	if organizationID != nil {
+		if err := s.requireOrgMember(ctx, callerID, *organizationID); err != nil {
+			return nil, err
+		}
 	}
 
 	var runnerID *uuid.UUID
@@ -341,6 +383,20 @@ func (s *Server) ListWorkloads(ctx context.Context, req *runnersv1.ListWorkloads
 			return nil, status.Errorf(codes.InvalidArgument, "invalid page_token: %v", invalidToken.Err)
 		}
 		return nil, status.Errorf(codes.Internal, "list workloads: %v", err)
+	}
+	if organizationID == nil {
+		memberCache := map[uuid.UUID]bool{}
+		filtered := make([]workloadRecord, 0, len(workloads))
+		for _, workload := range workloads {
+			allowed, err := s.memberAllowed(ctx, callerID, workload.OrganizationID, memberCache)
+			if err != nil {
+				return nil, err
+			}
+			if allowed {
+				filtered = append(filtered, workload)
+			}
+		}
+		workloads = filtered
 	}
 	protoWorkloads, err := toProtoWorkloadList(workloads)
 	if err != nil {

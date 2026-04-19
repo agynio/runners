@@ -20,10 +20,12 @@ const (
 	maxListPageSize     int32 = 100
 
 	clusterObject              = "cluster:global"
-	clusterWriterRelation      = "writer"
+	clusterAdminRelation       = "admin"
 	organizationMemberRelation = "member"
+	organizationOwnerRelation  = "owner"
 	identityObjectPrefix       = "identity:"
 	organizationObjectPrefix   = "organization:"
+	identityMetadata           = "x-identity-id"
 )
 
 // Server implements the RunnersService gRPC API.
