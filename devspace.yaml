@@ -3,7 +3,6 @@ version: v2beta1
 vars:
   RUNNERS_NAMESPACE: platform
   DEV_IMAGE: ghcr.io/agynio/devcontainer-go:1
-  E2E_IMAGE: ghcr.io/agynio/devcontainer-go:1
 
 functions:
   disable_argocd_sync: |-
@@ -130,35 +129,7 @@ functions:
     done
     echo "Runners is running from source."
 
-deployments:
-  e2e-runner:
-    namespace: ${RUNNERS_NAMESPACE}
-    helm:
-      chart:
-        name: component-chart
-        repo: https://charts.devspace.sh
-      values:
-        securityContext:
-          runAsUser: 1000
-          fsGroup: 1000
-        containers:
-          - image: ${E2E_IMAGE}
-            env:
-              - name: RUNNERS_ADDRESS
-                value: "runners:50051"
-            volumeMounts:
-              - containerPath: /opt/app/data
-                volume:
-                  name: data
-        volumes:
-          - name: data
-            emptyDir: {}
-        labels:
-          app.kubernetes.io/name: runners-e2e
-
 commands:
-  test-e2e: |-
-    devspace run-pipeline test-e2e -n ${DEVSPACE_NAMESPACE} $@
   deploy: |-
     devspace run-pipeline deploy -n ${DEVSPACE_NAMESPACE} $@
   restore-argocd: |-
@@ -192,19 +163,6 @@ pipelines:
       start_dev --disable-pod-replace runners-deploy
       wait_for_runners
       echo "Deploy complete. Runners is running from source."
-
-  test-e2e:
-    run: |-
-      create_deployments e2e-runner
-      start_dev e2e-runner-test
-      echo "Sync complete. Running e2e tests..."
-      exec_container \
-        --label-selector "app.kubernetes.io/name=runners-e2e" \
-        -n ${RUNNERS_NAMESPACE} \
-        -- bash -c 'cd /opt/app/data && buf generate buf.build/agynio/api --include-imports --path agynio/api/runners/v1 --path agynio/api/identity/v1 --path agynio/api/authorization/v1 --path agynio/api/ziti_management/v1 --path agynio/api/notifications/v1 && go test -v -count=1 -tags e2e ./test/e2e/'
-      EXIT_CODE=$?
-      purge_deployments e2e-runner
-      exit $EXIT_CODE
 
   restore-argocd:
     run: |-
@@ -240,20 +198,6 @@ dev:
           enabled: true
           lastLines: 200
 
-  e2e-runner:
-    namespace: ${RUNNERS_NAMESPACE}
-    labelSelector:
-      app.kubernetes.io/name: runners-e2e
-    command: ["sleep", "infinity"]
-    workingDir: /opt/app/data
-    sync:
-      - path: ./:/opt/app/data
-        excludePaths:
-          - .git/
-          - .devspace/
-          - /.gen/
-          - /tmp/
-
   runners-deploy:
     namespace: ${RUNNERS_NAMESPACE}
     labelSelector:
@@ -280,18 +224,3 @@ dev:
               - .devspace/
               - /.gen/
               - /tmp/
-
-  e2e-runner-test:
-    namespace: ${RUNNERS_NAMESPACE}
-    labelSelector:
-      app.kubernetes.io/name: runners-e2e
-    command: ["sleep", "infinity"]
-    workingDir: /opt/app/data
-    sync:
-      - path: ./:/opt/app/data
-        noWatch: true
-        excludePaths:
-          - .git/
-          - .devspace/
-          - /.gen/
-          - /tmp/

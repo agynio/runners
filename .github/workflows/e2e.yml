@@ -12,77 +12,23 @@ concurrency:
 jobs:
   e2e:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
+    permissions:
+      contents: read
     steps:
-      - name: Checkout bootstrap
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          repository: agynio/bootstrap
-          path: bootstrap
-
-      - name: Install kubectl
-        uses: azure/setup-kubectl@v4
-        with:
-          version: v1.28.7
-
-      - name: Install k3d
-        run: |
-          curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: 1.6.6
-          terraform_wrapper: false
 
       - name: Provision cluster
-        working-directory: bootstrap
-        run: ./apply.sh -y
+        uses: agynio/bootstrap/.github/actions/provision@main
 
-      - name: Verify platform health
-        working-directory: bootstrap
-        run: ./.github/scripts/verify_platform_health.sh
-
-      - name: Merge kubeconfig
-        run: |
-          mkdir -p "$HOME/.kube"
-          cp bootstrap/stacks/k8s/.kube/agyn-local-kubeconfig.yaml "$HOME/.kube/config"
-          chmod 600 "$HOME/.kube/config"
-          kubectl cluster-info
-          kubectl get pods -n platform
-
-      - name: Install DevSpace
-        run: |
-          curl -fsSL https://github.com/devspace-sh/devspace/releases/latest/download/devspace-linux-amd64 \
-            -o /usr/local/bin/devspace
-          chmod +x /usr/local/bin/devspace
-          devspace version
-
-      - name: Checkout service
-        uses: actions/checkout@v4
-        with:
-          path: service
+      - name: Setup DevSpace
+        uses: agynio/e2e/.github/actions/setup-devspace@main
 
       - name: Deploy runners from source
-        working-directory: service
         run: devspace run deploy -n platform
 
       - name: Run E2E tests
-        working-directory: service
-        run: devspace run test-e2e -n platform
-
-      - name: Restore ArgoCD sync
-        if: always()
-        working-directory: service
-        run: devspace run restore-argocd -n platform
-
-      - name: Capture platform logs
-        if: always()
-        run: |
-          echo "=== Runners pod logs ==="
-          kubectl logs -n platform -l app.kubernetes.io/name=runners \
-            --tail=500 --timestamps 2>&1 || echo "Failed to fetch runners logs"
-          echo ""
-          echo "=== E2E runner pod logs ==="
-          kubectl logs -n platform -l app.kubernetes.io/name=runners-e2e \
-            --tail=500 --timestamps 2>&1 || echo "Failed to fetch e2e-runner logs"
+        uses: agynio/e2e/.github/actions/run-tests@main
+        with:
+          service: runners
