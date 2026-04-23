@@ -78,17 +78,11 @@ func (s *Server) StreamWorkloadLogs(req *runnerv1.StreamWorkloadLogsRequest, str
 		if errors.Is(err, errZitiContextUnavailable) {
 			return status.Error(codes.Unavailable, err.Error())
 		}
-		if errors.Is(err, context.Canceled) {
-			return status.Error(codes.Canceled, err.Error())
-		}
-		if errors.Is(err, context.DeadlineExceeded) {
-			return status.Error(codes.DeadlineExceeded, err.Error())
-		}
 		return status.Errorf(codes.Unavailable, "dial runner: %v", err)
 	}
 	defer conn.Close()
 
-	// Runner log streaming expects workload instance_id, not platform workload UUID.
+	// workload_id here is the platform workload UUID; runner expects instance_id.
 	runnerReq := &runnerv1.StreamWorkloadLogsRequest{
 		WorkloadId:    instanceID,
 		Follow:        req.GetFollow(),
