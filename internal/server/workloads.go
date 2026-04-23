@@ -255,12 +255,16 @@ func (s *Server) publishWorkloadUpdateNotifications(ctx context.Context, workloa
 		log.Printf("runners: build workload notification payload: %v", err)
 		return
 	}
-	rooms := []string{fmt.Sprintf("workload:%s", workload.Meta.ID.String())}
+	workloadRoom := fmt.Sprintf("workload:%s", workload.Meta.ID.String())
+	updatedRooms := []string{
+		fmt.Sprintf("organization:%s", workload.OrganizationID.String()),
+		workloadRoom,
+	}
 	if statusChanged || containersChanged {
-		s.publishWorkloadNotification(ctx, "workload.updated", rooms, payload)
+		s.publishWorkloadNotification(ctx, "workload.updated", updatedRooms, payload)
 	}
 	if statusChanged {
-		s.publishWorkloadNotification(ctx, "workload.status_changed", rooms, payload)
+		s.publishWorkloadNotification(ctx, "workload.status_changed", []string{workloadRoom}, payload)
 	}
 }
 
@@ -807,6 +811,9 @@ func containersFromProto(containers []*runnersv1.Container) ([]containerRecord, 
 	}
 	records := make([]containerRecord, len(containers))
 	for i, container := range containers {
+		if container == nil {
+			return nil, fmt.Errorf("container %d is nil", i)
+		}
 		role, err := containerRoleToString(container.GetRole())
 		if err != nil {
 			return nil, err
@@ -815,23 +822,39 @@ func containersFromProto(containers []*runnersv1.Container) ([]containerRecord, 
 		if err != nil {
 			return nil, err
 		}
-		startedAt, err := containerTimestamp(container.StartedAt, container.GetName(), "started_at")
+		name := container.GetName()
+		startedAt, err := containerTimestamp(container.GetStartedAt(), name, "started_at")
 		if err != nil {
 			return nil, err
 		}
-		finishedAt, err := containerTimestamp(container.FinishedAt, container.GetName(), "finished_at")
+		finishedAt, err := containerTimestamp(container.GetFinishedAt(), name, "finished_at")
 		if err != nil {
 			return nil, err
+		}
+		var reason *string
+		if container.Reason != nil {
+			value := container.GetReason()
+			reason = &value
+		}
+		var message *string
+		if container.Message != nil {
+			value := container.GetMessage()
+			message = &value
+		}
+		var exitCode *int32
+		if container.ExitCode != nil {
+			value := container.GetExitCode()
+			exitCode = &value
 		}
 		records[i] = containerRecord{
 			ContainerID:  container.GetContainerId(),
-			Name:         container.GetName(),
+			Name:         name,
 			Role:         role,
 			Image:        container.GetImage(),
 			Status:       statusValue,
-			Reason:       container.Reason,
-			Message:      container.Message,
-			ExitCode:     container.ExitCode,
+			Reason:       reason,
+			Message:      message,
+			ExitCode:     exitCode,
 			RestartCount: container.GetRestartCount(),
 			StartedAt:    startedAt,
 			FinishedAt:   finishedAt,

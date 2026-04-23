@@ -520,15 +520,27 @@ func TestUpdateWorkloadPublishesNotifications(t *testing.T) {
 	if len(published) != 2 {
 		t.Fatalf("expected 2 notifications, got %d", len(published))
 	}
-	rooms := []string{fmt.Sprintf("workload:%s", workloadID)}
+	workloadRoom := fmt.Sprintf("workload:%s", workloadID)
+	orgRoom := fmt.Sprintf("organization:%s", organizationID)
 	events := map[string]bool{}
 	for _, req := range published {
 		events[req.GetEvent()] = true
 		if req.GetSource() != "runners" {
 			t.Fatalf("expected source runners, got %q", req.GetSource())
 		}
-		if len(req.GetRooms()) != 1 || req.GetRooms()[0] != rooms[0] {
-			t.Fatalf("unexpected rooms: %v", req.GetRooms())
+		switch req.GetEvent() {
+		case "workload.updated":
+			rooms := req.GetRooms()
+			if len(rooms) != 2 || !hasRoom(rooms, workloadRoom) || !hasRoom(rooms, orgRoom) {
+				t.Fatalf("unexpected workload.updated rooms: %v", rooms)
+			}
+		case "workload.status_changed":
+			rooms := req.GetRooms()
+			if len(rooms) != 1 || rooms[0] != workloadRoom {
+				t.Fatalf("unexpected workload.status_changed rooms: %v", rooms)
+			}
+		default:
+			t.Fatalf("unexpected event: %s", req.GetEvent())
 		}
 		payload := req.GetPayload().AsMap()
 		if payload["workload_id"] != workloadID.String() {
@@ -549,6 +561,15 @@ func TestUpdateWorkloadPublishesNotifications(t *testing.T) {
 	if err := mockPool.ExpectationsWereMet(); err != nil {
 		t.Fatalf("unmet expectations: %v", err)
 	}
+}
+
+func hasRoom(rooms []string, target string) bool {
+	for _, room := range rooms {
+		if room == target {
+			return true
+		}
+	}
+	return false
 }
 
 func TestUpdateWorkloadSkipsNotificationsWhenContainersUnchanged(t *testing.T) {
