@@ -20,7 +20,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Provision cluster
-        uses: agynio/bootstrap/.github/actions/provision@main
+        uses: agynio/bootstrap/.github/actions/provision@adf1dc4453de5934a9bae8c0f03f7b417e472d79
 
       - name: Setup DevSpace
         uses: agynio/e2e/.github/actions/setup-devspace@main
