@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
+	notificationsv1 "github.com/agynio/runners/.gen/go/agynio/api/notifications/v1"
 	runnersv1 "github.com/agynio/runners/.gen/go/agynio/api/runners/v1"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -15,6 +17,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -76,11 +79,17 @@ type workloadUpdateInput struct {
 }
 
 type containerRecord struct {
-	ContainerID string `json:"container_id"`
-	Name        string `json:"name"`
-	Role        string `json:"role"`
-	Image       string `json:"image"`
-	Status      string `json:"status"`
+	ContainerID  string     `json:"container_id"`
+	Name         string     `json:"name"`
+	Role         string     `json:"role"`
+	Image        string     `json:"image"`
+	Status       string     `json:"status"`
+	Reason       *string    `json:"reason,omitempty"`
+	Message      *string    `json:"message,omitempty"`
+	ExitCode     *int32     `json:"exit_code,omitempty"`
+	RestartCount int32      `json:"restart_count"`
+	StartedAt    *time.Time `json:"started_at,omitempty"`
+	FinishedAt   *time.Time `json:"finished_at,omitempty"`
 }
 
 func (s *Server) CreateWorkload(ctx context.Context, req *runnersv1.CreateWorkloadRequest) (*runnersv1.CreateWorkloadResponse, error) {
@@ -156,6 +165,7 @@ func (s *Server) UpdateWorkload(ctx context.Context, req *runnersv1.UpdateWorklo
 		statusValue = &value
 	}
 
+	var containerRecords []containerRecord
 	var containersJSON *[]byte
 	if req.Containers != nil {
 		containers, err := containersFromProto(req.GetContainers())
@@ -166,6 +176,7 @@ func (s *Server) UpdateWorkload(ctx context.Context, req *runnersv1.UpdateWorklo
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "marshal containers: %v", err)
 		}
+		containerRecords = containers
 		containersJSON = &payload
 	}
 
@@ -200,6 +211,15 @@ func (s *Server) UpdateWorkload(ctx context.Context, req *runnersv1.UpdateWorklo
 		return nil, status.Error(codes.InvalidArgument, "at least one field must be provided")
 	}
 
+	var existingWorkload *workloadRecord
+	if s.notificationsClient != nil && (statusValue != nil || containersJSON != nil) {
+		workload, err := s.getWorkloadByID(ctx, id)
+		if err != nil {
+			return nil, toStatusError(err)
+		}
+		existingWorkload = &workload
+	}
+
 	workload, err := s.updateWorkload(ctx, workloadUpdateInput{
 		ID:             id,
 		Status:         statusValue,
@@ -211,11 +231,52 @@ func (s *Server) UpdateWorkload(ctx context.Context, req *runnersv1.UpdateWorklo
 	if err != nil {
 		return nil, toStatusError(err)
 	}
+	statusChanged := existingWorkload != nil && statusValue != nil && *statusValue != existingWorkload.Status
+	containersChanged := existingWorkload != nil && containersJSON != nil && !containersEqualByName(existingWorkload.Containers, containerRecords)
+	if statusChanged || containersChanged {
+		s.publishWorkloadUpdateNotifications(ctx, workload, statusChanged, containersChanged)
+	}
 	protoWorkload, err := toProtoWorkload(workload)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "convert workload: %v", err)
 	}
 	return &runnersv1.UpdateWorkloadResponse{Workload: protoWorkload}, nil
+}
+
+func (s *Server) publishWorkloadUpdateNotifications(ctx context.Context, workload workloadRecord, statusChanged, containersChanged bool) {
+	if s.notificationsClient == nil {
+		return
+	}
+	payload, err := structpb.NewStruct(map[string]any{
+		"workload_id": workload.Meta.ID.String(),
+		"status":      workload.Status,
+	})
+	if err != nil {
+		log.Printf("runners: build workload notification payload: %v", err)
+		return
+	}
+	rooms := []string{fmt.Sprintf("workload:%s", workload.Meta.ID.String())}
+	if statusChanged || containersChanged {
+		s.publishWorkloadNotification(ctx, "workload.updated", rooms, payload)
+	}
+	if statusChanged {
+		s.publishWorkloadNotification(ctx, "workload.status_changed", rooms, payload)
+	}
+}
+
+func (s *Server) publishWorkloadNotification(ctx context.Context, event string, rooms []string, payload *structpb.Struct) {
+	if s.notificationsClient == nil {
+		return
+	}
+	_, err := s.notificationsClient.Publish(ctx, &notificationsv1.PublishRequest{
+		Event:   event,
+		Rooms:   rooms,
+		Payload: payload,
+		Source:  "runners",
+	})
+	if err != nil {
+		log.Printf("runners: publish %s notification: %v", event, err)
+	}
 }
 
 func (s *Server) UpdateWorkloadStatus(ctx context.Context, req *runnersv1.UpdateWorkloadStatusRequest) (*runnersv1.UpdateWorkloadStatusResponse, error) {
@@ -754,12 +815,26 @@ func containersFromProto(containers []*runnersv1.Container) ([]containerRecord, 
 		if err != nil {
 			return nil, err
 		}
+		startedAt, err := containerTimestamp(container.StartedAt, container.GetName(), "started_at")
+		if err != nil {
+			return nil, err
+		}
+		finishedAt, err := containerTimestamp(container.FinishedAt, container.GetName(), "finished_at")
+		if err != nil {
+			return nil, err
+		}
 		records[i] = containerRecord{
-			ContainerID: container.GetContainerId(),
-			Name:        container.GetName(),
-			Role:        role,
-			Image:       container.GetImage(),
-			Status:      statusValue,
+			ContainerID:  container.GetContainerId(),
+			Name:         container.GetName(),
+			Role:         role,
+			Image:        container.GetImage(),
+			Status:       statusValue,
+			Reason:       container.Reason,
+			Message:      container.Message,
+			ExitCode:     container.ExitCode,
+			RestartCount: container.GetRestartCount(),
+			StartedAt:    startedAt,
+			FinishedAt:   finishedAt,
 		}
 	}
 	return records, nil
@@ -780,14 +855,106 @@ func containersToProto(records []containerRecord) ([]*runnersv1.Container, error
 			return nil, err
 		}
 		containers[i] = &runnersv1.Container{
-			ContainerId: record.ContainerID,
-			Name:        record.Name,
-			Role:        role,
-			Image:       record.Image,
-			Status:      statusValue,
+			ContainerId:  record.ContainerID,
+			Name:         record.Name,
+			Role:         role,
+			Image:        record.Image,
+			Status:       statusValue,
+			Reason:       record.Reason,
+			Message:      record.Message,
+			ExitCode:     record.ExitCode,
+			RestartCount: record.RestartCount,
+			StartedAt:    timestampProto(record.StartedAt),
+			FinishedAt:   timestampProto(record.FinishedAt),
 		}
 	}
 	return containers, nil
+}
+
+func containersEqualByName(existing, updated []containerRecord) bool {
+	if len(existing) != len(updated) {
+		return false
+	}
+	byName := make(map[string]containerRecord, len(existing))
+	for _, container := range existing {
+		if _, ok := byName[container.Name]; ok {
+			return false
+		}
+		byName[container.Name] = container
+	}
+	for _, container := range updated {
+		current, ok := byName[container.Name]
+		if !ok {
+			return false
+		}
+		if !containerRecordEqual(current, container) {
+			return false
+		}
+	}
+	return true
+}
+
+func containerRecordEqual(left, right containerRecord) bool {
+	if left.ContainerID != right.ContainerID ||
+		left.Name != right.Name ||
+		left.Role != right.Role ||
+		left.Image != right.Image ||
+		left.Status != right.Status ||
+		left.RestartCount != right.RestartCount {
+		return false
+	}
+	if !optionalStringEqual(left.Reason, right.Reason) || !optionalStringEqual(left.Message, right.Message) {
+		return false
+	}
+	if !optionalInt32Equal(left.ExitCode, right.ExitCode) {
+		return false
+	}
+	if !optionalTimeEqual(left.StartedAt, right.StartedAt) || !optionalTimeEqual(left.FinishedAt, right.FinishedAt) {
+		return false
+	}
+	return true
+}
+
+func optionalStringEqual(left, right *string) bool {
+	if left == nil || right == nil {
+		return left == right
+	}
+	return *left == *right
+}
+
+func optionalInt32Equal(left, right *int32) bool {
+	if left == nil || right == nil {
+		return left == right
+	}
+	return *left == *right
+}
+
+func optionalTimeEqual(left, right *time.Time) bool {
+	if left == nil || right == nil {
+		return left == right
+	}
+	return left.Equal(*right)
+}
+
+func containerTimestamp(value *timestamppb.Timestamp, name, field string) (*time.Time, error) {
+	if value == nil {
+		return nil, nil
+	}
+	if err := value.CheckValid(); err != nil {
+		if name == "" {
+			return nil, fmt.Errorf("%s: %w", field, err)
+		}
+		return nil, fmt.Errorf("container %s %s: %w", name, field, err)
+	}
+	timestamp := value.AsTime()
+	return &timestamp, nil
+}
+
+func timestampProto(value *time.Time) *timestamppb.Timestamp {
+	if value == nil {
+		return nil
+	}
+	return timestamppb.New(*value)
 }
 
 func workloadStatusToString(status runnersv1.WorkloadStatus) (string, error) {

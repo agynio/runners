@@ -9,9 +9,11 @@ import (
 	"time"
 
 	authorizationv1 "github.com/agynio/runners/.gen/go/agynio/api/authorization/v1"
+	notificationsv1 "github.com/agynio/runners/.gen/go/agynio/api/notifications/v1"
 	runnersv1 "github.com/agynio/runners/.gen/go/agynio/api/runners/v1"
 	"github.com/google/uuid"
 	"github.com/pashagolub/pgxmock/v3"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
@@ -35,6 +37,21 @@ var workloadRowColumns = []string{
 	"removed_at",
 	"created_at",
 	"updated_at",
+}
+
+type fakeNotificationsClient struct {
+	publish func(ctx context.Context, req *notificationsv1.PublishRequest) (*notificationsv1.PublishResponse, error)
+}
+
+func (f fakeNotificationsClient) Publish(ctx context.Context, req *notificationsv1.PublishRequest, opts ...grpc.CallOption) (*notificationsv1.PublishResponse, error) {
+	if f.publish == nil {
+		return nil, status.Error(codes.Unimplemented, "not implemented")
+	}
+	return f.publish(ctx, req)
+}
+
+func (f fakeNotificationsClient) Subscribe(ctx context.Context, req *notificationsv1.SubscribeRequest, opts ...grpc.CallOption) (notificationsv1.NotificationsService_SubscribeClient, error) {
+	return nil, status.Error(codes.Unimplemented, "not implemented")
 }
 
 func TestListWorkloadsFiltersOrganization(t *testing.T) {
@@ -374,12 +391,23 @@ func TestUpdateWorkload(t *testing.T) {
 	organizationID := uuid.New()
 	instanceID := "instance-1"
 	now := time.Now().UTC()
+	startedAt := now.Add(-2 * time.Minute)
+	finishedAt := now.Add(-1 * time.Minute)
+	reason := "CrashLoopBackOff"
+	message := "back-off"
+	exitCode := int32(137)
 	containers := []*runnersv1.Container{{
-		ContainerId: "container-1",
-		Name:        "name",
-		Role:        runnersv1.ContainerRole_CONTAINER_ROLE_MAIN,
-		Image:       "image",
-		Status:      runnersv1.ContainerStatus_CONTAINER_STATUS_RUNNING,
+		ContainerId:  "container-1",
+		Name:         "name",
+		Role:         runnersv1.ContainerRole_CONTAINER_ROLE_MAIN,
+		Image:        "image",
+		Status:       runnersv1.ContainerStatus_CONTAINER_STATUS_RUNNING,
+		Reason:       &reason,
+		Message:      &message,
+		ExitCode:     &exitCode,
+		RestartCount: 2,
+		StartedAt:    timestamppb.New(startedAt),
+		FinishedAt:   timestamppb.New(finishedAt),
 	}}
 	containerRecords, err := containersFromProto(containers)
 	if err != nil {
@@ -410,6 +438,200 @@ func TestUpdateWorkload(t *testing.T) {
 	}
 	if resp.GetWorkload().GetInstanceId() != instanceID {
 		t.Fatalf("expected instance id %q, got %q", instanceID, resp.GetWorkload().GetInstanceId())
+	}
+
+	if err := mockPool.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestUpdateWorkloadPublishesNotifications(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("failed to create mock pool: %v", err)
+	}
+
+	workloadID := uuid.New()
+	runnerID := uuid.New()
+	threadID := uuid.New()
+	agentID := uuid.New()
+	organizationID := uuid.New()
+	now := time.Now().UTC()
+	containersJSON := []byte("[]")
+
+	selectRows := pgxmock.NewRows(workloadRowColumns).
+		AddRow(workloadID, runnerID, threadID, agentID, organizationID, workloadStatusStarting, containersJSON, "ziti-id", int32(0), int64(0), nil, now, nil, nil, now, now)
+
+	selectQuery := fmt.Sprintf("SELECT %s FROM workloads WHERE id = $1", workloadColumns)
+	mockPool.ExpectQuery(regexp.QuoteMeta(selectQuery)).
+		WithArgs(workloadID).
+		WillReturnRows(selectRows)
+
+	startedAt := now.Add(-3 * time.Minute)
+	finishedAt := now.Add(-2 * time.Minute)
+	reason := "Completed"
+	message := "done"
+	exitCode := int32(0)
+	containers := []*runnersv1.Container{{
+		ContainerId:  "container-1",
+		Name:         "main",
+		Role:         runnersv1.ContainerRole_CONTAINER_ROLE_MAIN,
+		Image:        "image",
+		Status:       runnersv1.ContainerStatus_CONTAINER_STATUS_RUNNING,
+		Reason:       &reason,
+		Message:      &message,
+		ExitCode:     &exitCode,
+		RestartCount: 1,
+		StartedAt:    timestamppb.New(startedAt),
+		FinishedAt:   timestamppb.New(finishedAt),
+	}}
+	containerRecords, err := containersFromProto(containers)
+	if err != nil {
+		t.Fatalf("failed to build container records: %v", err)
+	}
+	updatedContainersJSON, err := json.Marshal(containerRecords)
+	if err != nil {
+		t.Fatalf("failed to marshal containers: %v", err)
+	}
+
+	updateRows := pgxmock.NewRows(workloadRowColumns).
+		AddRow(workloadID, runnerID, threadID, agentID, organizationID, workloadStatusRunning, updatedContainersJSON, "ziti-id", int32(0), int64(0), nil, now, nil, nil, now, now)
+
+	updateQuery := fmt.Sprintf("UPDATE workloads SET status = $1, containers = $2, updated_at = NOW() WHERE id = $3 RETURNING %s", workloadColumns)
+	mockPool.ExpectQuery(regexp.QuoteMeta(updateQuery)).
+		WithArgs(workloadStatusRunning, updatedContainersJSON, workloadID).
+		WillReturnRows(updateRows)
+
+	published := make([]*notificationsv1.PublishRequest, 0, 2)
+	notificationsClient := fakeNotificationsClient{publish: func(ctx context.Context, req *notificationsv1.PublishRequest) (*notificationsv1.PublishResponse, error) {
+		published = append(published, req)
+		return &notificationsv1.PublishResponse{}, nil
+	}}
+
+	srv := New(Options{Pool: mockPool, NotificationsClient: notificationsClient})
+	_, err = srv.UpdateWorkload(context.Background(), &runnersv1.UpdateWorkloadRequest{
+		Id:         workloadID.String(),
+		Status:     runnersv1.WorkloadStatus_WORKLOAD_STATUS_RUNNING.Enum(),
+		Containers: containers,
+	})
+	if err != nil {
+		t.Fatalf("UpdateWorkload failed: %v", err)
+	}
+	if len(published) != 2 {
+		t.Fatalf("expected 2 notifications, got %d", len(published))
+	}
+	rooms := []string{fmt.Sprintf("workload:%s", workloadID)}
+	events := map[string]bool{}
+	for _, req := range published {
+		events[req.GetEvent()] = true
+		if req.GetSource() != "runners" {
+			t.Fatalf("expected source runners, got %q", req.GetSource())
+		}
+		if len(req.GetRooms()) != 1 || req.GetRooms()[0] != rooms[0] {
+			t.Fatalf("unexpected rooms: %v", req.GetRooms())
+		}
+		payload := req.GetPayload().AsMap()
+		if payload["workload_id"] != workloadID.String() {
+			t.Fatalf("unexpected workload_id payload: %v", payload["workload_id"])
+		}
+		statusValue, ok := payload["status"].(string)
+		if !ok || statusValue != workloadStatusRunning {
+			t.Fatalf("unexpected status payload: %v", payload["status"])
+		}
+	}
+	if !events["workload.updated"] {
+		t.Fatal("expected workload.updated notification")
+	}
+	if !events["workload.status_changed"] {
+		t.Fatal("expected workload.status_changed notification")
+	}
+
+	if err := mockPool.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestUpdateWorkloadSkipsNotificationsWhenContainersUnchanged(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("failed to create mock pool: %v", err)
+	}
+
+	workloadID := uuid.New()
+	runnerID := uuid.New()
+	threadID := uuid.New()
+	agentID := uuid.New()
+	organizationID := uuid.New()
+	now := time.Now().UTC()
+
+	containerMain := &runnersv1.Container{
+		ContainerId:  "container-1",
+		Name:         "main",
+		Role:         runnersv1.ContainerRole_CONTAINER_ROLE_MAIN,
+		Image:        "image",
+		Status:       runnersv1.ContainerStatus_CONTAINER_STATUS_RUNNING,
+		RestartCount: 0,
+	}
+	containerSidecar := &runnersv1.Container{
+		ContainerId:  "container-2",
+		Name:         "sidecar",
+		Role:         runnersv1.ContainerRole_CONTAINER_ROLE_SIDECAR,
+		Image:        "image",
+		Status:       runnersv1.ContainerStatus_CONTAINER_STATUS_RUNNING,
+		RestartCount: 0,
+	}
+	existingContainers := []*runnersv1.Container{containerMain, containerSidecar}
+	existingRecords, err := containersFromProto(existingContainers)
+	if err != nil {
+		t.Fatalf("failed to build container records: %v", err)
+	}
+	existingContainersJSON, err := json.Marshal(existingRecords)
+	if err != nil {
+		t.Fatalf("failed to marshal containers: %v", err)
+	}
+
+	selectRows := pgxmock.NewRows(workloadRowColumns).
+		AddRow(workloadID, runnerID, threadID, agentID, organizationID, workloadStatusRunning, existingContainersJSON, "ziti-id", int32(0), int64(0), nil, now, nil, nil, now, now)
+
+	selectQuery := fmt.Sprintf("SELECT %s FROM workloads WHERE id = $1", workloadColumns)
+	mockPool.ExpectQuery(regexp.QuoteMeta(selectQuery)).
+		WithArgs(workloadID).
+		WillReturnRows(selectRows)
+
+	requestContainers := []*runnersv1.Container{containerSidecar, containerMain}
+	requestRecords, err := containersFromProto(requestContainers)
+	if err != nil {
+		t.Fatalf("failed to build container records: %v", err)
+	}
+	requestContainersJSON, err := json.Marshal(requestRecords)
+	if err != nil {
+		t.Fatalf("failed to marshal containers: %v", err)
+	}
+
+	updateRows := pgxmock.NewRows(workloadRowColumns).
+		AddRow(workloadID, runnerID, threadID, agentID, organizationID, workloadStatusRunning, requestContainersJSON, "ziti-id", int32(0), int64(0), nil, now, nil, nil, now, now)
+
+	updateQuery := fmt.Sprintf("UPDATE workloads SET containers = $1, updated_at = NOW() WHERE id = $2 RETURNING %s", workloadColumns)
+	mockPool.ExpectQuery(regexp.QuoteMeta(updateQuery)).
+		WithArgs(requestContainersJSON, workloadID).
+		WillReturnRows(updateRows)
+
+	publishCount := 0
+	notificationsClient := fakeNotificationsClient{publish: func(ctx context.Context, req *notificationsv1.PublishRequest) (*notificationsv1.PublishResponse, error) {
+		publishCount++
+		return &notificationsv1.PublishResponse{}, nil
+	}}
+
+	srv := New(Options{Pool: mockPool, NotificationsClient: notificationsClient})
+	_, err = srv.UpdateWorkload(context.Background(), &runnersv1.UpdateWorkloadRequest{
+		Id:         workloadID.String(),
+		Containers: requestContainers,
+	})
+	if err != nil {
+		t.Fatalf("UpdateWorkload failed: %v", err)
+	}
+	if publishCount != 0 {
+		t.Fatalf("expected no notifications, got %d", publishCount)
 	}
 
 	if err := mockPool.ExpectationsWereMet(); err != nil {

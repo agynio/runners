@@ -9,6 +9,7 @@ import (
 
 	authorizationv1 "github.com/agynio/runners/.gen/go/agynio/api/authorization/v1"
 	identityv1 "github.com/agynio/runners/.gen/go/agynio/api/identity/v1"
+	notificationsv1 "github.com/agynio/runners/.gen/go/agynio/api/notifications/v1"
 	runnersv1 "github.com/agynio/runners/.gen/go/agynio/api/runners/v1"
 	zitimanagementv1 "github.com/agynio/runners/.gen/go/agynio/api/ziti_management/v1"
 	"github.com/google/uuid"
@@ -35,6 +36,7 @@ type Server struct {
 	identityClient       identityv1.IdentityServiceClient
 	authorizationClient  authorizationv1.AuthorizationServiceClient
 	zitiManagementClient zitimanagementv1.ZitiManagementServiceClient
+	notificationsClient  notificationsv1.NotificationsServiceClient
 }
 
 // Options defines required inputs for constructing a Server.
@@ -43,6 +45,7 @@ type Options struct {
 	IdentityClient       identityv1.IdentityServiceClient
 	AuthorizationClient  authorizationv1.AuthorizationServiceClient
 	ZitiManagementClient zitimanagementv1.ZitiManagementServiceClient
+	NotificationsClient  notificationsv1.NotificationsServiceClient
 }
 
 // New constructs a RunnersService server.
@@ -52,6 +55,7 @@ func New(options Options) *Server {
 		identityClient:       options.IdentityClient,
 		authorizationClient:  options.AuthorizationClient,
 		zitiManagementClient: options.ZitiManagementClient,
+		notificationsClient:  options.NotificationsClient,
 	}
 }
 

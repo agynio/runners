@@ -10,6 +10,7 @@ const (
 	defaultIdentityAddress       = "identity:50051"
 	defaultAuthorizationAddress  = "authorization:50051"
 	defaultZitiManagementAddress = "ziti-management:50051"
+	defaultNotificationsAddress  = "notifications:50051"
 	defaultGRPCAddr              = ":50051"
 )
 
@@ -19,6 +20,7 @@ type Config struct {
 	IdentityAddress       string
 	AuthorizationAddress  string
 	ZitiManagementAddress string
+	NotificationsAddress  string
 	GRPCAddr              string
 }
 
@@ -35,6 +37,7 @@ func Load() (Config, error) {
 	cfg.IdentityAddress = readEnv("IDENTITY_ADDRESS", defaultIdentityAddress)
 	cfg.AuthorizationAddress = readEnv("AUTHORIZATION_ADDRESS", defaultAuthorizationAddress)
 	cfg.ZitiManagementAddress = readEnv("ZITI_MANAGEMENT_ADDRESS", defaultZitiManagementAddress)
+	cfg.NotificationsAddress = readEnv("NOTIFICATIONS_ADDRESS", defaultNotificationsAddress)
 	cfg.GRPCAddr = readEnv("GRPC_ADDR", defaultGRPCAddr)
 
 	return cfg, nil
