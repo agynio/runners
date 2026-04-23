@@ -37,6 +37,8 @@ type Server struct {
 	authorizationClient  authorizationv1.AuthorizationServiceClient
 	zitiManagementClient zitimanagementv1.ZitiManagementServiceClient
 	notificationsClient  notificationsv1.NotificationsServiceClient
+	zitiDialer           ZitiDialer
+	dialRunnerConn       runnerConnDialer
 }
 
 // Options defines required inputs for constructing a Server.
@@ -46,17 +48,21 @@ type Options struct {
 	AuthorizationClient  authorizationv1.AuthorizationServiceClient
 	ZitiManagementClient zitimanagementv1.ZitiManagementServiceClient
 	NotificationsClient  notificationsv1.NotificationsServiceClient
+	ZitiDialer           ZitiDialer
 }
 
 // New constructs a RunnersService server.
 func New(options Options) *Server {
-	return &Server{
+	srv := &Server{
 		pool:                 options.Pool,
 		identityClient:       options.IdentityClient,
 		authorizationClient:  options.AuthorizationClient,
 		zitiManagementClient: options.ZitiManagementClient,
 		notificationsClient:  options.NotificationsClient,
+		zitiDialer:           options.ZitiDialer,
 	}
+	srv.dialRunnerConn = srv.dialRunnerConnWithZiti
+	return srv
 }
 
 type entityMeta struct {

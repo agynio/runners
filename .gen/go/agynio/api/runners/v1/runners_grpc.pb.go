@@ -8,6 +8,7 @@ package runnersv1
 
 import (
 	context "context"
+	v1 "github.com/agynio/runners/.gen/go/agynio/api/runner/v1"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -35,6 +36,7 @@ const (
 	RunnersService_ListWorkloadsByThread_FullMethodName        = "/agynio.api.runners.v1.RunnersService/ListWorkloadsByThread"
 	RunnersService_ListWorkloads_FullMethodName                = "/agynio.api.runners.v1.RunnersService/ListWorkloads"
 	RunnersService_BatchUpdateWorkloadSampledAt_FullMethodName = "/agynio.api.runners.v1.RunnersService/BatchUpdateWorkloadSampledAt"
+	RunnersService_StreamWorkloadLogs_FullMethodName           = "/agynio.api.runners.v1.RunnersService/StreamWorkloadLogs"
 	RunnersService_CreateVolume_FullMethodName                 = "/agynio.api.runners.v1.RunnersService/CreateVolume"
 	RunnersService_UpdateVolume_FullMethodName                 = "/agynio.api.runners.v1.RunnersService/UpdateVolume"
 	RunnersService_GetVolume_FullMethodName                    = "/agynio.api.runners.v1.RunnersService/GetVolume"
@@ -67,6 +69,8 @@ type RunnersServiceClient interface {
 	ListWorkloadsByThread(ctx context.Context, in *ListWorkloadsByThreadRequest, opts ...grpc.CallOption) (*ListWorkloadsByThreadResponse, error)
 	ListWorkloads(ctx context.Context, in *ListWorkloadsRequest, opts ...grpc.CallOption) (*ListWorkloadsResponse, error)
 	BatchUpdateWorkloadSampledAt(ctx context.Context, in *BatchUpdateWorkloadSampledAtRequest, opts ...grpc.CallOption) (*BatchUpdateWorkloadSampledAtResponse, error)
+	// --- Workload logs ---
+	StreamWorkloadLogs(ctx context.Context, in *v1.StreamWorkloadLogsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[v1.StreamWorkloadLogsResponse], error)
 	// --- Volume state ---
 	CreateVolume(ctx context.Context, in *CreateVolumeRequest, opts ...grpc.CallOption) (*CreateVolumeResponse, error)
 	UpdateVolume(ctx context.Context, in *UpdateVolumeRequest, opts ...grpc.CallOption) (*UpdateVolumeResponse, error)
@@ -244,6 +248,25 @@ func (c *runnersServiceClient) BatchUpdateWorkloadSampledAt(ctx context.Context,
 	return out, nil
 }
 
+func (c *runnersServiceClient) StreamWorkloadLogs(ctx context.Context, in *v1.StreamWorkloadLogsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[v1.StreamWorkloadLogsResponse], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &RunnersService_ServiceDesc.Streams[0], RunnersService_StreamWorkloadLogs_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[v1.StreamWorkloadLogsRequest, v1.StreamWorkloadLogsResponse]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type RunnersService_StreamWorkloadLogsClient = grpc.ServerStreamingClient[v1.StreamWorkloadLogsResponse]
+
 func (c *runnersServiceClient) CreateVolume(ctx context.Context, in *CreateVolumeRequest, opts ...grpc.CallOption) (*CreateVolumeResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(CreateVolumeResponse)
@@ -328,6 +351,8 @@ type RunnersServiceServer interface {
 	ListWorkloadsByThread(context.Context, *ListWorkloadsByThreadRequest) (*ListWorkloadsByThreadResponse, error)
 	ListWorkloads(context.Context, *ListWorkloadsRequest) (*ListWorkloadsResponse, error)
 	BatchUpdateWorkloadSampledAt(context.Context, *BatchUpdateWorkloadSampledAtRequest) (*BatchUpdateWorkloadSampledAtResponse, error)
+	// --- Workload logs ---
+	StreamWorkloadLogs(*v1.StreamWorkloadLogsRequest, grpc.ServerStreamingServer[v1.StreamWorkloadLogsResponse]) error
 	// --- Volume state ---
 	CreateVolume(context.Context, *CreateVolumeRequest) (*CreateVolumeResponse, error)
 	UpdateVolume(context.Context, *UpdateVolumeRequest) (*UpdateVolumeResponse, error)
@@ -391,6 +416,9 @@ func (UnimplementedRunnersServiceServer) ListWorkloads(context.Context, *ListWor
 }
 func (UnimplementedRunnersServiceServer) BatchUpdateWorkloadSampledAt(context.Context, *BatchUpdateWorkloadSampledAtRequest) (*BatchUpdateWorkloadSampledAtResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method BatchUpdateWorkloadSampledAt not implemented")
+}
+func (UnimplementedRunnersServiceServer) StreamWorkloadLogs(*v1.StreamWorkloadLogsRequest, grpc.ServerStreamingServer[v1.StreamWorkloadLogsResponse]) error {
+	return status.Error(codes.Unimplemented, "method StreamWorkloadLogs not implemented")
 }
 func (UnimplementedRunnersServiceServer) CreateVolume(context.Context, *CreateVolumeRequest) (*CreateVolumeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateVolume not implemented")
@@ -718,6 +746,17 @@ func _RunnersService_BatchUpdateWorkloadSampledAt_Handler(srv interface{}, ctx c
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RunnersService_StreamWorkloadLogs_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(v1.StreamWorkloadLogsRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(RunnersServiceServer).StreamWorkloadLogs(m, &grpc.GenericServerStream[v1.StreamWorkloadLogsRequest, v1.StreamWorkloadLogsResponse]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type RunnersService_StreamWorkloadLogsServer = grpc.ServerStreamingServer[v1.StreamWorkloadLogsResponse]
+
 func _RunnersService_CreateVolume_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(CreateVolumeRequest)
 	if err := dec(in); err != nil {
@@ -922,6 +961,12 @@ var RunnersService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _RunnersService_BatchUpdateVolumeSampledAt_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "StreamWorkloadLogs",
+			Handler:       _RunnersService_StreamWorkloadLogs_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "agynio/api/runners/v1/runners.proto",
 }

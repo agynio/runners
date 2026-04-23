@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 )
 
 const (
@@ -16,12 +17,14 @@ const (
 
 // Config captures runtime configuration derived from the environment.
 type Config struct {
-	DatabaseURL           string
-	IdentityAddress       string
-	AuthorizationAddress  string
-	ZitiManagementAddress string
-	NotificationsAddress  string
-	GRPCAddr              string
+	DatabaseURL              string
+	IdentityAddress          string
+	AuthorizationAddress     string
+	ZitiManagementAddress    string
+	NotificationsAddress     string
+	ZitiLeaseRenewalInterval time.Duration
+	ZitiEnrollmentTimeout    time.Duration
+	GRPCAddr                 string
 }
 
 // Load reads configuration from environment variables, applying defaults when
@@ -38,6 +41,33 @@ func Load() (Config, error) {
 	cfg.AuthorizationAddress = readEnv("AUTHORIZATION_ADDRESS", defaultAuthorizationAddress)
 	cfg.ZitiManagementAddress = readEnv("ZITI_MANAGEMENT_ADDRESS", defaultZitiManagementAddress)
 	cfg.NotificationsAddress = readEnv("NOTIFICATIONS_ADDRESS", defaultNotificationsAddress)
+	leaseRenewalInterval := strings.TrimSpace(os.Getenv("ZITI_LEASE_RENEWAL_INTERVAL"))
+	if leaseRenewalInterval == "" {
+		cfg.ZitiLeaseRenewalInterval = 2 * time.Minute
+	} else {
+		parsed, err := time.ParseDuration(leaseRenewalInterval)
+		if err != nil {
+			return Config{}, fmt.Errorf("parse ZITI_LEASE_RENEWAL_INTERVAL: %w", err)
+		}
+		cfg.ZitiLeaseRenewalInterval = parsed
+	}
+	if cfg.ZitiLeaseRenewalInterval <= 0 {
+		return Config{}, fmt.Errorf("ZITI_LEASE_RENEWAL_INTERVAL must be greater than 0")
+	}
+
+	enrollmentTimeout := strings.TrimSpace(os.Getenv("ZITI_ENROLLMENT_TIMEOUT"))
+	if enrollmentTimeout == "" {
+		cfg.ZitiEnrollmentTimeout = 2 * time.Minute
+	} else {
+		parsed, err := time.ParseDuration(enrollmentTimeout)
+		if err != nil {
+			return Config{}, fmt.Errorf("parse ZITI_ENROLLMENT_TIMEOUT: %w", err)
+		}
+		cfg.ZitiEnrollmentTimeout = parsed
+	}
+	if cfg.ZitiEnrollmentTimeout <= 0 {
+		return Config{}, fmt.Errorf("ZITI_ENROLLMENT_TIMEOUT must be greater than 0")
+	}
 	cfg.GRPCAddr = readEnv("GRPC_ADDR", defaultGRPCAddr)
 
 	return cfg, nil
