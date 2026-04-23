@@ -22,8 +22,12 @@ jobs:
       - name: Provision cluster
         uses: agynio/bootstrap/.github/actions/provision@adf1dc4453de5934a9bae8c0f03f7b417e472d79
 
-      - name: Setup DevSpace
-        uses: agynio/e2e/.github/actions/setup-devspace@main
+      - name: Install DevSpace
+        run: |
+          curl -fsSL https://github.com/devspace-sh/devspace/releases/download/v6.3.21/devspace-linux-amd64 \
+            -o /usr/local/bin/devspace
+          chmod +x /usr/local/bin/devspace
+          devspace version
 
       - name: Deploy runners from source
         run: devspace run deploy -n platform
