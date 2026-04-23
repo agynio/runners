@@ -12,6 +12,7 @@ import (
 
 	authorizationv1 "github.com/agynio/runners/.gen/go/agynio/api/authorization/v1"
 	identityv1 "github.com/agynio/runners/.gen/go/agynio/api/identity/v1"
+	notificationsv1 "github.com/agynio/runners/.gen/go/agynio/api/notifications/v1"
 	runnersv1 "github.com/agynio/runners/.gen/go/agynio/api/runners/v1"
 	zitimanagementv1 "github.com/agynio/runners/.gen/go/agynio/api/ziti_management/v1"
 	"github.com/agynio/runners/internal/config"
@@ -69,12 +70,19 @@ func run() error {
 	}
 	defer zitiManagementConn.Close()
 
+	notificationsConn, err := grpc.DialContext(ctx, cfg.NotificationsAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return fmt.Errorf("dial notifications service: %w", err)
+	}
+	defer notificationsConn.Close()
+
 	grpcServer := grpc.NewServer()
 	runnersv1.RegisterRunnersServiceServer(grpcServer, server.New(server.Options{
 		Pool:                 pool,
 		IdentityClient:       identityv1.NewIdentityServiceClient(identityConn),
 		AuthorizationClient:  authorizationv1.NewAuthorizationServiceClient(authorizationConn),
 		ZitiManagementClient: zitimanagementv1.NewZitiManagementServiceClient(zitiManagementConn),
+		NotificationsClient:  notificationsv1.NewNotificationsServiceClient(notificationsConn),
 	}))
 
 	listener, err := net.Listen("tcp", cfg.GRPCAddr)
