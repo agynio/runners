@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"strings"
 	"sync"
 	"time"
 
@@ -168,6 +167,8 @@ func (m *Manager) triggerReEnroll(ctx context.Context) error {
 	if enrollCtx == nil {
 		enrollCtx = waitCtx
 	}
+	enrollCtx, cancel := context.WithTimeout(enrollCtx, m.enrollTimeout)
+	defer cancel()
 	ch, started := m.startReEnroll()
 	if !started {
 		return waitForReEnroll(waitCtx, ch)
@@ -229,8 +230,14 @@ func (m *Manager) reEnroll(ctx context.Context) error {
 }
 
 func (m *Manager) enroll(ctx context.Context) (ziti.Context, string, error) {
-	identityResp, err := m.requestServiceIdentityWithFallback(ctx)
-	if err != nil {
+	var identityResp *zitimgmtv1.RequestServiceIdentityResponse
+	if err := retryWithBackoff(ctx, "ziti enrollment", func(attemptCtx context.Context) error {
+		var requestErr error
+		identityResp, requestErr = m.mgmtClient.RequestServiceIdentity(attemptCtx, &zitimgmtv1.RequestServiceIdentityRequest{
+			ServiceType: zitimgmtv1.ServiceType_SERVICE_TYPE_RUNNERS,
+		})
+		return requestErr
+	}); err != nil {
 		return nil, "", fmt.Errorf("request ziti service identity: %w", err)
 	}
 	identityID := identityResp.GetZitiIdentityId()
@@ -253,32 +260,6 @@ func (m *Manager) enroll(ctx context.Context) (ziti.Context, string, error) {
 		return nil, "", err
 	}
 	return zitiCtx, identityID, nil
-}
-
-func (m *Manager) requestServiceIdentityWithFallback(ctx context.Context) (*zitimgmtv1.RequestServiceIdentityResponse, error) {
-	identityResp, err := m.requestServiceIdentity(ctx, zitimgmtv1.ServiceType_SERVICE_TYPE_RUNNERS)
-	if err == nil {
-		return identityResp, nil
-	}
-	if !isUnknownServiceTypeError(err) {
-		return nil, err
-	}
-	log.Printf("ziti enrollment: service type runners unsupported (%v); falling back to orchestrator", err)
-	return m.requestServiceIdentity(ctx, zitimgmtv1.ServiceType_SERVICE_TYPE_ORCHESTRATOR)
-}
-
-func (m *Manager) requestServiceIdentity(ctx context.Context, serviceType zitimgmtv1.ServiceType) (*zitimgmtv1.RequestServiceIdentityResponse, error) {
-	var identityResp *zitimgmtv1.RequestServiceIdentityResponse
-	if err := retryWithBackoff(ctx, "ziti enrollment", func(attemptCtx context.Context) error {
-		var requestErr error
-		identityResp, requestErr = m.mgmtClient.RequestServiceIdentity(attemptCtx, &zitimgmtv1.RequestServiceIdentityRequest{
-			ServiceType: serviceType,
-		})
-		return requestErr
-	}); err != nil {
-		return nil, err
-	}
-	return identityResp, nil
 }
 
 func disableZitiOIDC(zitiCtx ziti.Context) error {
@@ -336,17 +317,6 @@ func isRetryableGrpcError(err error) bool {
 		return false
 	}
 	return statusErr.Code() == codes.Unavailable || statusErr.Code() == codes.Unknown
-}
-
-func isUnknownServiceTypeError(err error) bool {
-	statusErr, ok := status.FromError(err)
-	if !ok {
-		return false
-	}
-	if statusErr.Code() != codes.InvalidArgument {
-		return false
-	}
-	return strings.Contains(strings.ToLower(statusErr.Message()), "unknown service type")
 }
 
 func isNotFoundGrpcError(err error) bool {

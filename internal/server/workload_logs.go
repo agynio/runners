@@ -88,6 +88,7 @@ func (s *Server) StreamWorkloadLogs(req *runnerv1.StreamWorkloadLogsRequest, str
 	}
 	defer conn.Close()
 
+	// Runner log streaming expects workload instance_id, not platform workload UUID.
 	runnerReq := &runnerv1.StreamWorkloadLogsRequest{
 		WorkloadId:    instanceID,
 		Follow:        req.GetFollow(),
