@@ -36,10 +36,15 @@ type Manager struct {
 	parentCtx       context.Context
 
 	reEnrollMu sync.Mutex
-	reEnrollCh chan struct{}
+	reEnrollState *reEnrollState
 
 	lastReEnrollAt  time.Time
 	lastReEnrollErr error
+}
+
+type reEnrollState struct {
+	done chan struct{}
+	err  error
 }
 
 func New(ctx context.Context, client zitimgmtv1.ZitiManagementServiceClient, enrollTimeout, renewalInterval time.Duration) (*Manager, error) {
@@ -169,43 +174,46 @@ func (m *Manager) triggerReEnroll(ctx context.Context) error {
 	}
 	enrollCtx, cancel := context.WithTimeout(enrollCtx, m.enrollTimeout)
 	defer cancel()
-	ch, started := m.startReEnroll()
+	state, started := m.startReEnroll()
 	if !started {
-		return m.waitForReEnroll(waitCtx, ch)
+		return m.waitForReEnroll(waitCtx, state)
 	}
 	err := m.reEnroll(enrollCtx)
-	m.finishReEnroll(ch, err)
+	m.finishReEnroll(state, err)
 	return err
 }
 
-func (m *Manager) startReEnroll() (chan struct{}, bool) {
+func (m *Manager) startReEnroll() (*reEnrollState, bool) {
 	m.reEnrollMu.Lock()
 	defer m.reEnrollMu.Unlock()
-	if m.reEnrollCh != nil {
-		return m.reEnrollCh, false
+	if m.reEnrollState != nil {
+		return m.reEnrollState, false
 	}
 	if m.lastReEnrollErr == nil && !m.lastReEnrollAt.IsZero() {
 		if time.Since(m.lastReEnrollAt) < reEnrollCooldown {
-			ch := make(chan struct{})
-			close(ch)
-			return ch, false
+			state := &reEnrollState{done: make(chan struct{}), err: m.lastReEnrollErr}
+			close(state.done)
+			return state, false
 		}
 	}
-	ch := make(chan struct{})
-	m.reEnrollCh = ch
-	return ch, true
+	state := &reEnrollState{done: make(chan struct{})}
+	m.reEnrollState = state
+	return state, true
 }
 
-func (m *Manager) finishReEnroll(ch chan struct{}, err error) {
+func (m *Manager) finishReEnroll(state *reEnrollState, err error) {
 	m.reEnrollMu.Lock()
-	if m.reEnrollCh == ch {
-		m.reEnrollCh = nil
+	if m.reEnrollState == state {
+		m.reEnrollState = nil
 		m.lastReEnrollAt = time.Now()
 		m.lastReEnrollErr = err
 	}
+	if state != nil {
+		state.err = err
+	}
 	m.reEnrollMu.Unlock()
-	if ch != nil {
-		close(ch)
+	if state != nil {
+		close(state.done)
 	}
 }
 
@@ -332,22 +340,16 @@ func (m *Manager) effectiveContext(ctx context.Context) context.Context {
 	return context.Background()
 }
 
-func (m *Manager) waitForReEnroll(ctx context.Context, ch <-chan struct{}) error {
-	if ch == nil {
+func (m *Manager) waitForReEnroll(ctx context.Context, state *reEnrollState) error {
+	if state == nil {
 		return nil
 	}
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
-	case <-ch:
-		return m.lastReEnrollError()
+	case <-state.done:
+		return state.err
 	}
-}
-
-func (m *Manager) lastReEnrollError() error {
-	m.reEnrollMu.Lock()
-	defer m.reEnrollMu.Unlock()
-	return m.lastReEnrollErr
 }
 
 func waitWithContext(ctx context.Context, delay time.Duration) error {
