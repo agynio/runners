@@ -18,6 +18,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          path: service
 
       - name: Provision cluster
         uses: agynio/bootstrap/.github/actions/provision@adf1dc4453de5934a9bae8c0f03f7b417e472d79
@@ -29,6 +31,7 @@ jobs:
 
       - name: Deploy runners from source
         run: devspace run deploy -n platform
+        working-directory: service
 
       - name: Run E2E tests
         uses: agynio/e2e/.github/actions/run-tests@main
