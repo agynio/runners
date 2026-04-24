@@ -238,7 +238,7 @@ func (s *Server) UpdateWorkload(ctx context.Context, req *runnersv1.UpdateWorklo
 	}
 
 	var existingWorkload *workloadRecord
-	if s.notificationsClient != nil && (statusValue != nil || containersJSON != nil) {
+	if s.notificationsClient != nil && (statusValue != nil || containersJSON != nil || failureReason != nil || failureMessage != nil) {
 		workload, err := s.getWorkloadByID(ctx, id)
 		if err != nil {
 			return nil, toStatusError(err)
@@ -261,8 +261,10 @@ func (s *Server) UpdateWorkload(ctx context.Context, req *runnersv1.UpdateWorklo
 	}
 	statusChanged := existingWorkload != nil && statusValue != nil && *statusValue != existingWorkload.Status
 	containersChanged := existingWorkload != nil && containersJSON != nil && !containersEqualByName(existingWorkload.Containers, containerRecords)
-	if statusChanged || containersChanged {
-		s.publishWorkloadUpdateNotifications(ctx, workload, statusChanged, containersChanged)
+	failureReasonChanged := existingWorkload != nil && failureReason != nil && (existingWorkload.FailureReason == nil || *existingWorkload.FailureReason != *failureReason)
+	failureMessageChanged := existingWorkload != nil && failureMessage != nil && (existingWorkload.FailureMessage == nil || *existingWorkload.FailureMessage != *failureMessage)
+	if statusChanged || containersChanged || failureReasonChanged || failureMessageChanged {
+		s.publishWorkloadUpdateNotifications(ctx, workload, statusChanged, containersChanged, failureReasonChanged || failureMessageChanged)
 	}
 	protoWorkload, err := toProtoWorkload(workload)
 	if err != nil {
@@ -271,14 +273,21 @@ func (s *Server) UpdateWorkload(ctx context.Context, req *runnersv1.UpdateWorklo
 	return &runnersv1.UpdateWorkloadResponse{Workload: protoWorkload}, nil
 }
 
-func (s *Server) publishWorkloadUpdateNotifications(ctx context.Context, workload workloadRecord, statusChanged, containersChanged bool) {
+func (s *Server) publishWorkloadUpdateNotifications(ctx context.Context, workload workloadRecord, statusChanged, containersChanged, failureChanged bool) {
 	if s.notificationsClient == nil {
 		return
 	}
-	payload, err := structpb.NewStruct(map[string]any{
+	payloadFields := map[string]any{
 		"workload_id": workload.Meta.ID.String(),
 		"status":      workload.Status,
-	})
+	}
+	if workload.FailureReason != nil {
+		payloadFields["failure_reason"] = *workload.FailureReason
+	}
+	if workload.FailureMessage != nil {
+		payloadFields["failure_message"] = *workload.FailureMessage
+	}
+	payload, err := structpb.NewStruct(payloadFields)
 	if err != nil {
 		log.Printf("runners: build workload notification payload: %v", err)
 		return
@@ -288,7 +297,7 @@ func (s *Server) publishWorkloadUpdateNotifications(ctx context.Context, workloa
 		fmt.Sprintf("organization:%s", workload.OrganizationID.String()),
 		workloadRoom,
 	}
-	if statusChanged || containersChanged {
+	if statusChanged || containersChanged || failureChanged {
 		s.publishWorkloadNotification(ctx, "workload.updated", updatedRooms, payload)
 	}
 	if statusChanged {
