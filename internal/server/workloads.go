@@ -419,9 +419,9 @@ func (s *Server) ListWorkloadsByThread(ctx context.Context, req *runnersv1.ListW
 		}
 		agentID = &parsed
 	}
-	statuses, err := workloadStatusesToStrings(req.GetStatusIn())
+	statuses, err := workloadStatusesToStrings(req.GetStatuses())
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "status_in: %v", err)
+		return nil, status.Errorf(codes.InvalidArgument, "statuses: %v", err)
 	}
 	workloads, nextToken, err := s.listWorkloadsByThread(ctx, threadID, agentID, statuses, req.GetPageSize(), req.GetPageToken())
 	if err != nil {
