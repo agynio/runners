@@ -24,12 +24,8 @@ jobs:
         env:
           TF_VAR_ziti_management_chart_version: "0.10.10"
 
-      - name: Install DevSpace
-        run: |
-          curl -fsSL https://github.com/devspace-sh/devspace/releases/download/v6.3.21/devspace-linux-amd64 \
-            -o /usr/local/bin/devspace
-          chmod +x /usr/local/bin/devspace
-          devspace version
+      - name: Setup DevSpace
+        uses: agynio/e2e/.github/actions/setup-devspace@main
 
       - name: Deploy runners from source
         run: devspace run deploy -n platform
