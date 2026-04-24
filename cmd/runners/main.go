@@ -18,6 +18,7 @@ import (
 	"github.com/agynio/runners/internal/config"
 	"github.com/agynio/runners/internal/db"
 	"github.com/agynio/runners/internal/server"
+	"github.com/agynio/runners/internal/zitimanager"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -70,6 +71,14 @@ func run() error {
 	}
 	defer zitiManagementConn.Close()
 
+	zitiMgmtClient := zitimanagementv1.NewZitiManagementServiceClient(zitiManagementConn)
+	zitiManager, err := zitimanager.New(ctx, zitiMgmtClient, cfg.ZitiEnrollmentTimeout, cfg.ZitiLeaseRenewalInterval)
+	if err != nil {
+		return fmt.Errorf("initialize ziti manager: %w", err)
+	}
+	defer zitiManager.Close()
+	go zitiManager.RunLeaseRenewal(ctx)
+
 	notificationsConn, err := grpc.DialContext(ctx, cfg.NotificationsAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return fmt.Errorf("dial notifications service: %w", err)
@@ -81,8 +90,9 @@ func run() error {
 		Pool:                 pool,
 		IdentityClient:       identityv1.NewIdentityServiceClient(identityConn),
 		AuthorizationClient:  authorizationv1.NewAuthorizationServiceClient(authorizationConn),
-		ZitiManagementClient: zitimanagementv1.NewZitiManagementServiceClient(zitiManagementConn),
+		ZitiManagementClient: zitiMgmtClient,
 		NotificationsClient:  notificationsv1.NewNotificationsServiceClient(notificationsConn),
+		ZitiDialer:           zitiManager,
 	}))
 
 	listener, err := net.Listen("tcp", cfg.GRPCAddr)

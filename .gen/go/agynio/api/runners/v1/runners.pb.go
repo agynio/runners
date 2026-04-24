@@ -7,6 +7,7 @@
 package runnersv1
 
 import (
+	v1 "github.com/agynio/runners/.gen/go/agynio/api/runner/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
@@ -3265,7 +3266,7 @@ var File_agynio_api_runners_v1_runners_proto protoreflect.FileDescriptor
 
 const file_agynio_api_runners_v1_runners_proto_rawDesc = "" +
 	"\n" +
-	"#agynio/api/runners/v1/runners.proto\x12\x15agynio.api.runners.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x92\x01\n" +
+	"#agynio/api/runners/v1/runners.proto\x12\x15agynio.api.runners.v1\x1a!agynio/api/runner/v1/runner.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x92\x01\n" +
 	"\n" +
 	"EntityMeta\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x129\n" +
@@ -3565,7 +3566,7 @@ const file_agynio_api_runners_v1_runners_proto_rawDesc = "" +
 	"\x14VOLUME_STATUS_ACTIVE\x10\x02\x12 \n" +
 	"\x1cVOLUME_STATUS_DEPROVISIONING\x10\x03\x12\x19\n" +
 	"\x15VOLUME_STATUS_DELETED\x10\x04\x12\x18\n" +
-	"\x14VOLUME_STATUS_FAILED\x10\x052\xd6\x13\n" +
+	"\x14VOLUME_STATUS_FAILED\x10\x052\xd1\x14\n" +
 	"\x0eRunnersService\x12m\n" +
 	"\x0eRegisterRunner\x12,.agynio.api.runners.v1.RegisterRunnerRequest\x1a-.agynio.api.runners.v1.RegisterRunnerResponse\x12^\n" +
 	"\tGetRunner\x12'.agynio.api.runners.v1.GetRunnerRequest\x1a(.agynio.api.runners.v1.GetRunnerResponse\x12d\n" +
@@ -3582,7 +3583,8 @@ const file_agynio_api_runners_v1_runners_proto_rawDesc = "" +
 	"\vGetWorkload\x12).agynio.api.runners.v1.GetWorkloadRequest\x1a*.agynio.api.runners.v1.GetWorkloadResponse\x12\x82\x01\n" +
 	"\x15ListWorkloadsByThread\x123.agynio.api.runners.v1.ListWorkloadsByThreadRequest\x1a4.agynio.api.runners.v1.ListWorkloadsByThreadResponse\x12j\n" +
 	"\rListWorkloads\x12+.agynio.api.runners.v1.ListWorkloadsRequest\x1a,.agynio.api.runners.v1.ListWorkloadsResponse\x12\x97\x01\n" +
-	"\x1cBatchUpdateWorkloadSampledAt\x12:.agynio.api.runners.v1.BatchUpdateWorkloadSampledAtRequest\x1a;.agynio.api.runners.v1.BatchUpdateWorkloadSampledAtResponse\x12g\n" +
+	"\x1cBatchUpdateWorkloadSampledAt\x12:.agynio.api.runners.v1.BatchUpdateWorkloadSampledAtRequest\x1a;.agynio.api.runners.v1.BatchUpdateWorkloadSampledAtResponse\x12y\n" +
+	"\x12StreamWorkloadLogs\x12/.agynio.api.runner.v1.StreamWorkloadLogsRequest\x1a0.agynio.api.runner.v1.StreamWorkloadLogsResponse0\x01\x12g\n" +
 	"\fCreateVolume\x12*.agynio.api.runners.v1.CreateVolumeRequest\x1a+.agynio.api.runners.v1.CreateVolumeResponse\x12g\n" +
 	"\fUpdateVolume\x12*.agynio.api.runners.v1.UpdateVolumeRequest\x1a+.agynio.api.runners.v1.UpdateVolumeResponse\x12^\n" +
 	"\tGetVolume\x12'.agynio.api.runners.v1.GetVolumeRequest\x1a(.agynio.api.runners.v1.GetVolumeResponse\x12d\n" +
@@ -3661,10 +3663,12 @@ var file_agynio_api_runners_v1_runners_proto_goTypes = []any{
 	(*ListVolumesByThreadResponse)(nil),          // 52: agynio.api.runners.v1.ListVolumesByThreadResponse
 	(*BatchUpdateVolumeSampledAtRequest)(nil),    // 53: agynio.api.runners.v1.BatchUpdateVolumeSampledAtRequest
 	(*BatchUpdateVolumeSampledAtResponse)(nil),   // 54: agynio.api.runners.v1.BatchUpdateVolumeSampledAtResponse
-	nil,                           // 55: agynio.api.runners.v1.Runner.LabelsEntry
-	nil,                           // 56: agynio.api.runners.v1.RegisterRunnerRequest.LabelsEntry
-	nil,                           // 57: agynio.api.runners.v1.UpdateRunnerRequest.LabelsEntry
-	(*timestamppb.Timestamp)(nil), // 58: google.protobuf.Timestamp
+	nil,                                   // 55: agynio.api.runners.v1.Runner.LabelsEntry
+	nil,                                   // 56: agynio.api.runners.v1.RegisterRunnerRequest.LabelsEntry
+	nil,                                   // 57: agynio.api.runners.v1.UpdateRunnerRequest.LabelsEntry
+	(*timestamppb.Timestamp)(nil),         // 58: google.protobuf.Timestamp
+	(*v1.StreamWorkloadLogsRequest)(nil),  // 59: agynio.api.runner.v1.StreamWorkloadLogsRequest
+	(*v1.StreamWorkloadLogsResponse)(nil), // 60: agynio.api.runner.v1.StreamWorkloadLogsResponse
 }
 var file_agynio_api_runners_v1_runners_proto_depIdxs = []int32{
 	58, // 0: agynio.api.runners.v1.EntityMeta.created_at:type_name -> google.protobuf.Timestamp
@@ -3737,36 +3741,38 @@ var file_agynio_api_runners_v1_runners_proto_depIdxs = []int32{
 	36, // 67: agynio.api.runners.v1.RunnersService.ListWorkloadsByThread:input_type -> agynio.api.runners.v1.ListWorkloadsByThreadRequest
 	38, // 68: agynio.api.runners.v1.RunnersService.ListWorkloads:input_type -> agynio.api.runners.v1.ListWorkloadsRequest
 	40, // 69: agynio.api.runners.v1.RunnersService.BatchUpdateWorkloadSampledAt:input_type -> agynio.api.runners.v1.BatchUpdateWorkloadSampledAtRequest
-	43, // 70: agynio.api.runners.v1.RunnersService.CreateVolume:input_type -> agynio.api.runners.v1.CreateVolumeRequest
-	45, // 71: agynio.api.runners.v1.RunnersService.UpdateVolume:input_type -> agynio.api.runners.v1.UpdateVolumeRequest
-	47, // 72: agynio.api.runners.v1.RunnersService.GetVolume:input_type -> agynio.api.runners.v1.GetVolumeRequest
-	49, // 73: agynio.api.runners.v1.RunnersService.ListVolumes:input_type -> agynio.api.runners.v1.ListVolumesRequest
-	51, // 74: agynio.api.runners.v1.RunnersService.ListVolumesByThread:input_type -> agynio.api.runners.v1.ListVolumesByThreadRequest
-	53, // 75: agynio.api.runners.v1.RunnersService.BatchUpdateVolumeSampledAt:input_type -> agynio.api.runners.v1.BatchUpdateVolumeSampledAtRequest
-	9,  // 76: agynio.api.runners.v1.RunnersService.RegisterRunner:output_type -> agynio.api.runners.v1.RegisterRunnerResponse
-	11, // 77: agynio.api.runners.v1.RunnersService.GetRunner:output_type -> agynio.api.runners.v1.GetRunnerResponse
-	13, // 78: agynio.api.runners.v1.RunnersService.ListRunners:output_type -> agynio.api.runners.v1.ListRunnersResponse
-	15, // 79: agynio.api.runners.v1.RunnersService.UpdateRunner:output_type -> agynio.api.runners.v1.UpdateRunnerResponse
-	17, // 80: agynio.api.runners.v1.RunnersService.DeleteRunner:output_type -> agynio.api.runners.v1.DeleteRunnerResponse
-	19, // 81: agynio.api.runners.v1.RunnersService.ValidateServiceToken:output_type -> agynio.api.runners.v1.ValidateServiceTokenResponse
-	21, // 82: agynio.api.runners.v1.RunnersService.EnrollRunner:output_type -> agynio.api.runners.v1.EnrollRunnerResponse
-	25, // 83: agynio.api.runners.v1.RunnersService.CreateWorkload:output_type -> agynio.api.runners.v1.CreateWorkloadResponse
-	27, // 84: agynio.api.runners.v1.RunnersService.UpdateWorkload:output_type -> agynio.api.runners.v1.UpdateWorkloadResponse
-	29, // 85: agynio.api.runners.v1.RunnersService.UpdateWorkloadStatus:output_type -> agynio.api.runners.v1.UpdateWorkloadStatusResponse
-	31, // 86: agynio.api.runners.v1.RunnersService.TouchWorkload:output_type -> agynio.api.runners.v1.TouchWorkloadResponse
-	33, // 87: agynio.api.runners.v1.RunnersService.DeleteWorkload:output_type -> agynio.api.runners.v1.DeleteWorkloadResponse
-	35, // 88: agynio.api.runners.v1.RunnersService.GetWorkload:output_type -> agynio.api.runners.v1.GetWorkloadResponse
-	37, // 89: agynio.api.runners.v1.RunnersService.ListWorkloadsByThread:output_type -> agynio.api.runners.v1.ListWorkloadsByThreadResponse
-	39, // 90: agynio.api.runners.v1.RunnersService.ListWorkloads:output_type -> agynio.api.runners.v1.ListWorkloadsResponse
-	41, // 91: agynio.api.runners.v1.RunnersService.BatchUpdateWorkloadSampledAt:output_type -> agynio.api.runners.v1.BatchUpdateWorkloadSampledAtResponse
-	44, // 92: agynio.api.runners.v1.RunnersService.CreateVolume:output_type -> agynio.api.runners.v1.CreateVolumeResponse
-	46, // 93: agynio.api.runners.v1.RunnersService.UpdateVolume:output_type -> agynio.api.runners.v1.UpdateVolumeResponse
-	48, // 94: agynio.api.runners.v1.RunnersService.GetVolume:output_type -> agynio.api.runners.v1.GetVolumeResponse
-	50, // 95: agynio.api.runners.v1.RunnersService.ListVolumes:output_type -> agynio.api.runners.v1.ListVolumesResponse
-	52, // 96: agynio.api.runners.v1.RunnersService.ListVolumesByThread:output_type -> agynio.api.runners.v1.ListVolumesByThreadResponse
-	54, // 97: agynio.api.runners.v1.RunnersService.BatchUpdateVolumeSampledAt:output_type -> agynio.api.runners.v1.BatchUpdateVolumeSampledAtResponse
-	76, // [76:98] is the sub-list for method output_type
-	54, // [54:76] is the sub-list for method input_type
+	59, // 70: agynio.api.runners.v1.RunnersService.StreamWorkloadLogs:input_type -> agynio.api.runner.v1.StreamWorkloadLogsRequest
+	43, // 71: agynio.api.runners.v1.RunnersService.CreateVolume:input_type -> agynio.api.runners.v1.CreateVolumeRequest
+	45, // 72: agynio.api.runners.v1.RunnersService.UpdateVolume:input_type -> agynio.api.runners.v1.UpdateVolumeRequest
+	47, // 73: agynio.api.runners.v1.RunnersService.GetVolume:input_type -> agynio.api.runners.v1.GetVolumeRequest
+	49, // 74: agynio.api.runners.v1.RunnersService.ListVolumes:input_type -> agynio.api.runners.v1.ListVolumesRequest
+	51, // 75: agynio.api.runners.v1.RunnersService.ListVolumesByThread:input_type -> agynio.api.runners.v1.ListVolumesByThreadRequest
+	53, // 76: agynio.api.runners.v1.RunnersService.BatchUpdateVolumeSampledAt:input_type -> agynio.api.runners.v1.BatchUpdateVolumeSampledAtRequest
+	9,  // 77: agynio.api.runners.v1.RunnersService.RegisterRunner:output_type -> agynio.api.runners.v1.RegisterRunnerResponse
+	11, // 78: agynio.api.runners.v1.RunnersService.GetRunner:output_type -> agynio.api.runners.v1.GetRunnerResponse
+	13, // 79: agynio.api.runners.v1.RunnersService.ListRunners:output_type -> agynio.api.runners.v1.ListRunnersResponse
+	15, // 80: agynio.api.runners.v1.RunnersService.UpdateRunner:output_type -> agynio.api.runners.v1.UpdateRunnerResponse
+	17, // 81: agynio.api.runners.v1.RunnersService.DeleteRunner:output_type -> agynio.api.runners.v1.DeleteRunnerResponse
+	19, // 82: agynio.api.runners.v1.RunnersService.ValidateServiceToken:output_type -> agynio.api.runners.v1.ValidateServiceTokenResponse
+	21, // 83: agynio.api.runners.v1.RunnersService.EnrollRunner:output_type -> agynio.api.runners.v1.EnrollRunnerResponse
+	25, // 84: agynio.api.runners.v1.RunnersService.CreateWorkload:output_type -> agynio.api.runners.v1.CreateWorkloadResponse
+	27, // 85: agynio.api.runners.v1.RunnersService.UpdateWorkload:output_type -> agynio.api.runners.v1.UpdateWorkloadResponse
+	29, // 86: agynio.api.runners.v1.RunnersService.UpdateWorkloadStatus:output_type -> agynio.api.runners.v1.UpdateWorkloadStatusResponse
+	31, // 87: agynio.api.runners.v1.RunnersService.TouchWorkload:output_type -> agynio.api.runners.v1.TouchWorkloadResponse
+	33, // 88: agynio.api.runners.v1.RunnersService.DeleteWorkload:output_type -> agynio.api.runners.v1.DeleteWorkloadResponse
+	35, // 89: agynio.api.runners.v1.RunnersService.GetWorkload:output_type -> agynio.api.runners.v1.GetWorkloadResponse
+	37, // 90: agynio.api.runners.v1.RunnersService.ListWorkloadsByThread:output_type -> agynio.api.runners.v1.ListWorkloadsByThreadResponse
+	39, // 91: agynio.api.runners.v1.RunnersService.ListWorkloads:output_type -> agynio.api.runners.v1.ListWorkloadsResponse
+	41, // 92: agynio.api.runners.v1.RunnersService.BatchUpdateWorkloadSampledAt:output_type -> agynio.api.runners.v1.BatchUpdateWorkloadSampledAtResponse
+	60, // 93: agynio.api.runners.v1.RunnersService.StreamWorkloadLogs:output_type -> agynio.api.runner.v1.StreamWorkloadLogsResponse
+	44, // 94: agynio.api.runners.v1.RunnersService.CreateVolume:output_type -> agynio.api.runners.v1.CreateVolumeResponse
+	46, // 95: agynio.api.runners.v1.RunnersService.UpdateVolume:output_type -> agynio.api.runners.v1.UpdateVolumeResponse
+	48, // 96: agynio.api.runners.v1.RunnersService.GetVolume:output_type -> agynio.api.runners.v1.GetVolumeResponse
+	50, // 97: agynio.api.runners.v1.RunnersService.ListVolumes:output_type -> agynio.api.runners.v1.ListVolumesResponse
+	52, // 98: agynio.api.runners.v1.RunnersService.ListVolumesByThread:output_type -> agynio.api.runners.v1.ListVolumesByThreadResponse
+	54, // 99: agynio.api.runners.v1.RunnersService.BatchUpdateVolumeSampledAt:output_type -> agynio.api.runners.v1.BatchUpdateVolumeSampledAtResponse
+	77, // [77:100] is the sub-list for method output_type
+	54, // [54:77] is the sub-list for method input_type
 	54, // [54:54] is the sub-list for extension type_name
 	54, // [54:54] is the sub-list for extension extendee
 	0,  // [0:54] is the sub-list for field type_name
