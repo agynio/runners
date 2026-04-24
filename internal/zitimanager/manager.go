@@ -36,7 +36,7 @@ type Manager struct {
 	parentCtx       context.Context
 
 	reEnrollMu sync.Mutex
-	reEnrollCh chan error
+	reEnrollCh chan struct{}
 
 	lastReEnrollAt  time.Time
 	lastReEnrollErr error
@@ -171,14 +171,14 @@ func (m *Manager) triggerReEnroll(ctx context.Context) error {
 	defer cancel()
 	ch, started := m.startReEnroll()
 	if !started {
-		return waitForReEnroll(waitCtx, ch)
+		return m.waitForReEnroll(waitCtx, ch)
 	}
 	err := m.reEnroll(enrollCtx)
 	m.finishReEnroll(ch, err)
 	return err
 }
 
-func (m *Manager) startReEnroll() (chan error, bool) {
+func (m *Manager) startReEnroll() (chan struct{}, bool) {
 	m.reEnrollMu.Lock()
 	defer m.reEnrollMu.Unlock()
 	if m.reEnrollCh != nil {
@@ -186,18 +186,17 @@ func (m *Manager) startReEnroll() (chan error, bool) {
 	}
 	if m.lastReEnrollErr == nil && !m.lastReEnrollAt.IsZero() {
 		if time.Since(m.lastReEnrollAt) < reEnrollCooldown {
-			ch := make(chan error, 1)
-			ch <- m.lastReEnrollErr
+			ch := make(chan struct{})
 			close(ch)
 			return ch, false
 		}
 	}
-	ch := make(chan error, 1)
+	ch := make(chan struct{})
 	m.reEnrollCh = ch
 	return ch, true
 }
 
-func (m *Manager) finishReEnroll(ch chan error, err error) {
+func (m *Manager) finishReEnroll(ch chan struct{}, err error) {
 	m.reEnrollMu.Lock()
 	if m.reEnrollCh == ch {
 		m.reEnrollCh = nil
@@ -206,7 +205,6 @@ func (m *Manager) finishReEnroll(ch chan error, err error) {
 	}
 	m.reEnrollMu.Unlock()
 	if ch != nil {
-		ch <- err
 		close(ch)
 	}
 }
@@ -334,19 +332,22 @@ func (m *Manager) effectiveContext(ctx context.Context) context.Context {
 	return context.Background()
 }
 
-func waitForReEnroll(ctx context.Context, ch <-chan error) error {
+func (m *Manager) waitForReEnroll(ctx context.Context, ch <-chan struct{}) error {
 	if ch == nil {
 		return nil
 	}
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
-	case err, ok := <-ch:
-		if !ok {
-			return nil
-		}
-		return err
+	case <-ch:
+		return m.lastReEnrollError()
 	}
+}
+
+func (m *Manager) lastReEnrollError() error {
+	m.reEnrollMu.Lock()
+	defer m.reEnrollMu.Unlock()
+	return m.lastReEnrollErr
 }
 
 func waitWithContext(ctx context.Context, delay time.Duration) error {
