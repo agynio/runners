@@ -1,0 +1,3 @@
+ALTER TABLE workloads
+ADD COLUMN IF NOT EXISTS failure_reason TEXT,
+ADD COLUMN IF NOT EXISTS failure_message TEXT;
