@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -28,6 +29,12 @@ const (
 	workloadStatusStopped  = "stopped"
 	workloadStatusFailed   = "failed"
 
+	workloadFailureReasonStartFailed     = "start_failed"
+	workloadFailureReasonImagePullFailed = "image_pull_failed"
+	workloadFailureReasonConfigInvalid   = "config_invalid"
+	workloadFailureReasonCrashloop       = "crashloop"
+	workloadFailureReasonRuntimeLost     = "runtime_lost"
+
 	containerRoleMain    = "main"
 	containerRoleSidecar = "sidecar"
 	containerRoleInit    = "init"
@@ -36,7 +43,7 @@ const (
 	containerStatusTerminated = "terminated"
 	containerStatusWaiting    = "waiting"
 
-	workloadColumns = `id, runner_id, thread_id, agent_id, organization_id, status, containers, ziti_identity_id, allocated_cpu_millicores, allocated_ram_bytes, instance_id, last_activity_at, last_metering_sampled_at, removed_at, created_at, updated_at`
+	workloadColumns = `id, runner_id, thread_id, agent_id, organization_id, status, failure_reason, failure_message, containers, ziti_identity_id, allocated_cpu_millicores, allocated_ram_bytes, instance_id, last_activity_at, last_metering_sampled_at, removed_at, created_at, updated_at`
 )
 
 type workloadRecord struct {
@@ -46,6 +53,8 @@ type workloadRecord struct {
 	AgentID                uuid.UUID
 	OrganizationID         uuid.UUID
 	Status                 string
+	FailureReason          *string
+	FailureMessage         *string
 	Containers             []containerRecord
 	ZitiIdentityID         string
 	AllocatedCPUMillicores int32
@@ -72,6 +81,8 @@ type workloadInsertInput struct {
 type workloadUpdateInput struct {
 	ID             uuid.UUID
 	Status         *string
+	FailureReason  *string
+	FailureMessage *string
 	ContainersJSON *[]byte
 	InstanceID     *string
 	RemovedAt      *time.Time
@@ -165,6 +176,21 @@ func (s *Server) UpdateWorkload(ctx context.Context, req *runnersv1.UpdateWorklo
 		statusValue = &value
 	}
 
+	var failureReason *string
+	if req.FailureReason != nil {
+		value, err := workloadFailureReasonToString(req.GetFailureReason())
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "failure_reason: %v", err)
+		}
+		failureReason = &value
+	}
+
+	var failureMessage *string
+	if req.FailureMessage != nil {
+		value := strings.TrimSpace(req.GetFailureMessage())
+		failureMessage = &value
+	}
+
 	var containerRecords []containerRecord
 	var containersJSON *[]byte
 	if req.Containers != nil {
@@ -207,12 +233,12 @@ func (s *Server) UpdateWorkload(ctx context.Context, req *runnersv1.UpdateWorklo
 		lastMeteringAt = &value
 	}
 
-	if statusValue == nil && containersJSON == nil && instanceID == nil && removedAt == nil && lastMeteringAt == nil {
+	if statusValue == nil && containersJSON == nil && instanceID == nil && removedAt == nil && lastMeteringAt == nil && failureReason == nil && failureMessage == nil {
 		return nil, status.Error(codes.InvalidArgument, "at least one field must be provided")
 	}
 
 	var existingWorkload *workloadRecord
-	if s.notificationsClient != nil && (statusValue != nil || containersJSON != nil) {
+	if s.notificationsClient != nil && (statusValue != nil || containersJSON != nil || failureReason != nil || failureMessage != nil) {
 		workload, err := s.getWorkloadByID(ctx, id)
 		if err != nil {
 			return nil, toStatusError(err)
@@ -223,6 +249,8 @@ func (s *Server) UpdateWorkload(ctx context.Context, req *runnersv1.UpdateWorklo
 	workload, err := s.updateWorkload(ctx, workloadUpdateInput{
 		ID:             id,
 		Status:         statusValue,
+		FailureReason:  failureReason,
+		FailureMessage: failureMessage,
 		ContainersJSON: containersJSON,
 		InstanceID:     instanceID,
 		RemovedAt:      removedAt,
@@ -233,8 +261,10 @@ func (s *Server) UpdateWorkload(ctx context.Context, req *runnersv1.UpdateWorklo
 	}
 	statusChanged := existingWorkload != nil && statusValue != nil && *statusValue != existingWorkload.Status
 	containersChanged := existingWorkload != nil && containersJSON != nil && !containersEqualByName(existingWorkload.Containers, containerRecords)
-	if statusChanged || containersChanged {
-		s.publishWorkloadUpdateNotifications(ctx, workload, statusChanged, containersChanged)
+	failureReasonChanged := existingWorkload != nil && failureReason != nil && (existingWorkload.FailureReason == nil || *existingWorkload.FailureReason != *failureReason)
+	failureMessageChanged := existingWorkload != nil && failureMessage != nil && (existingWorkload.FailureMessage == nil || *existingWorkload.FailureMessage != *failureMessage)
+	if statusChanged || containersChanged || failureReasonChanged || failureMessageChanged {
+		s.publishWorkloadUpdateNotifications(ctx, workload, statusChanged, containersChanged, failureReasonChanged || failureMessageChanged)
 	}
 	protoWorkload, err := toProtoWorkload(workload)
 	if err != nil {
@@ -243,14 +273,21 @@ func (s *Server) UpdateWorkload(ctx context.Context, req *runnersv1.UpdateWorklo
 	return &runnersv1.UpdateWorkloadResponse{Workload: protoWorkload}, nil
 }
 
-func (s *Server) publishWorkloadUpdateNotifications(ctx context.Context, workload workloadRecord, statusChanged, containersChanged bool) {
+func (s *Server) publishWorkloadUpdateNotifications(ctx context.Context, workload workloadRecord, statusChanged, containersChanged, failureChanged bool) {
 	if s.notificationsClient == nil {
 		return
 	}
-	payload, err := structpb.NewStruct(map[string]any{
+	payloadFields := map[string]any{
 		"workload_id": workload.Meta.ID.String(),
 		"status":      workload.Status,
-	})
+	}
+	if workload.FailureReason != nil {
+		payloadFields["failure_reason"] = *workload.FailureReason
+	}
+	if workload.FailureMessage != nil {
+		payloadFields["failure_message"] = *workload.FailureMessage
+	}
+	payload, err := structpb.NewStruct(payloadFields)
 	if err != nil {
 		log.Printf("runners: build workload notification payload: %v", err)
 		return
@@ -260,7 +297,7 @@ func (s *Server) publishWorkloadUpdateNotifications(ctx context.Context, workloa
 		fmt.Sprintf("organization:%s", workload.OrganizationID.String()),
 		workloadRoom,
 	}
-	if statusChanged || containersChanged {
+	if statusChanged || containersChanged || failureChanged {
 		s.publishWorkloadNotification(ctx, "workload.updated", updatedRooms, payload)
 	}
 	if statusChanged {
@@ -374,7 +411,19 @@ func (s *Server) ListWorkloadsByThread(ctx context.Context, req *runnersv1.ListW
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "thread_id: %v", err)
 	}
-	workloads, nextToken, err := s.listWorkloadsByThread(ctx, threadID, req.GetPageSize(), req.GetPageToken())
+	var agentID *uuid.UUID
+	if req.AgentId != nil {
+		parsed, err := parseUUID(req.GetAgentId())
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "agent_id: %v", err)
+		}
+		agentID = &parsed
+	}
+	statuses, err := workloadStatusesToStrings(req.GetStatuses())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "statuses: %v", err)
+	}
+	workloads, nextToken, err := s.listWorkloadsByThread(ctx, threadID, agentID, statuses, req.GetPageSize(), req.GetPageToken())
 	if err != nil {
 		var invalidToken *InvalidPageTokenError
 		if errors.As(err, &invalidToken) {
@@ -521,6 +570,12 @@ func (s *Server) updateWorkload(ctx context.Context, input workloadUpdateInput) 
 	if input.Status != nil {
 		addUpdateClause(&clauses, &args, "status", *input.Status)
 	}
+	if input.FailureReason != nil {
+		addUpdateClause(&clauses, &args, "failure_reason", *input.FailureReason)
+	}
+	if input.FailureMessage != nil {
+		addUpdateClause(&clauses, &args, "failure_message", *input.FailureMessage)
+	}
 	if input.ContainersJSON != nil {
 		payload := *input.ContainersJSON
 		if len(payload) == 0 {
@@ -597,25 +652,34 @@ func (s *Server) touchWorkloadForAgent(ctx context.Context, id uuid.UUID, agentI
 	return nil
 }
 
-func (s *Server) listWorkloadsByThread(ctx context.Context, threadID uuid.UUID, pageSize int32, pageToken string) ([]workloadRecord, string, error) {
+func (s *Server) listWorkloadsByThread(ctx context.Context, threadID uuid.UUID, agentID *uuid.UUID, statuses []string, pageSize int32, pageToken string) ([]workloadRecord, string, error) {
 	limit := normalizePageSize(pageSize)
 	clauses := []string{fmt.Sprintf("thread_id = $1")}
 	args := []any{threadID}
 
+	if agentID != nil {
+		clauses = append(clauses, fmt.Sprintf("agent_id = $%d", len(args)+1))
+		args = append(args, *agentID)
+	}
+	if len(statuses) > 0 {
+		clauses = append(clauses, fmt.Sprintf("status = ANY($%d)", len(args)+1))
+		args = append(args, pgtype.FlatArray[string](statuses))
+	}
+
 	if pageToken != "" {
-		afterID, err := decodePageToken(pageToken)
+		cursor, err := decodeWorkloadCursor(pageToken)
 		if err != nil {
 			return nil, "", InvalidPageToken(err)
 		}
-		clauses = append(clauses, fmt.Sprintf("id > $%d", len(args)+1))
-		args = append(args, afterID)
+		clauses = append(clauses, fmt.Sprintf("(created_at < $%d OR (created_at = $%d AND id < $%d))", len(args)+1, len(args)+1, len(args)+2))
+		args = append(args, cursor.CreatedAt, cursor.ID)
 	}
 
 	query := strings.Builder{}
 	query.WriteString(fmt.Sprintf("SELECT %s FROM workloads", workloadColumns))
 	query.WriteString(" WHERE ")
 	query.WriteString(strings.Join(clauses, " AND "))
-	query.WriteString(fmt.Sprintf(" ORDER BY id ASC LIMIT $%d", len(args)+1))
+	query.WriteString(fmt.Sprintf(" ORDER BY created_at DESC, id DESC LIMIT $%d", len(args)+1))
 	args = append(args, int(limit)+1)
 
 	rows, err := s.pool.Query(ctx, query.String(), args...)
@@ -627,6 +691,7 @@ func (s *Server) listWorkloadsByThread(ctx context.Context, threadID uuid.UUID, 
 	workloads := make([]workloadRecord, 0, limit)
 	var (
 		lastID  uuid.UUID
+		lastAt  time.Time
 		hasMore bool
 	)
 	for rows.Next() {
@@ -640,6 +705,7 @@ func (s *Server) listWorkloadsByThread(ctx context.Context, threadID uuid.UUID, 
 		}
 		workloads = append(workloads, workload)
 		lastID = workload.Meta.ID
+		lastAt = workload.Meta.CreatedAt
 	}
 	if err := rows.Err(); err != nil {
 		return nil, "", err
@@ -647,9 +713,42 @@ func (s *Server) listWorkloadsByThread(ctx context.Context, threadID uuid.UUID, 
 
 	nextToken := ""
 	if hasMore {
-		nextToken = encodePageToken(lastID)
+		nextToken = encodeWorkloadCursor(lastAt, lastID)
 	}
 	return workloads, nextToken, nil
+}
+
+type workloadCursor struct {
+	CreatedAt time.Time
+	ID        uuid.UUID
+}
+
+func encodeWorkloadCursor(createdAt time.Time, id uuid.UUID) string {
+	payload := fmt.Sprintf("%s|%s", createdAt.UTC().Format(time.RFC3339Nano), id.String())
+	return base64.RawURLEncoding.EncodeToString([]byte(payload))
+}
+
+func decodeWorkloadCursor(token string) (workloadCursor, error) {
+	if token == "" {
+		return workloadCursor{}, errors.New("empty token")
+	}
+	decoded, err := base64.RawURLEncoding.DecodeString(token)
+	if err != nil {
+		return workloadCursor{}, fmt.Errorf("decode token: %w", err)
+	}
+	parts := strings.SplitN(string(decoded), "|", 2)
+	if len(parts) != 2 {
+		return workloadCursor{}, errors.New("invalid token")
+	}
+	createdAt, err := time.Parse(time.RFC3339Nano, parts[0])
+	if err != nil {
+		return workloadCursor{}, fmt.Errorf("parse created_at: %w", err)
+	}
+	id, err := uuid.Parse(parts[1])
+	if err != nil {
+		return workloadCursor{}, fmt.Errorf("parse id: %w", err)
+	}
+	return workloadCursor{CreatedAt: createdAt, ID: id}, nil
 }
 
 func (s *Server) listWorkloads(ctx context.Context, statuses []string, organizationID *uuid.UUID, runnerID *uuid.UUID, pendingSample bool, pageSize int32, pageToken string) ([]workloadRecord, string, error) {
@@ -714,6 +813,8 @@ func scanWorkload(row pgx.Row) (workloadRecord, error) {
 	var (
 		workload       workloadRecord
 		containersData []byte
+		failureReason  pgtype.Text
+		failureMessage pgtype.Text
 		instanceID     pgtype.Text
 		removedAt      pgtype.Timestamptz
 		lastMeteringAt pgtype.Timestamptz
@@ -725,6 +826,8 @@ func scanWorkload(row pgx.Row) (workloadRecord, error) {
 		&workload.AgentID,
 		&workload.OrganizationID,
 		&workload.Status,
+		&failureReason,
+		&failureMessage,
 		&containersData,
 		&workload.ZitiIdentityID,
 		&workload.AllocatedCPUMillicores,
@@ -743,6 +846,14 @@ func scanWorkload(row pgx.Row) (workloadRecord, error) {
 	}
 	if err := json.Unmarshal(containersData, &workload.Containers); err != nil {
 		return workloadRecord{}, err
+	}
+	if failureReason.Valid {
+		value := failureReason.String
+		workload.FailureReason = &value
+	}
+	if failureMessage.Valid {
+		value := failureMessage.String
+		workload.FailureMessage = &value
 	}
 	if instanceID.Valid {
 		value := instanceID.String
@@ -789,6 +900,16 @@ func toProtoWorkload(record workloadRecord) (*runnersv1.Workload, error) {
 	}
 	if record.LastMeteringAt != nil {
 		protoWorkload.LastMeteringSampledAt = timestamppb.New(*record.LastMeteringAt)
+	}
+	if record.FailureReason != nil {
+		failureReason, err := workloadFailureReasonFromString(*record.FailureReason)
+		if err != nil {
+			return nil, err
+		}
+		protoWorkload.FailureReason = &failureReason
+	}
+	if record.FailureMessage != nil {
+		protoWorkload.FailureMessage = record.FailureMessage
 	}
 	return protoWorkload, nil
 }
@@ -997,6 +1118,23 @@ func workloadStatusToString(status runnersv1.WorkloadStatus) (string, error) {
 	}
 }
 
+func workloadFailureReasonToString(reason runnersv1.WorkloadFailureReason) (string, error) {
+	switch reason {
+	case runnersv1.WorkloadFailureReason_WORKLOAD_FAILURE_REASON_START_FAILED:
+		return workloadFailureReasonStartFailed, nil
+	case runnersv1.WorkloadFailureReason_WORKLOAD_FAILURE_REASON_IMAGE_PULL_FAILED:
+		return workloadFailureReasonImagePullFailed, nil
+	case runnersv1.WorkloadFailureReason_WORKLOAD_FAILURE_REASON_CONFIG_INVALID:
+		return workloadFailureReasonConfigInvalid, nil
+	case runnersv1.WorkloadFailureReason_WORKLOAD_FAILURE_REASON_CRASHLOOP:
+		return workloadFailureReasonCrashloop, nil
+	case runnersv1.WorkloadFailureReason_WORKLOAD_FAILURE_REASON_RUNTIME_LOST:
+		return workloadFailureReasonRuntimeLost, nil
+	default:
+		return "", fmt.Errorf("invalid workload failure reason: %s", reason.String())
+	}
+}
+
 func workloadStatusFromString(value string) (runnersv1.WorkloadStatus, error) {
 	switch value {
 	case workloadStatusStarting:
@@ -1011,6 +1149,23 @@ func workloadStatusFromString(value string) (runnersv1.WorkloadStatus, error) {
 		return runnersv1.WorkloadStatus_WORKLOAD_STATUS_FAILED, nil
 	default:
 		return runnersv1.WorkloadStatus_WORKLOAD_STATUS_UNSPECIFIED, fmt.Errorf("invalid workload status: %s", value)
+	}
+}
+
+func workloadFailureReasonFromString(value string) (runnersv1.WorkloadFailureReason, error) {
+	switch value {
+	case workloadFailureReasonStartFailed:
+		return runnersv1.WorkloadFailureReason_WORKLOAD_FAILURE_REASON_START_FAILED, nil
+	case workloadFailureReasonImagePullFailed:
+		return runnersv1.WorkloadFailureReason_WORKLOAD_FAILURE_REASON_IMAGE_PULL_FAILED, nil
+	case workloadFailureReasonConfigInvalid:
+		return runnersv1.WorkloadFailureReason_WORKLOAD_FAILURE_REASON_CONFIG_INVALID, nil
+	case workloadFailureReasonCrashloop:
+		return runnersv1.WorkloadFailureReason_WORKLOAD_FAILURE_REASON_CRASHLOOP, nil
+	case workloadFailureReasonRuntimeLost:
+		return runnersv1.WorkloadFailureReason_WORKLOAD_FAILURE_REASON_RUNTIME_LOST, nil
+	default:
+		return runnersv1.WorkloadFailureReason_WORKLOAD_FAILURE_REASON_UNSPECIFIED, fmt.Errorf("invalid workload failure reason: %s", value)
 	}
 }
 
