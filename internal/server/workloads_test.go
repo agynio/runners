@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 
@@ -367,6 +368,117 @@ func TestListWorkloadsCursorPagination(t *testing.T) {
 	}
 }
 
+func TestListWorkloadsSortByAgentQuery(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("failed to create mock pool: %v", err)
+	}
+
+	workloadID := uuid.New()
+	runnerID := uuid.New()
+	threadID := uuid.New()
+	agentID := uuid.New()
+	organizationID := uuid.New()
+	now := time.Now().UTC()
+	containersJSON := []byte("[]")
+
+	agentRows := pgxmock.NewRows([]string{"agent_id"}).AddRow(agentID)
+	agentQuery := "SELECT DISTINCT agent_id FROM workloads WHERE workloads.organization_id = $1"
+	mockPool.ExpectQuery(regexp.QuoteMeta(agentQuery)).WithArgs(organizationID).WillReturnRows(agentRows)
+
+	agentName := "Agent Alpha"
+	primary := strings.ToLower(agentName)
+	cursorID := uuid.New()
+	pageToken, err := encodeListCursor(primary, cursorID)
+	if err != nil {
+		t.Fatalf("encode cursor: %v", err)
+	}
+
+	pageSize := int32(1)
+	limit := normalizePageSize(pageSize)
+	sortExpr := "CASE workloads.agent_id WHEN $2 THEN $3 END"
+	query := fmt.Sprintf("SELECT %s FROM workloads WHERE workloads.organization_id = $1 AND (%s > $4 OR (%s = $4 AND workloads.id > $5)) ORDER BY %s ASC, workloads.id ASC LIMIT $6", workloadColumns, sortExpr, sortExpr, sortExpr)
+	rows := pgxmock.NewRows(workloadRowColumns).
+		AddRow(workloadID, runnerID, threadID, agentID, organizationID, workloadStatusRunning, nil, nil, containersJSON, "ziti-id", int32(0), int64(0), nil, now, nil, nil, now, now)
+	mockPool.ExpectQuery(regexp.QuoteMeta(query)).
+		WithArgs(organizationID, agentID, primary, primary, cursorID, int(limit)+1).
+		WillReturnRows(rows)
+
+	agentsClient := fakeAgentsClient{
+		getAgent: func(ctx context.Context, req *agentsv1.GetAgentRequest) (*agentsv1.GetAgentResponse, error) {
+			return &agentsv1.GetAgentResponse{Agent: &agentsv1.Agent{Name: agentName}}, nil
+		},
+	}
+
+	srv := New(Options{Pool: mockPool, AgentsClient: agentsClient})
+	filter := workloadListFilter{OrganizationID: organizationID}
+	sort := workloadListSort{Field: workloadSortAgent, Direction: sortAsc}
+	workloads, nextToken, err := srv.listWorkloads(context.Background(), filter, sort, pageSize, pageToken)
+	if err != nil {
+		t.Fatalf("listWorkloads failed: %v", err)
+	}
+	if len(workloads) != 1 {
+		t.Fatalf("expected 1 workload, got %d", len(workloads))
+	}
+	if nextToken != "" {
+		t.Fatalf("expected empty next token, got %q", nextToken)
+	}
+
+	if err := mockPool.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestListWorkloadsSortByRunnerQuery(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("failed to create mock pool: %v", err)
+	}
+
+	workloadID := uuid.New()
+	runnerID := uuid.New()
+	threadID := uuid.New()
+	agentID := uuid.New()
+	organizationID := uuid.New()
+	now := time.Now().UTC()
+	containersJSON := []byte("[]")
+
+	primary := "runner-omega"
+	cursorID := uuid.New()
+	pageToken, err := encodeListCursor(primary, cursorID)
+	if err != nil {
+		t.Fatalf("encode cursor: %v", err)
+	}
+
+	pageSize := int32(1)
+	limit := normalizePageSize(pageSize)
+	sortColumn := "LOWER(runners.name)"
+	query := fmt.Sprintf("SELECT %s FROM workloads JOIN runners ON workloads.runner_id = runners.id WHERE workloads.organization_id = $1 AND (%s < $2 OR (%s = $2 AND workloads.id > $3)) ORDER BY %s DESC, workloads.id ASC LIMIT $4", workloadColumns, sortColumn, sortColumn, sortColumn)
+	rows := pgxmock.NewRows(workloadRowColumns).
+		AddRow(workloadID, runnerID, threadID, agentID, organizationID, workloadStatusRunning, nil, nil, containersJSON, "ziti-id", int32(0), int64(0), nil, now, nil, nil, now, now)
+	mockPool.ExpectQuery(regexp.QuoteMeta(query)).
+		WithArgs(organizationID, primary, cursorID, int(limit)+1).
+		WillReturnRows(rows)
+
+	srv := New(Options{Pool: mockPool})
+	filter := workloadListFilter{OrganizationID: organizationID}
+	sort := workloadListSort{Field: workloadSortRunner, Direction: sortDesc}
+	workloads, nextToken, err := srv.listWorkloads(context.Background(), filter, sort, pageSize, pageToken)
+	if err != nil {
+		t.Fatalf("listWorkloads failed: %v", err)
+	}
+	if len(workloads) != 1 {
+		t.Fatalf("expected 1 workload, got %d", len(workloads))
+	}
+	if nextToken != "" {
+		t.Fatalf("expected empty next token, got %q", nextToken)
+	}
+
+	if err := mockPool.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
 func TestListWorkloadsInvalidUUID(t *testing.T) {
 	authorizationClient := fakeAuthorizationClient{
 		check: func(ctx context.Context, req *authorizationv1.CheckRequest) (*authorizationv1.CheckResponse, error) {
@@ -430,7 +542,7 @@ func TestListWorkloadsInvalidPageToken(t *testing.T) {
 	}
 }
 
-func TestListWorkloadsRequiresMember(t *testing.T) {
+func TestListWorkloadsRequiresViewWorkloads(t *testing.T) {
 	mockPool, err := pgxmock.NewPool()
 	if err != nil {
 		t.Fatalf("failed to create mock pool: %v", err)
@@ -675,7 +787,7 @@ func TestListWorkloadsByThreadInvalidPageToken(t *testing.T) {
 	}
 }
 
-func TestGetWorkloadRequiresMember(t *testing.T) {
+func TestGetWorkloadRequiresViewWorkloads(t *testing.T) {
 	mockPool, err := pgxmock.NewPool()
 	if err != nil {
 		t.Fatalf("failed to create mock pool: %v", err)

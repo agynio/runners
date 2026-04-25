@@ -222,7 +222,7 @@ func TestStreamWorkloadLogsProxiesRunnerStream(t *testing.T) {
 	}
 }
 
-func TestStreamWorkloadLogsRequiresMember(t *testing.T) {
+func TestStreamWorkloadLogsRequiresViewWorkloads(t *testing.T) {
 	mockPool, err := pgxmock.NewPool()
 	if err != nil {
 		t.Fatalf("failed to create mock pool: %v", err)
