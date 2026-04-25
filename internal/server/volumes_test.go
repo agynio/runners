@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"regexp"
 	"testing"
@@ -506,6 +507,47 @@ func TestListVolumesInvalidUUID(t *testing.T) {
 	}
 }
 
+func TestListVolumesInvalidPageToken(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("failed to create mock pool: %v", err)
+	}
+
+	organizationID := uuid.New()
+	callerID := uuid.New()
+	rows := pgxmock.NewRows(volumeRowColumns)
+	query := fmt.Sprintf("SELECT %s FROM volumes WHERE organization_id = $1", volumeColumns)
+	mockPool.ExpectQuery(regexp.QuoteMeta(query)).WithArgs(organizationID).WillReturnRows(rows)
+	mockPool.ExpectQuery(regexp.QuoteMeta(query)).WithArgs(organizationID).WillReturnRows(pgxmock.NewRows(volumeRowColumns))
+	mockPool.ExpectQuery(regexp.QuoteMeta(query)).WithArgs(organizationID).WillReturnRows(pgxmock.NewRows(volumeRowColumns))
+
+	authorizationClient := fakeAuthorizationClient{
+		check: func(ctx context.Context, req *authorizationv1.CheckRequest) (*authorizationv1.CheckResponse, error) {
+			return &authorizationv1.CheckResponse{Allowed: true}, nil
+		},
+	}
+
+	srv := New(Options{Pool: mockPool, AuthorizationClient: authorizationClient})
+	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(identityMetadata, callerID.String()))
+	organizationIDValue := organizationID.String()
+	validID := uuid.NewString()
+
+	invalidJSONToken := base64.RawURLEncoding.EncodeToString([]byte("not-json"))
+	wrongPrimaryToken := base64.RawURLEncoding.EncodeToString([]byte(fmt.Sprintf(`{"primary":10,"id":"%s"}`, validID)))
+
+	cases := []string{"not-a-token", invalidJSONToken, wrongPrimaryToken}
+	for _, token := range cases {
+		_, err := srv.ListVolumes(ctx, &runnersv1.ListVolumesRequest{OrganizationId: &organizationIDValue, PageToken: token})
+		if status.Code(err) != codes.InvalidArgument {
+			t.Fatalf("expected InvalidArgument error for token %q, got %v", token, err)
+		}
+	}
+
+	if err := mockPool.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
 func TestListVolumesRequiresMember(t *testing.T) {
 	mockPool, err := pgxmock.NewPool()
 	if err != nil {
@@ -515,20 +557,11 @@ func TestListVolumesRequiresMember(t *testing.T) {
 	organizationID := uuid.New()
 	callerID := uuid.New()
 
-	checkRelations := make([]string, 0, 2)
+	var gotCheckReq *authorizationv1.CheckRequest
 	authorizationClient := fakeAuthorizationClient{
 		check: func(ctx context.Context, req *authorizationv1.CheckRequest) (*authorizationv1.CheckResponse, error) {
-			relation := req.GetTupleKey().GetRelation()
-			checkRelations = append(checkRelations, relation)
-			switch relation {
-			case clusterAdminRelation:
-				return &authorizationv1.CheckResponse{Allowed: false}, nil
-			case organizationMemberRelation:
-				return &authorizationv1.CheckResponse{Allowed: false}, nil
-			default:
-				t.Fatalf("unexpected relation %s", relation)
-				return nil, status.Error(codes.Internal, "unexpected relation")
-			}
+			gotCheckReq = req
+			return &authorizationv1.CheckResponse{Allowed: false}, nil
 		},
 	}
 
@@ -539,11 +572,11 @@ func TestListVolumesRequiresMember(t *testing.T) {
 	if status.Code(err) != codes.PermissionDenied {
 		t.Fatalf("expected PermissionDenied error, got %v", err)
 	}
-	if len(checkRelations) != 2 {
-		t.Fatalf("expected 2 authorization checks, got %d", len(checkRelations))
+	if gotCheckReq == nil {
+		t.Fatal("expected authorization Check to be called")
 	}
-	if checkRelations[0] != clusterAdminRelation || checkRelations[1] != organizationMemberRelation {
-		t.Fatalf("unexpected relation order %v", checkRelations)
+	if gotCheckReq.GetTupleKey().GetRelation() != organizationViewVolumes {
+		t.Fatalf("expected view volumes relation, got %s", gotCheckReq.GetTupleKey().GetRelation())
 	}
 
 	if err := mockPool.ExpectationsWereMet(); err != nil {
@@ -572,8 +605,10 @@ func TestGetVolumeRequiresMember(t *testing.T) {
 	query := fmt.Sprintf("SELECT %s FROM volumes WHERE id = $1", volumeColumns)
 	mockPool.ExpectQuery(regexp.QuoteMeta(query)).WithArgs(volumeID).WillReturnRows(rows)
 
+	var gotCheckReq *authorizationv1.CheckRequest
 	authorizationClient := fakeAuthorizationClient{
 		check: func(ctx context.Context, req *authorizationv1.CheckRequest) (*authorizationv1.CheckResponse, error) {
+			gotCheckReq = req
 			return &authorizationv1.CheckResponse{Allowed: false}, nil
 		},
 	}
@@ -583,6 +618,12 @@ func TestGetVolumeRequiresMember(t *testing.T) {
 	_, err = srv.GetVolume(ctx, &runnersv1.GetVolumeRequest{Id: volumeID.String()})
 	if status.Code(err) != codes.PermissionDenied {
 		t.Fatalf("expected PermissionDenied error, got %v", err)
+	}
+	if gotCheckReq == nil {
+		t.Fatal("expected authorization Check to be called")
+	}
+	if gotCheckReq.GetTupleKey().GetRelation() != organizationViewVolumes {
+		t.Fatalf("expected view volumes relation, got %s", gotCheckReq.GetTupleKey().GetRelation())
 	}
 
 	if err := mockPool.ExpectationsWereMet(); err != nil {

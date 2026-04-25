@@ -244,8 +244,10 @@ func TestStreamWorkloadLogsRequiresMember(t *testing.T) {
 		WithArgs(workloadID).
 		WillReturnRows(workloadRows)
 
+	var gotCheckReq *authorizationv1.CheckRequest
 	authorizationClient := fakeAuthorizationClient{
 		check: func(ctx context.Context, req *authorizationv1.CheckRequest) (*authorizationv1.CheckResponse, error) {
+			gotCheckReq = req
 			return &authorizationv1.CheckResponse{Allowed: false}, nil
 		},
 	}
@@ -264,6 +266,12 @@ func TestStreamWorkloadLogsRequiresMember(t *testing.T) {
 	}, stream)
 	if status.Code(err) != codes.PermissionDenied {
 		t.Fatalf("expected permission denied, got %v", err)
+	}
+	if gotCheckReq == nil {
+		t.Fatal("expected authorization Check to be called")
+	}
+	if gotCheckReq.GetTupleKey().GetRelation() != organizationViewWorkloads {
+		t.Fatalf("expected view workloads relation, got %s", gotCheckReq.GetTupleKey().GetRelation())
 	}
 
 	if err := mockPool.ExpectationsWereMet(); err != nil {

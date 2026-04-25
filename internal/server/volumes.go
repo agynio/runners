@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math/big"
 	"sort"
 	"strings"
 	"time"
@@ -92,6 +93,24 @@ type volumeListItem struct {
 	record      volumeRecord
 	volumeName  string
 	attachments []*runnersv1.Attachment
+}
+
+type volumeEnrichmentCache struct {
+	volumeNames map[uuid.UUID]string
+	attachments map[uuid.UUID][]*runnersv1.Attachment
+	agentNames  map[uuid.UUID]string
+	mcpNames    map[uuid.UUID]string
+	hookNames   map[uuid.UUID]string
+}
+
+func newVolumeEnrichmentCache() *volumeEnrichmentCache {
+	return &volumeEnrichmentCache{
+		volumeNames: map[uuid.UUID]string{},
+		attachments: map[uuid.UUID][]*runnersv1.Attachment{},
+		agentNames:  map[uuid.UUID]string{},
+		mcpNames:    map[uuid.UUID]string{},
+		hookNames:   map[uuid.UUID]string{},
+	}
 }
 
 func (s *Server) CreateVolume(ctx context.Context, req *runnersv1.CreateVolumeRequest) (*runnersv1.CreateVolumeResponse, error) {
@@ -277,10 +296,11 @@ func (s *Server) GetVolume(ctx context.Context, req *runnersv1.GetVolumeRequest)
 	if err != nil {
 		return nil, toStatusError(err)
 	}
-	if err := s.requireOrgMember(ctx, callerID, volume.OrganizationID); err != nil {
+	if err := s.requireRelation(ctx, callerID, organizationViewVolumes, organizationObject(volume.OrganizationID)); err != nil {
 		return nil, err
 	}
-	items, err := s.buildVolumeItems(ctx, []volumeRecord{volume})
+	cache := newVolumeEnrichmentCache()
+	items, err := s.buildVolumeItems(ctx, []volumeRecord{volume}, cache, true)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "convert volume: %v", err)
 	}
@@ -411,27 +431,22 @@ func (s *Server) ListVolumes(ctx context.Context, req *runnersv1.ListVolumesRequ
 		return nil, status.Errorf(codes.InvalidArgument, "sort: %v", err)
 	}
 
-	records, err := s.listVolumes(ctx, filter)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "list volumes: %v", err)
+	cache := newVolumeEnrichmentCache()
+	var (
+		pageItems []volumeListItem
+		nextToken string
+	)
+	if sort.Field == volumeSortName {
+		pageItems, nextToken, err = s.listVolumesByName(ctx, filter, sort, req.GetPageSize(), req.GetPageToken(), cache)
+	} else {
+		pageItems, nextToken, err = s.listVolumesPaged(ctx, filter, sort, req.GetPageSize(), req.GetPageToken(), cache)
 	}
-	items, err := s.buildVolumeItems(ctx, records)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "enrich volumes: %v", err)
-	}
-	items = filterVolumeItems(items, filter)
-	sortVolumeItems(items, sort)
-	items, err = applyVolumeCursor(items, sort, req.GetPageToken())
 	if err != nil {
 		var invalidToken *InvalidPageTokenError
 		if errors.As(err, &invalidToken) {
 			return nil, status.Errorf(codes.InvalidArgument, "invalid page_token: %v", invalidToken.Err)
 		}
-		return nil, status.Errorf(codes.Internal, "invalid page_token: %v", err)
-	}
-	pageItems, nextToken, err := paginateVolumeItems(items, sort, req.GetPageSize())
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "paginate volumes: %v", err)
+		return nil, status.Errorf(codes.Internal, "list volumes: %v", err)
 	}
 	protoVolumes := make([]*runnersv1.Volume, 0, len(pageItems))
 	for _, item := range pageItems {
@@ -442,6 +457,125 @@ func (s *Server) ListVolumes(ctx context.Context, req *runnersv1.ListVolumesRequ
 		protoVolumes = append(protoVolumes, volume)
 	}
 	return &runnersv1.ListVolumesResponse{Volumes: protoVolumes, NextPageToken: nextToken}, nil
+}
+
+func (s *Server) paginateVolumeItemsWithAttachments(ctx context.Context, items []volumeListItem, sort volumeListSort, filter volumeListFilter, pageSize int32, cache *volumeEnrichmentCache) ([]volumeListItem, string, error) {
+	limit := normalizePageSize(pageSize)
+	if len(items) == 0 {
+		return []volumeListItem{}, "", nil
+	}
+	kindFilter := map[runnersv1.VolumeAttachmentFilterKind]bool{}
+	for _, kind := range filter.AttachedKinds {
+		kindFilter[kind] = true
+	}
+
+	pageItems := make([]volumeListItem, 0, limit+1)
+	for _, item := range items {
+		if err := s.ensureVolumeAttachments(ctx, cache, []uuid.UUID{item.record.VolumeID}); err != nil {
+			return nil, "", err
+		}
+		item.attachments = cache.attachments[item.record.VolumeID]
+		if len(kindFilter) > 0 && !matchesVolumeAttachmentKinds(item.attachments, kindFilter) {
+			continue
+		}
+		pageItems = append(pageItems, item)
+		if len(pageItems) == int(limit)+1 {
+			break
+		}
+	}
+	if len(pageItems) <= int(limit) {
+		return pageItems, "", nil
+	}
+	page := pageItems[:limit]
+	lastItem := page[len(page)-1]
+	primary, err := volumePrimaryValue(lastItem, sort.Field)
+	if err != nil {
+		return nil, "", err
+	}
+	nextToken, err := encodeListCursor(primary, lastItem.record.Meta.ID)
+	if err != nil {
+		return nil, "", err
+	}
+	return page, nextToken, nil
+}
+
+func (s *Server) listVolumesByName(ctx context.Context, filter volumeListFilter, sort volumeListSort, pageSize int32, pageToken string, cache *volumeEnrichmentCache) ([]volumeListItem, string, error) {
+	records, err := s.listVolumes(ctx, filter)
+	if err != nil {
+		return nil, "", err
+	}
+	items, err := s.buildVolumeItems(ctx, records, cache, false)
+	if err != nil {
+		return nil, "", err
+	}
+	items = filterVolumeItemsByName(items, filter.VolumeNameContains)
+	if err := sortVolumeItems(items, sort); err != nil {
+		return nil, "", err
+	}
+	items, err = applyVolumeCursor(items, sort, pageToken)
+	if err != nil {
+		return nil, "", err
+	}
+	return s.paginateVolumeItemsWithAttachments(ctx, items, sort, filter, pageSize, cache)
+}
+
+func (s *Server) listVolumesPaged(ctx context.Context, filter volumeListFilter, sort volumeListSort, pageSize int32, pageToken string, cache *volumeEnrichmentCache) ([]volumeListItem, string, error) {
+	limit := normalizePageSize(pageSize)
+	collected := make([]volumeListItem, 0, limit+1)
+	currentToken := pageToken
+	kindFilter := map[runnersv1.VolumeAttachmentFilterKind]bool{}
+	for _, kind := range filter.AttachedKinds {
+		kindFilter[kind] = true
+	}
+
+	for {
+		records, nextToken, err := s.listVolumesPage(ctx, filter, sort, pageSize, currentToken)
+		if err != nil {
+			return nil, "", err
+		}
+		if len(records) == 0 {
+			break
+		}
+		items, err := s.buildVolumeItems(ctx, records, cache, false)
+		if err != nil {
+			return nil, "", err
+		}
+		items = filterVolumeItemsByName(items, filter.VolumeNameContains)
+		for _, item := range items {
+			if err := s.ensureVolumeAttachments(ctx, cache, []uuid.UUID{item.record.VolumeID}); err != nil {
+				return nil, "", err
+			}
+			item.attachments = cache.attachments[item.record.VolumeID]
+			if len(kindFilter) > 0 && !matchesVolumeAttachmentKinds(item.attachments, kindFilter) {
+				continue
+			}
+			collected = append(collected, item)
+			if len(collected) == int(limit)+1 {
+				break
+			}
+		}
+		if len(collected) == int(limit)+1 {
+			break
+		}
+		if nextToken == "" {
+			break
+		}
+		currentToken = nextToken
+	}
+	if len(collected) <= int(limit) {
+		return collected, "", nil
+	}
+	page := collected[:limit]
+	lastItem := page[len(page)-1]
+	primary, err := volumePrimaryValue(lastItem, sort.Field)
+	if err != nil {
+		return nil, "", err
+	}
+	nextToken, err := encodeListCursor(primary, lastItem.record.Meta.ID)
+	if err != nil {
+		return nil, "", err
+	}
+	return page, nextToken, nil
 }
 
 func (s *Server) BatchUpdateVolumeSampledAt(ctx context.Context, req *runnersv1.BatchUpdateVolumeSampledAtRequest) (*runnersv1.BatchUpdateVolumeSampledAtResponse, error) {
@@ -616,13 +750,71 @@ func parseVolumeSort(sort *runnersv1.ListVolumesSort) (volumeListSort, error) {
 	return volumeListSort{Field: field, Direction: direction}, nil
 }
 
+func volumeSortColumn(field volumeSortField) (string, error) {
+	switch field {
+	case volumeSortSize:
+		return "volumes.size_gb::numeric", nil
+	case volumeSortStatus:
+		return "volumes.status", nil
+	case volumeSortCreated:
+		return "volumes.created_at", nil
+	default:
+		return "", errors.New("invalid sort field")
+	}
+}
+
+func volumeCursorCast(field volumeSortField) string {
+	if field == volumeSortSize {
+		return "::numeric"
+	}
+	return ""
+}
+
+func parseVolumeSize(value string) (*big.Rat, error) {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return nil, errors.New("size_gb is empty")
+	}
+	size, ok := new(big.Rat).SetString(trimmed)
+	if !ok {
+		return nil, fmt.Errorf("invalid size_gb %q", value)
+	}
+	return size, nil
+}
+
+func compareVolumeSize(a, b string) (int, error) {
+	left, err := parseVolumeSize(a)
+	if err != nil {
+		return 0, err
+	}
+	right, err := parseVolumeSize(b)
+	if err != nil {
+		return 0, err
+	}
+	return left.Cmp(right), nil
+}
+
 func volumeCursorPrimary(field volumeSortField, cursor listCursor) (any, error) {
 	switch field {
 	case volumeSortName:
-		return strings.ToLower(cursor.Primary), nil
+		primary := strings.TrimSpace(cursor.Primary)
+		if primary == "" {
+			return nil, errors.New("cursor primary is empty")
+		}
+		return strings.ToLower(primary), nil
 	case volumeSortSize:
-		return cursor.Primary, nil
+		primary := strings.TrimSpace(cursor.Primary)
+		if primary == "" {
+			return nil, errors.New("cursor primary is empty")
+		}
+		if _, err := parseVolumeSize(primary); err != nil {
+			return nil, err
+		}
+		return primary, nil
 	case volumeSortStatus:
+		if strings.TrimSpace(cursor.Primary) == "" {
+			return nil, errors.New("cursor primary is empty")
+		}
 		return cursor.Primary, nil
 	case volumeSortCreated:
 		createdAt, err := time.Parse(time.RFC3339Nano, cursor.Primary)
@@ -638,9 +830,13 @@ func volumeCursorPrimary(field volumeSortField, cursor listCursor) (any, error) 
 func volumePrimaryValue(item volumeListItem, field volumeSortField) (string, error) {
 	switch field {
 	case volumeSortName:
-		return strings.ToLower(item.volumeName), nil
+		return strings.ToLower(strings.TrimSpace(item.volumeName)), nil
 	case volumeSortSize:
-		return item.record.SizeGB, nil
+		value := strings.TrimSpace(item.record.SizeGB)
+		if _, err := parseVolumeSize(value); err != nil {
+			return "", err
+		}
+		return value, nil
 	case volumeSortStatus:
 		return item.record.Status, nil
 	case volumeSortCreated:
@@ -650,24 +846,24 @@ func volumePrimaryValue(item volumeListItem, field volumeSortField) (string, err
 	}
 }
 
-func compareVolumePrimary(item volumeListItem, other volumeListItem, field volumeSortField) int {
+func compareVolumePrimary(item volumeListItem, other volumeListItem, field volumeSortField) (int, error) {
 	switch field {
 	case volumeSortName:
-		return strings.Compare(strings.ToLower(item.volumeName), strings.ToLower(other.volumeName))
+		return strings.Compare(strings.ToLower(item.volumeName), strings.ToLower(other.volumeName)), nil
 	case volumeSortSize:
-		return strings.Compare(item.record.SizeGB, other.record.SizeGB)
+		return compareVolumeSize(item.record.SizeGB, other.record.SizeGB)
 	case volumeSortStatus:
-		return strings.Compare(item.record.Status, other.record.Status)
+		return strings.Compare(item.record.Status, other.record.Status), nil
 	case volumeSortCreated:
 		if item.record.Meta.CreatedAt.Before(other.record.Meta.CreatedAt) {
-			return -1
+			return -1, nil
 		}
 		if item.record.Meta.CreatedAt.After(other.record.Meta.CreatedAt) {
-			return 1
+			return 1, nil
 		}
-		return 0
+		return 0, nil
 	default:
-		return 0
+		return 0, errors.New("invalid sort field")
 	}
 }
 
@@ -684,7 +880,7 @@ func compareVolumePrimaryToCursor(item volumeListItem, cursorPrimary any, field 
 		if !ok {
 			return 0, errors.New("invalid cursor size")
 		}
-		return strings.Compare(item.record.SizeGB, cursorSize), nil
+		return compareVolumeSize(item.record.SizeGB, cursorSize)
 	case volumeSortStatus:
 		cursorStatus, ok := cursorPrimary.(string)
 		if !ok {
@@ -751,14 +947,109 @@ func (s *Server) listVolumes(ctx context.Context, filter volumeListFilter) ([]vo
 	return volumes, nil
 }
 
+func addVolumeCursorClause(clauses *[]string, args *[]any, column string, direction sortDirection, primary any, id uuid.UUID, cast string) {
+	operator := ">"
+	if direction == sortDesc {
+		operator = "<"
+	}
+	clause := fmt.Sprintf("(%s %s $%d%s OR (%s = $%d%s AND volumes.id > $%d))", column, operator, len(*args)+1, cast, column, len(*args)+1, cast, len(*args)+2)
+	*clauses = append(*clauses, clause)
+	*args = append(*args, primary, id)
+}
+
+func (s *Server) listVolumesPage(ctx context.Context, filter volumeListFilter, sort volumeListSort, pageSize int32, pageToken string) ([]volumeRecord, string, error) {
+	limit := normalizePageSize(pageSize)
+	clauses := []string{fmt.Sprintf("volumes.organization_id = $%d", 1)}
+	args := []any{filter.OrganizationID}
+
+	if len(filter.RunnerIDs) > 0 {
+		clauses = append(clauses, fmt.Sprintf("volumes.runner_id = ANY($%d)", len(args)+1))
+		args = append(args, pgtype.FlatArray[uuid.UUID](filter.RunnerIDs))
+	}
+	if len(filter.Statuses) > 0 {
+		clauses = append(clauses, fmt.Sprintf("volumes.status = ANY($%d)", len(args)+1))
+		args = append(args, pgtype.FlatArray[string](filter.Statuses))
+	}
+	if filter.PendingSample {
+		clauses = append(clauses, pendingSampleClause)
+	}
+
+	sortColumn, err := volumeSortColumn(sort.Field)
+	if err != nil {
+		return nil, "", err
+	}
+
+	if pageToken != "" {
+		cursor, cursorID, err := decodeListCursor(pageToken)
+		if err != nil {
+			return nil, "", InvalidPageToken(err)
+		}
+		primaryValue, err := volumeCursorPrimary(sort.Field, cursor)
+		if err != nil {
+			return nil, "", InvalidPageToken(err)
+		}
+		addVolumeCursorClause(&clauses, &args, sortColumn, sort.Direction, primaryValue, cursorID, volumeCursorCast(sort.Field))
+	}
+
+	query := strings.Builder{}
+	query.WriteString(fmt.Sprintf("SELECT %s FROM volumes", volumeColumns))
+	if len(clauses) > 0 {
+		query.WriteString(" WHERE ")
+		query.WriteString(strings.Join(clauses, " AND "))
+	}
+	query.WriteString(fmt.Sprintf(" ORDER BY %s %s, volumes.id ASC LIMIT $%d", sortColumn, sort.Direction, len(args)+1))
+	args = append(args, int(limit)+1)
+
+	rows, err := s.pool.Query(ctx, query.String(), args...)
+	if err != nil {
+		return nil, "", err
+	}
+	defer rows.Close()
+
+	volumes := make([]volumeRecord, 0, limit)
+	var (
+		lastRecord volumeRecord
+		hasMore    bool
+	)
+	for rows.Next() {
+		if int32(len(volumes)) == limit {
+			hasMore = true
+			break
+		}
+		volume, err := scanVolume(rows)
+		if err != nil {
+			return nil, "", err
+		}
+		volumes = append(volumes, volume)
+		lastRecord = volume
+	}
+	if err := rows.Err(); err != nil {
+		return nil, "", err
+	}
+
+	nextToken := ""
+	if hasMore {
+		primary, err := volumePrimaryValue(volumeListItem{record: lastRecord}, sort.Field)
+		if err != nil {
+			return nil, "", err
+		}
+		nextToken, err = encodeListCursor(primary, lastRecord.Meta.ID)
+		if err != nil {
+			return nil, "", err
+		}
+	}
+	return volumes, nextToken, nil
+}
+
 func (s *Server) listVolumeAttachments(ctx context.Context, volumeID uuid.UUID) ([]*agentsv1.VolumeAttachment, error) {
 	if s.agentsClient == nil {
 		return nil, errors.New("agents client not configured")
 	}
+	attachmentsCtx := outgoingContext(ctx)
 	attachments := []*agentsv1.VolumeAttachment{}
 	pageToken := ""
 	for {
-		resp, err := s.agentsClient.ListVolumeAttachments(ctx, &agentsv1.ListVolumeAttachmentsRequest{
+		resp, err := s.agentsClient.ListVolumeAttachments(attachmentsCtx, &agentsv1.ListVolumeAttachmentsRequest{
 			PageSize:  maxListPageSize,
 			PageToken: pageToken,
 			VolumeId:  volumeID.String(),
@@ -775,35 +1066,104 @@ func (s *Server) listVolumeAttachments(ctx context.Context, volumeID uuid.UUID) 
 	return attachments, nil
 }
 
-func (s *Server) buildVolumeItems(ctx context.Context, records []volumeRecord) ([]volumeListItem, error) {
-	if len(records) == 0 {
-		return []volumeListItem{}, nil
+func (s *Server) ensureVolumeNames(ctx context.Context, cache *volumeEnrichmentCache, volumeIDs []uuid.UUID) error {
+	missing := []uuid.UUID{}
+	for _, volumeID := range uniqueUUIDs(volumeIDs) {
+		if _, ok := cache.volumeNames[volumeID]; ok {
+			continue
+		}
+		missing = append(missing, volumeID)
 	}
-	volumeIDs := make([]uuid.UUID, 0, len(records))
-	for _, record := range records {
-		volumeIDs = append(volumeIDs, record.VolumeID)
+	if len(missing) == 0 {
+		return nil
 	}
-	volumeNames, err := s.resolveVolumeNames(ctx, uniqueUUIDs(volumeIDs))
+	resolved, err := s.resolveVolumeNames(ctx, missing)
 	if err != nil {
-		return nil, err
+		return err
+	}
+	for id, name := range resolved {
+		cache.volumeNames[id] = name
+	}
+	return nil
+}
+
+func (s *Server) ensureAgentNames(ctx context.Context, cache *volumeEnrichmentCache, agentIDs []uuid.UUID) error {
+	missing := []uuid.UUID{}
+	for _, agentID := range uniqueUUIDs(agentIDs) {
+		if _, ok := cache.agentNames[agentID]; ok {
+			continue
+		}
+		missing = append(missing, agentID)
+	}
+	if len(missing) == 0 {
+		return nil
+	}
+	resolved, err := s.resolveAgentNames(ctx, missing)
+	if err != nil {
+		return err
+	}
+	for id, name := range resolved {
+		cache.agentNames[id] = name
+	}
+	return nil
+}
+
+func (s *Server) ensureMcpNames(ctx context.Context, cache *volumeEnrichmentCache, mcpIDs []uuid.UUID) error {
+	for _, mcpID := range uniqueUUIDs(mcpIDs) {
+		if _, ok := cache.mcpNames[mcpID]; ok {
+			continue
+		}
+		name, err := s.resolveMcpName(ctx, mcpID)
+		if err != nil {
+			return err
+		}
+		cache.mcpNames[mcpID] = name
+	}
+	return nil
+}
+
+func (s *Server) ensureHookNames(ctx context.Context, cache *volumeEnrichmentCache, hookIDs []uuid.UUID) error {
+	for _, hookID := range uniqueUUIDs(hookIDs) {
+		if _, ok := cache.hookNames[hookID]; ok {
+			continue
+		}
+		name, err := s.resolveHookName(ctx, hookID)
+		if err != nil {
+			return err
+		}
+		cache.hookNames[hookID] = name
+	}
+	return nil
+}
+
+func (s *Server) ensureVolumeAttachments(ctx context.Context, cache *volumeEnrichmentCache, volumeIDs []uuid.UUID) error {
+	missing := []uuid.UUID{}
+	for _, volumeID := range uniqueUUIDs(volumeIDs) {
+		if _, ok := cache.attachments[volumeID]; ok {
+			continue
+		}
+		missing = append(missing, volumeID)
+	}
+	if len(missing) == 0 {
+		return nil
 	}
 
-	attachmentsByVolume := make(map[uuid.UUID][]*agentsv1.VolumeAttachment, len(records))
+	attachmentsByVolume := make(map[uuid.UUID][]*agentsv1.VolumeAttachment, len(missing))
 	attachmentAgentIDs := []uuid.UUID{}
 	mcpIDs := []uuid.UUID{}
 	hookIDs := []uuid.UUID{}
 
-	for _, record := range records {
-		attachments, err := s.listVolumeAttachments(ctx, record.VolumeID)
+	for _, volumeID := range missing {
+		attachments, err := s.listVolumeAttachments(ctx, volumeID)
 		if err != nil {
-			return nil, fmt.Errorf("list volume attachments: %w", err)
+			return fmt.Errorf("list volume attachments: %w", err)
 		}
-		attachmentsByVolume[record.VolumeID] = attachments
+		attachmentsByVolume[volumeID] = attachments
 		for _, attachment := range attachments {
 			if attachment.GetAgentId() != "" {
 				parsed, err := parseUUID(attachment.GetAgentId())
 				if err != nil {
-					return nil, fmt.Errorf("attachment agent_id: %w", err)
+					return fmt.Errorf("attachment agent_id: %w", err)
 				}
 				attachmentAgentIDs = append(attachmentAgentIDs, parsed)
 				continue
@@ -811,7 +1171,7 @@ func (s *Server) buildVolumeItems(ctx context.Context, records []volumeRecord) (
 			if attachment.GetMcpId() != "" {
 				parsed, err := parseUUID(attachment.GetMcpId())
 				if err != nil {
-					return nil, fmt.Errorf("attachment mcp_id: %w", err)
+					return fmt.Errorf("attachment mcp_id: %w", err)
 				}
 				mcpIDs = append(mcpIDs, parsed)
 				continue
@@ -819,54 +1179,38 @@ func (s *Server) buildVolumeItems(ctx context.Context, records []volumeRecord) (
 			if attachment.GetHookId() != "" {
 				parsed, err := parseUUID(attachment.GetHookId())
 				if err != nil {
-					return nil, fmt.Errorf("attachment hook_id: %w", err)
+					return fmt.Errorf("attachment hook_id: %w", err)
 				}
 				hookIDs = append(hookIDs, parsed)
 				continue
 			}
-			return nil, errors.New("attachment target missing")
+			return errors.New("attachment target missing")
 		}
 	}
 
-	agentNames, err := s.resolveAgentNames(ctx, uniqueUUIDs(attachmentAgentIDs))
-	if err != nil {
-		return nil, err
+	if err := s.ensureAgentNames(ctx, cache, attachmentAgentIDs); err != nil {
+		return err
 	}
-	mcpNames := make(map[uuid.UUID]string, len(mcpIDs))
-	for _, mcpID := range uniqueUUIDs(mcpIDs) {
-		name, err := s.resolveMcpName(ctx, mcpID)
-		if err != nil {
-			return nil, err
-		}
-		mcpNames[mcpID] = name
+	if err := s.ensureMcpNames(ctx, cache, mcpIDs); err != nil {
+		return err
 	}
-	hookNames := make(map[uuid.UUID]string, len(hookIDs))
-	for _, hookID := range uniqueUUIDs(hookIDs) {
-		name, err := s.resolveHookName(ctx, hookID)
-		if err != nil {
-			return nil, err
-		}
-		hookNames[hookID] = name
+	if err := s.ensureHookNames(ctx, cache, hookIDs); err != nil {
+		return err
 	}
 
-	items := make([]volumeListItem, 0, len(records))
-	for _, record := range records {
-		name, ok := volumeNames[record.VolumeID]
-		if !ok {
-			return nil, fmt.Errorf("volume name missing for %s", record.VolumeID)
-		}
-		attachments := attachmentsByVolume[record.VolumeID]
+	for _, volumeID := range missing {
+		attachments := attachmentsByVolume[volumeID]
 		protoAttachments := make([]*runnersv1.Attachment, 0, len(attachments))
 		for _, attachment := range attachments {
 			switch {
 			case attachment.GetAgentId() != "":
 				parsed, err := parseUUID(attachment.GetAgentId())
 				if err != nil {
-					return nil, fmt.Errorf("attachment agent_id: %w", err)
+					return fmt.Errorf("attachment agent_id: %w", err)
 				}
-				name, ok := agentNames[parsed]
+				name, ok := cache.agentNames[parsed]
 				if !ok {
-					return nil, fmt.Errorf("agent name missing for %s", parsed)
+					return fmt.Errorf("agent name missing for %s", parsed)
 				}
 				protoAttachments = append(protoAttachments, &runnersv1.Attachment{
 					Kind: runnersv1.AttachmentKind_ATTACHMENT_KIND_AGENT,
@@ -876,11 +1220,11 @@ func (s *Server) buildVolumeItems(ctx context.Context, records []volumeRecord) (
 			case attachment.GetMcpId() != "":
 				parsed, err := parseUUID(attachment.GetMcpId())
 				if err != nil {
-					return nil, fmt.Errorf("attachment mcp_id: %w", err)
+					return fmt.Errorf("attachment mcp_id: %w", err)
 				}
-				name, ok := mcpNames[parsed]
+				name, ok := cache.mcpNames[parsed]
 				if !ok {
-					return nil, fmt.Errorf("mcp name missing for %s", parsed)
+					return fmt.Errorf("mcp name missing for %s", parsed)
 				}
 				protoAttachments = append(protoAttachments, &runnersv1.Attachment{
 					Kind: runnersv1.AttachmentKind_ATTACHMENT_KIND_MCP,
@@ -890,11 +1234,11 @@ func (s *Server) buildVolumeItems(ctx context.Context, records []volumeRecord) (
 			case attachment.GetHookId() != "":
 				parsed, err := parseUUID(attachment.GetHookId())
 				if err != nil {
-					return nil, fmt.Errorf("attachment hook_id: %w", err)
+					return fmt.Errorf("attachment hook_id: %w", err)
 				}
-				name, ok := hookNames[parsed]
+				name, ok := cache.hookNames[parsed]
 				if !ok {
-					return nil, fmt.Errorf("hook name missing for %s", parsed)
+					return fmt.Errorf("hook name missing for %s", parsed)
 				}
 				protoAttachments = append(protoAttachments, &runnersv1.Attachment{
 					Kind: runnersv1.AttachmentKind_ATTACHMENT_KIND_HOOK,
@@ -902,69 +1246,125 @@ func (s *Server) buildVolumeItems(ctx context.Context, records []volumeRecord) (
 					Name: name,
 				})
 			default:
-				return nil, errors.New("attachment target missing")
+				return errors.New("attachment target missing")
 			}
 		}
-		items = append(items, volumeListItem{record: record, volumeName: name, attachments: protoAttachments})
+		cache.attachments[volumeID] = protoAttachments
+	}
+	return nil
+}
+
+func (s *Server) buildVolumeItems(ctx context.Context, records []volumeRecord, cache *volumeEnrichmentCache, includeAttachments bool) ([]volumeListItem, error) {
+	if len(records) == 0 {
+		return []volumeListItem{}, nil
+	}
+	volumeIDs := make([]uuid.UUID, 0, len(records))
+	for _, record := range records {
+		volumeIDs = append(volumeIDs, record.VolumeID)
+	}
+	if err := s.ensureVolumeNames(ctx, cache, volumeIDs); err != nil {
+		return nil, err
+	}
+	if includeAttachments {
+		if err := s.ensureVolumeAttachments(ctx, cache, volumeIDs); err != nil {
+			return nil, err
+		}
+	}
+
+	items := make([]volumeListItem, 0, len(records))
+	for _, record := range records {
+		name, ok := cache.volumeNames[record.VolumeID]
+		if !ok {
+			return nil, fmt.Errorf("volume name missing for %s", record.VolumeID)
+		}
+		attachments := []*runnersv1.Attachment{}
+		if includeAttachments {
+			attachments = cache.attachments[record.VolumeID]
+		}
+		items = append(items, volumeListItem{record: record, volumeName: name, attachments: attachments})
 	}
 	return items, nil
 }
 
-func filterVolumeItems(items []volumeListItem, filter volumeListFilter) []volumeListItem {
+func filterVolumeItemsByName(items []volumeListItem, nameFilter string) []volumeListItem {
 	if len(items) == 0 {
 		return items
 	}
-	nameFilter := strings.TrimSpace(filter.VolumeNameContains)
-	nameFilter = strings.ToLower(nameFilter)
-	kindFilter := map[runnersv1.VolumeAttachmentFilterKind]bool{}
-	for _, kind := range filter.AttachedKinds {
-		kindFilter[kind] = true
+	nameFilter = strings.ToLower(strings.TrimSpace(nameFilter))
+	if nameFilter == "" {
+		return items
 	}
-
 	filtered := make([]volumeListItem, 0, len(items))
 	for _, item := range items {
-		if nameFilter != "" && !strings.Contains(strings.ToLower(item.volumeName), nameFilter) {
-			continue
+		if strings.Contains(strings.ToLower(item.volumeName), nameFilter) {
+			filtered = append(filtered, item)
 		}
-		if len(kindFilter) > 0 {
-			if len(item.attachments) == 0 {
-				if !kindFilter[runnersv1.VolumeAttachmentFilterKind_VOLUME_ATTACHMENT_FILTER_KIND_UNATTACHED] {
-					continue
-				}
-			} else {
-				matches := false
-				for _, attachment := range item.attachments {
-					switch attachment.GetKind() {
-					case runnersv1.AttachmentKind_ATTACHMENT_KIND_AGENT:
-						if kindFilter[runnersv1.VolumeAttachmentFilterKind_VOLUME_ATTACHMENT_FILTER_KIND_AGENT] {
-							matches = true
-						}
-					case runnersv1.AttachmentKind_ATTACHMENT_KIND_MCP:
-						if kindFilter[runnersv1.VolumeAttachmentFilterKind_VOLUME_ATTACHMENT_FILTER_KIND_MCP] {
-							matches = true
-						}
-					case runnersv1.AttachmentKind_ATTACHMENT_KIND_HOOK:
-						if kindFilter[runnersv1.VolumeAttachmentFilterKind_VOLUME_ATTACHMENT_FILTER_KIND_HOOK] {
-							matches = true
-						}
-					}
-					if matches {
-						break
-					}
-				}
-				if !matches {
-					continue
-				}
-			}
-		}
-		filtered = append(filtered, item)
 	}
 	return filtered
 }
 
-func sortVolumeItems(items []volumeListItem, sortSpec volumeListSort) {
+func matchesVolumeAttachmentKinds(attachments []*runnersv1.Attachment, kindFilter map[runnersv1.VolumeAttachmentFilterKind]bool) bool {
+	if len(kindFilter) == 0 {
+		return true
+	}
+	if len(attachments) == 0 {
+		return kindFilter[runnersv1.VolumeAttachmentFilterKind_VOLUME_ATTACHMENT_FILTER_KIND_UNATTACHED]
+	}
+	for _, attachment := range attachments {
+		switch attachment.GetKind() {
+		case runnersv1.AttachmentKind_ATTACHMENT_KIND_AGENT:
+			if kindFilter[runnersv1.VolumeAttachmentFilterKind_VOLUME_ATTACHMENT_FILTER_KIND_AGENT] {
+				return true
+			}
+		case runnersv1.AttachmentKind_ATTACHMENT_KIND_MCP:
+			if kindFilter[runnersv1.VolumeAttachmentFilterKind_VOLUME_ATTACHMENT_FILTER_KIND_MCP] {
+				return true
+			}
+		case runnersv1.AttachmentKind_ATTACHMENT_KIND_HOOK:
+			if kindFilter[runnersv1.VolumeAttachmentFilterKind_VOLUME_ATTACHMENT_FILTER_KIND_HOOK] {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func filterVolumeItemsByAttachmentKind(items []volumeListItem, filterKinds []runnersv1.VolumeAttachmentFilterKind) []volumeListItem {
+	if len(items) == 0 {
+		return items
+	}
+	if len(filterKinds) == 0 {
+		return items
+	}
+	kindFilter := map[runnersv1.VolumeAttachmentFilterKind]bool{}
+	for _, kind := range filterKinds {
+		kindFilter[kind] = true
+	}
+	filtered := make([]volumeListItem, 0, len(items))
+	for _, item := range items {
+		if matchesVolumeAttachmentKinds(item.attachments, kindFilter) {
+			filtered = append(filtered, item)
+		}
+	}
+	return filtered
+}
+
+func filterVolumeItems(items []volumeListItem, filter volumeListFilter) []volumeListItem {
+	items = filterVolumeItemsByName(items, filter.VolumeNameContains)
+	return filterVolumeItemsByAttachmentKind(items, filter.AttachedKinds)
+}
+
+func sortVolumeItems(items []volumeListItem, sortSpec volumeListSort) error {
+	var sortErr error
 	sort.SliceStable(items, func(i, j int) bool {
-		primaryCmp := compareVolumePrimary(items[i], items[j], sortSpec.Field)
+		if sortErr != nil {
+			return false
+		}
+		primaryCmp, err := compareVolumePrimary(items[i], items[j], sortSpec.Field)
+		if err != nil {
+			sortErr = err
+			return false
+		}
 		if primaryCmp == 0 {
 			return compareUUID(items[i].record.Meta.ID, items[j].record.Meta.ID) < 0
 		}
@@ -973,6 +1373,7 @@ func sortVolumeItems(items []volumeListItem, sortSpec volumeListSort) {
 		}
 		return primaryCmp > 0
 	})
+	return sortErr
 }
 
 func applyVolumeCursor(items []volumeListItem, sort volumeListSort, pageToken string) ([]volumeListItem, error) {

@@ -18,9 +18,10 @@ func (s *Server) resolveAgentNames(ctx context.Context, agentIDs []uuid.UUID) (m
 	if s.agentsClient == nil {
 		return nil, errors.New("agents client not configured")
 	}
+	agentCtx := outgoingContext(ctx)
 	resolved := make(map[uuid.UUID]string, len(agentIDs))
 	for _, agentID := range agentIDs {
-		resp, err := s.agentsClient.GetAgent(ctx, &agentsv1.GetAgentRequest{Id: agentID.String()})
+		resp, err := s.agentsClient.GetAgent(agentCtx, &agentsv1.GetAgentRequest{Id: agentID.String()})
 		if err != nil {
 			return nil, fmt.Errorf("get agent %s: %w", agentID, err)
 		}
@@ -67,9 +68,10 @@ func (s *Server) resolveVolumeNames(ctx context.Context, volumeIDs []uuid.UUID) 
 	if s.agentsClient == nil {
 		return nil, errors.New("agents client not configured")
 	}
+	volumeCtx := outgoingContext(ctx)
 	resolved := make(map[uuid.UUID]string, len(volumeIDs))
 	for _, volumeID := range volumeIDs {
-		resp, err := s.agentsClient.GetVolume(ctx, &agentsv1.GetVolumeRequest{Id: volumeID.String()})
+		resp, err := s.agentsClient.GetVolume(volumeCtx, &agentsv1.GetVolumeRequest{Id: volumeID.String()})
 		if err != nil {
 			return nil, fmt.Errorf("get volume %s: %w", volumeID, err)
 		}
@@ -90,7 +92,7 @@ func (s *Server) resolveMcpName(ctx context.Context, mcpID uuid.UUID) (string, e
 	if s.agentsClient == nil {
 		return "", errors.New("agents client not configured")
 	}
-	resp, err := s.agentsClient.GetMcp(ctx, &agentsv1.GetMcpRequest{Id: mcpID.String()})
+	resp, err := s.agentsClient.GetMcp(outgoingContext(ctx), &agentsv1.GetMcpRequest{Id: mcpID.String()})
 	if err != nil {
 		return "", fmt.Errorf("get mcp %s: %w", mcpID, err)
 	}
@@ -105,7 +107,7 @@ func (s *Server) resolveHookName(ctx context.Context, hookID uuid.UUID) (string,
 	if s.agentsClient == nil {
 		return "", errors.New("agents client not configured")
 	}
-	resp, err := s.agentsClient.GetHook(ctx, &agentsv1.GetHookRequest{Id: hookID.String()})
+	resp, err := s.agentsClient.GetHook(outgoingContext(ctx), &agentsv1.GetHookRequest{Id: hookID.String()})
 	if err != nil {
 		return "", fmt.Errorf("get hook %s: %w", hookID, err)
 	}

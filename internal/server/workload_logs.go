@@ -52,7 +52,7 @@ func (s *Server) StreamWorkloadLogs(req *runnerv1.StreamWorkloadLogsRequest, str
 	if err != nil {
 		return toStatusError(err)
 	}
-	if err := s.requireOrgMember(ctx, callerID, workload.OrganizationID); err != nil {
+	if err := s.requireRelation(ctx, callerID, organizationViewWorkloads, organizationObject(workload.OrganizationID)); err != nil {
 		return err
 	}
 

@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"regexp"
@@ -76,7 +77,7 @@ func TestListWorkloadsFiltersOrganization(t *testing.T) {
 	rows := pgxmock.NewRows(workloadRowColumns).
 		AddRow(workloadID, runnerID, threadID, agentID, organizationID, workloadStatusRunning, nil, nil, containersJSON, "ziti-id", int32(0), int64(0), nil, now, nil, nil, now, now)
 
-	query := fmt.Sprintf("SELECT %s FROM workloads WHERE organization_id = $1 ORDER BY created_at DESC, id ASC LIMIT $2", workloadColumns)
+	query := fmt.Sprintf("SELECT %s FROM workloads WHERE workloads.organization_id = $1 ORDER BY workloads.created_at DESC, workloads.id ASC LIMIT $2", workloadColumns)
 	mockPool.ExpectQuery(regexp.QuoteMeta(query)).
 		WithArgs(organizationID, 51).
 		WillReturnRows(rows)
@@ -164,7 +165,7 @@ func TestListWorkloadsFiltersRunner(t *testing.T) {
 	rows := pgxmock.NewRows(workloadRowColumns).
 		AddRow(workloadID, runnerID, threadID, agentID, organizationID, workloadStatusRunning, nil, nil, containersJSON, "ziti-id", int32(0), int64(0), nil, now, nil, nil, now, now)
 
-	query := fmt.Sprintf("SELECT %s FROM workloads WHERE organization_id = $1 AND runner_id = ANY($2) ORDER BY created_at DESC, id ASC LIMIT $3", workloadColumns)
+	query := fmt.Sprintf("SELECT %s FROM workloads WHERE workloads.organization_id = $1 AND workloads.runner_id = ANY($2) ORDER BY workloads.created_at DESC, workloads.id ASC LIMIT $3", workloadColumns)
 	mockPool.ExpectQuery(regexp.QuoteMeta(query)).
 		WithArgs(organizationID, pgtype.FlatArray[uuid.UUID]([]uuid.UUID{runnerID}), 51).
 		WillReturnRows(rows)
@@ -250,7 +251,7 @@ func TestListWorkloadsPendingSample(t *testing.T) {
 	rows := pgxmock.NewRows(workloadRowColumns).
 		AddRow(workloadID, runnerID, threadID, agentID, organizationID, workloadStatusRunning, nil, nil, containersJSON, "ziti-id", int32(0), int64(0), nil, now, nil, nil, now, now)
 
-	query := fmt.Sprintf("SELECT %s FROM workloads WHERE organization_id = $1 AND %s ORDER BY created_at DESC, id ASC LIMIT $2", workloadColumns, pendingSampleClause)
+	query := fmt.Sprintf("SELECT %s FROM workloads WHERE workloads.organization_id = $1 AND %s ORDER BY workloads.created_at DESC, workloads.id ASC LIMIT $2", workloadColumns, pendingSampleClause)
 	mockPool.ExpectQuery(regexp.QuoteMeta(query)).
 		WithArgs(organizationID, 51).
 		WillReturnRows(rows)
@@ -339,7 +340,7 @@ func TestListWorkloadsCursorPagination(t *testing.T) {
 
 	pageSize := int32(2)
 	limit := normalizePageSize(pageSize)
-	query := fmt.Sprintf("SELECT %s FROM workloads WHERE organization_id = $1 AND (created_at < $2 OR (created_at = $2 AND id > $3)) ORDER BY created_at DESC, id ASC LIMIT $4", workloadColumns)
+	query := fmt.Sprintf("SELECT %s FROM workloads WHERE workloads.organization_id = $1 AND (workloads.created_at < $2 OR (workloads.created_at = $2 AND workloads.id > $3)) ORDER BY workloads.created_at DESC, workloads.id ASC LIMIT $4", workloadColumns)
 	mockPool.ExpectQuery(regexp.QuoteMeta(query)).
 		WithArgs(organizationID, cursorTime, cursorID, int(limit)+1).
 		WillReturnRows(rows)
@@ -406,6 +407,29 @@ func TestListWorkloadsInvalidUUID(t *testing.T) {
 	}
 }
 
+func TestListWorkloadsInvalidPageToken(t *testing.T) {
+	authorizationClient := fakeAuthorizationClient{
+		check: func(ctx context.Context, req *authorizationv1.CheckRequest) (*authorizationv1.CheckResponse, error) {
+			return &authorizationv1.CheckResponse{Allowed: true}, nil
+		},
+	}
+	srv := New(Options{AuthorizationClient: authorizationClient})
+	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(identityMetadata, uuid.NewString()))
+	organizationIDValue := uuid.NewString()
+	validID := uuid.NewString()
+
+	invalidJSONToken := base64.RawURLEncoding.EncodeToString([]byte("not-json"))
+	wrongPrimaryToken := base64.RawURLEncoding.EncodeToString([]byte(fmt.Sprintf(`{"primary":10,"id":"%s"}`, validID)))
+
+	cases := []string{"not-a-token", invalidJSONToken, wrongPrimaryToken}
+	for _, token := range cases {
+		_, err := srv.ListWorkloads(ctx, &runnersv1.ListWorkloadsRequest{OrganizationId: &organizationIDValue, PageToken: token})
+		if status.Code(err) != codes.InvalidArgument {
+			t.Fatalf("expected InvalidArgument error for token %q, got %v", token, err)
+		}
+	}
+}
+
 func TestListWorkloadsRequiresMember(t *testing.T) {
 	mockPool, err := pgxmock.NewPool()
 	if err != nil {
@@ -415,20 +439,11 @@ func TestListWorkloadsRequiresMember(t *testing.T) {
 	organizationID := uuid.New()
 	callerID := uuid.New()
 
-	checkRelations := make([]string, 0, 2)
+	var gotCheckReq *authorizationv1.CheckRequest
 	authorizationClient := fakeAuthorizationClient{
 		check: func(ctx context.Context, req *authorizationv1.CheckRequest) (*authorizationv1.CheckResponse, error) {
-			relation := req.GetTupleKey().GetRelation()
-			checkRelations = append(checkRelations, relation)
-			switch relation {
-			case clusterAdminRelation:
-				return &authorizationv1.CheckResponse{Allowed: false}, nil
-			case organizationMemberRelation:
-				return &authorizationv1.CheckResponse{Allowed: false}, nil
-			default:
-				t.Fatalf("unexpected relation %s", relation)
-				return nil, status.Error(codes.Internal, "unexpected relation")
-			}
+			gotCheckReq = req
+			return &authorizationv1.CheckResponse{Allowed: false}, nil
 		},
 	}
 
@@ -439,11 +454,11 @@ func TestListWorkloadsRequiresMember(t *testing.T) {
 	if status.Code(err) != codes.PermissionDenied {
 		t.Fatalf("expected PermissionDenied error, got %v", err)
 	}
-	if len(checkRelations) != 2 {
-		t.Fatalf("expected 2 authorization checks, got %d", len(checkRelations))
+	if gotCheckReq == nil {
+		t.Fatal("expected authorization Check to be called")
 	}
-	if checkRelations[0] != clusterAdminRelation || checkRelations[1] != organizationMemberRelation {
-		t.Fatalf("unexpected relation order %v", checkRelations)
+	if gotCheckReq.GetTupleKey().GetRelation() != organizationViewWorkloads {
+		t.Fatalf("expected view workloads relation, got %s", gotCheckReq.GetTupleKey().GetRelation())
 	}
 
 	if err := mockPool.ExpectationsWereMet(); err != nil {
@@ -681,8 +696,10 @@ func TestGetWorkloadRequiresMember(t *testing.T) {
 	query := fmt.Sprintf("SELECT %s FROM workloads WHERE id = $1", workloadColumns)
 	mockPool.ExpectQuery(regexp.QuoteMeta(query)).WithArgs(workloadID).WillReturnRows(rows)
 
+	var gotCheckReq *authorizationv1.CheckRequest
 	authorizationClient := fakeAuthorizationClient{
 		check: func(ctx context.Context, req *authorizationv1.CheckRequest) (*authorizationv1.CheckResponse, error) {
+			gotCheckReq = req
 			return &authorizationv1.CheckResponse{Allowed: false}, nil
 		},
 	}
@@ -692,6 +709,12 @@ func TestGetWorkloadRequiresMember(t *testing.T) {
 	_, err = srv.GetWorkload(ctx, &runnersv1.GetWorkloadRequest{Id: workloadID.String()})
 	if status.Code(err) != codes.PermissionDenied {
 		t.Fatalf("expected PermissionDenied error, got %v", err)
+	}
+	if gotCheckReq == nil {
+		t.Fatal("expected authorization Check to be called")
+	}
+	if gotCheckReq.GetTupleKey().GetRelation() != organizationViewWorkloads {
+		t.Fatalf("expected view workloads relation, got %s", gotCheckReq.GetTupleKey().GetRelation())
 	}
 
 	if err := mockPool.ExpectationsWereMet(); err != nil {

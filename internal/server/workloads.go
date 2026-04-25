@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"sort"
 	"strings"
 	"time"
 
@@ -417,7 +418,7 @@ func (s *Server) GetWorkload(ctx context.Context, req *runnersv1.GetWorkloadRequ
 	if err != nil {
 		return nil, toStatusError(err)
 	}
-	if err := s.requireOrgMember(ctx, callerID, workload.OrganizationID); err != nil {
+	if err := s.requireRelation(ctx, callerID, organizationViewWorkloads, organizationObject(workload.OrganizationID)); err != nil {
 		return nil, err
 	}
 	workloads, err := s.buildWorkloadProtos(ctx, []workloadRecord{workload})
@@ -854,30 +855,29 @@ func parseWorkloadSort(sort *runnersv1.ListWorkloadsSort) (workloadListSort, err
 
 func workloadSortColumn(field workloadSortField) string {
 	switch field {
-	case workloadSortAgent:
-		return "agent_id"
-	case workloadSortRunner:
-		return "runner_id"
 	case workloadSortStatus:
-		return "status"
+		return "workloads.status"
 	case workloadSortDuration:
-		return "created_at"
+		return "workloads.created_at"
 	case workloadSortStarted:
-		return "created_at"
+		return "workloads.created_at"
 	default:
-		return "created_at"
+		panic("invalid sort field")
 	}
 }
 
 func workloadCursorPrimary(field workloadSortField, cursor listCursor) (any, error) {
 	switch field {
 	case workloadSortAgent, workloadSortRunner:
-		id, err := uuid.Parse(cursor.Primary)
-		if err != nil {
-			return nil, fmt.Errorf("parse id: %w", err)
+		primary := strings.TrimSpace(cursor.Primary)
+		if primary == "" {
+			return nil, errors.New("cursor primary is empty")
 		}
-		return id, nil
+		return strings.ToLower(primary), nil
 	case workloadSortStatus:
+		if strings.TrimSpace(cursor.Primary) == "" {
+			return nil, errors.New("cursor primary is empty")
+		}
 		return cursor.Primary, nil
 	case workloadSortDuration, workloadSortStarted:
 		createdAt, err := time.Parse(time.RFC3339Nano, cursor.Primary)
@@ -890,12 +890,20 @@ func workloadCursorPrimary(field workloadSortField, cursor listCursor) (any, err
 	}
 }
 
-func workloadPrimaryValue(record workloadRecord, field workloadSortField) (string, error) {
+func workloadPrimaryValue(record workloadRecord, field workloadSortField, agentNames map[uuid.UUID]string, runnerNames map[uuid.UUID]string) (string, error) {
 	switch field {
 	case workloadSortAgent:
-		return record.AgentID.String(), nil
+		name, ok := agentNames[record.AgentID]
+		if !ok {
+			return "", fmt.Errorf("agent name missing for %s", record.AgentID)
+		}
+		return strings.ToLower(strings.TrimSpace(name)), nil
 	case workloadSortRunner:
-		return record.RunnerID.String(), nil
+		name, ok := runnerNames[record.RunnerID]
+		if !ok {
+			return "", fmt.Errorf("runner name missing for %s", record.RunnerID)
+		}
+		return strings.ToLower(strings.TrimSpace(name)), nil
 	case workloadSortStatus:
 		return record.Status, nil
 	case workloadSortDuration, workloadSortStarted:
@@ -910,38 +918,130 @@ func addCursorClause(clauses *[]string, args *[]any, column string, direction so
 	if direction == sortDesc {
 		operator = "<"
 	}
-	clause := fmt.Sprintf("(%s %s $%d OR (%s = $%d AND id > $%d))", column, operator, len(*args)+1, column, len(*args)+1, len(*args)+2)
+	clause := fmt.Sprintf("(%s %s $%d OR (%s = $%d AND workloads.id > $%d))", column, operator, len(*args)+1, column, len(*args)+1, len(*args)+2)
 	*clauses = append(*clauses, clause)
 	*args = append(*args, primary, id)
 }
 
+func (s *Server) listWorkloadAgentIDs(ctx context.Context, clauses []string, args []any) ([]uuid.UUID, error) {
+	query := strings.Builder{}
+	query.WriteString("SELECT DISTINCT agent_id FROM workloads")
+	if len(clauses) > 0 {
+		query.WriteString(" WHERE ")
+		query.WriteString(strings.Join(clauses, " AND "))
+	}
+	rows, err := s.pool.Query(ctx, query.String(), args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	agentIDs := []uuid.UUID{}
+	for rows.Next() {
+		var agentID uuid.UUID
+		if err := rows.Scan(&agentID); err != nil {
+			return nil, err
+		}
+		agentIDs = append(agentIDs, agentID)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return agentIDs, nil
+}
+
+func buildWorkloadAgentSortExpr(agentNames map[uuid.UUID]string, startIndex int) (string, []any, error) {
+	if len(agentNames) == 0 {
+		return "", nil, errors.New("agent names empty")
+	}
+	ids := make([]uuid.UUID, 0, len(agentNames))
+	for id := range agentNames {
+		ids = append(ids, id)
+	}
+	sort.Slice(ids, func(i, j int) bool {
+		return ids[i].String() < ids[j].String()
+	})
+
+	parts := make([]string, 0, len(ids))
+	args := make([]any, 0, len(ids)*2)
+	idx := startIndex
+	for _, id := range ids {
+		name := strings.ToLower(strings.TrimSpace(agentNames[id]))
+		parts = append(parts, fmt.Sprintf("WHEN $%d THEN $%d", idx, idx+1))
+		args = append(args, id, name)
+		idx += 2
+	}
+	return fmt.Sprintf("CASE workloads.agent_id %s END", strings.Join(parts, " ")), args, nil
+}
+
 func (s *Server) listWorkloads(ctx context.Context, filter workloadListFilter, sort workloadListSort, pageSize int32, pageToken string) ([]workloadRecord, string, error) {
 	limit := normalizePageSize(pageSize)
-	clauses := []string{fmt.Sprintf("organization_id = $%d", 1)}
+	clauses := []string{fmt.Sprintf("workloads.organization_id = $%d", 1)}
 	args := []any{filter.OrganizationID}
 
 	if len(filter.AgentIDs) > 0 {
-		clauses = append(clauses, fmt.Sprintf("agent_id = ANY($%d)", len(args)+1))
+		clauses = append(clauses, fmt.Sprintf("workloads.agent_id = ANY($%d)", len(args)+1))
 		args = append(args, pgtype.FlatArray[uuid.UUID](filter.AgentIDs))
 	}
 	if len(filter.RunnerIDs) > 0 {
-		clauses = append(clauses, fmt.Sprintf("runner_id = ANY($%d)", len(args)+1))
+		clauses = append(clauses, fmt.Sprintf("workloads.runner_id = ANY($%d)", len(args)+1))
 		args = append(args, pgtype.FlatArray[uuid.UUID](filter.RunnerIDs))
 	}
 	if len(filter.Statuses) > 0 {
-		clauses = append(clauses, fmt.Sprintf("status = ANY($%d)", len(args)+1))
+		clauses = append(clauses, fmt.Sprintf("workloads.status = ANY($%d)", len(args)+1))
 		args = append(args, pgtype.FlatArray[string](filter.Statuses))
 	}
 	if filter.StartedAfter != nil {
-		clauses = append(clauses, fmt.Sprintf("created_at >= $%d", len(args)+1))
+		clauses = append(clauses, fmt.Sprintf("workloads.created_at >= $%d", len(args)+1))
 		args = append(args, *filter.StartedAfter)
 	}
 	if filter.StartedBefore != nil {
-		clauses = append(clauses, fmt.Sprintf("created_at < $%d", len(args)+1))
+		clauses = append(clauses, fmt.Sprintf("workloads.created_at < $%d", len(args)+1))
 		args = append(args, *filter.StartedBefore)
 	}
 	if filter.PendingSample {
 		clauses = append(clauses, pendingSampleClause)
+	}
+
+	var (
+		joinClause  string
+		sortColumn  string
+		agentNames  map[uuid.UUID]string
+		runnerNames map[uuid.UUID]string
+	)
+	switch sort.Field {
+	case workloadSortRunner:
+		joinClause = " JOIN runners ON workloads.runner_id = runners.id"
+		sortColumn = "LOWER(runners.name)"
+	case workloadSortAgent:
+		agentIDs, err := s.listWorkloadAgentIDs(ctx, clauses, args)
+		if err != nil {
+			return nil, "", err
+		}
+		if len(agentIDs) == 0 {
+			if pageToken != "" {
+				cursor, _, err := decodeListCursor(pageToken)
+				if err != nil {
+					return nil, "", InvalidPageToken(err)
+				}
+				if _, err := workloadCursorPrimary(sort.Field, cursor); err != nil {
+					return nil, "", InvalidPageToken(err)
+				}
+			}
+			return []workloadRecord{}, "", nil
+		}
+		agentNames, err = s.resolveAgentNames(ctx, uniqueUUIDs(agentIDs))
+		if err != nil {
+			return nil, "", err
+		}
+		sortExpr, sortArgs, err := buildWorkloadAgentSortExpr(agentNames, len(args)+1)
+		if err != nil {
+			return nil, "", err
+		}
+		sortColumn = sortExpr
+		args = append(args, sortArgs...)
+	default:
+		sortColumn = workloadSortColumn(sort.Field)
 	}
 
 	if pageToken != "" {
@@ -953,16 +1053,17 @@ func (s *Server) listWorkloads(ctx context.Context, filter workloadListFilter, s
 		if err != nil {
 			return nil, "", InvalidPageToken(err)
 		}
-		addCursorClause(&clauses, &args, workloadSortColumn(sort.Field), sort.Direction, primaryValue, cursorID)
+		addCursorClause(&clauses, &args, sortColumn, sort.Direction, primaryValue, cursorID)
 	}
 
 	query := strings.Builder{}
 	query.WriteString(fmt.Sprintf("SELECT %s FROM workloads", workloadColumns))
+	query.WriteString(joinClause)
 	if len(clauses) > 0 {
 		query.WriteString(" WHERE ")
 		query.WriteString(strings.Join(clauses, " AND "))
 	}
-	query.WriteString(fmt.Sprintf(" ORDER BY %s %s, id ASC LIMIT $%d", workloadSortColumn(sort.Field), sort.Direction, len(args)+1))
+	query.WriteString(fmt.Sprintf(" ORDER BY %s %s, workloads.id ASC LIMIT $%d", sortColumn, sort.Direction, len(args)+1))
 	args = append(args, int(limit)+1)
 
 	rows, err := s.pool.Query(ctx, query.String(), args...)
@@ -994,7 +1095,15 @@ func (s *Server) listWorkloads(ctx context.Context, filter workloadListFilter, s
 
 	nextToken := ""
 	if hasMore {
-		primary, err := workloadPrimaryValue(lastRecord, sort.Field)
+		if sort.Field == workloadSortRunner {
+			runnerIDs := []uuid.UUID{lastRecord.RunnerID}
+			resolved, err := s.resolveRunnerNames(ctx, runnerIDs)
+			if err != nil {
+				return nil, "", err
+			}
+			runnerNames = resolved
+		}
+		primary, err := workloadPrimaryValue(lastRecord, sort.Field, agentNames, runnerNames)
 		if err != nil {
 			return nil, "", err
 		}
