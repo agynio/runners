@@ -9,7 +9,11 @@ import (
 	agentsv1 "github.com/agynio/runners/.gen/go/agynio/api/agents/v1"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
+
+const missingNamePlaceholder = "unknown"
 
 func (s *Server) resolveAgentNames(ctx context.Context, agentIDs []uuid.UUID) (map[uuid.UUID]string, error) {
 	if len(agentIDs) == 0 {
@@ -23,6 +27,10 @@ func (s *Server) resolveAgentNames(ctx context.Context, agentIDs []uuid.UUID) (m
 	for _, agentID := range agentIDs {
 		resp, err := s.agentsClient.GetAgent(agentCtx, &agentsv1.GetAgentRequest{Id: agentID.String()})
 		if err != nil {
+			if isNotFoundGrpcError(err) {
+				resolved[agentID] = missingNamePlaceholder
+				continue
+			}
 			return nil, fmt.Errorf("get agent %s: %w", agentID, err)
 		}
 		agent := resp.GetAgent()
@@ -73,6 +81,10 @@ func (s *Server) resolveVolumeNames(ctx context.Context, volumeIDs []uuid.UUID) 
 	for _, volumeID := range volumeIDs {
 		resp, err := s.agentsClient.GetVolume(volumeCtx, &agentsv1.GetVolumeRequest{Id: volumeID.String()})
 		if err != nil {
+			if isNotFoundGrpcError(err) {
+				resolved[volumeID] = missingNamePlaceholder
+				continue
+			}
 			return nil, fmt.Errorf("get volume %s: %w", volumeID, err)
 		}
 		volume := resp.GetVolume()
@@ -86,6 +98,11 @@ func (s *Server) resolveVolumeNames(ctx context.Context, volumeIDs []uuid.UUID) 
 		resolved[volumeID] = name
 	}
 	return resolved, nil
+}
+
+func isNotFoundGrpcError(err error) bool {
+	statusErr, ok := status.FromError(err)
+	return ok && statusErr.Code() == codes.NotFound
 }
 
 func (s *Server) resolveMcpName(ctx context.Context, mcpID uuid.UUID) (string, error) {

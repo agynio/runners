@@ -1198,6 +1198,9 @@ func (s *Server) listVolumeAttachments(ctx context.Context, volumeID uuid.UUID) 
 			VolumeId:  volumeID.String(),
 		})
 		if err != nil {
+			if isNotFoundGrpcError(err) {
+				return []*agentsv1.VolumeAttachment{}, nil
+			}
 			return nil, err
 		}
 		attachments = append(attachments, resp.GetVolumeAttachments()...)
