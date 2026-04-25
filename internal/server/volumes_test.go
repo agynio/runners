@@ -7,9 +7,12 @@ import (
 	"testing"
 	"time"
 
+	agentsv1 "github.com/agynio/runners/.gen/go/agynio/api/agents/v1"
 	authorizationv1 "github.com/agynio/runners/.gen/go/agynio/api/authorization/v1"
+	notificationsv1 "github.com/agynio/runners/.gen/go/agynio/api/notifications/v1"
 	runnersv1 "github.com/agynio/runners/.gen/go/agynio/api/runners/v1"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/pashagolub/pgxmock/v3"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -51,12 +54,22 @@ func TestListVolumesFiltersOrganization(t *testing.T) {
 	rows := pgxmock.NewRows(volumeRowColumns).
 		AddRow(volumeID, nil, volumeResourceID, threadID, runnerID, agentID, organizationID, "10", volumeStatusActive, nil, nil, now, now)
 
-	query := fmt.Sprintf("SELECT %s FROM volumes WHERE organization_id = $1 ORDER BY id ASC LIMIT $2", volumeColumns)
+	query := fmt.Sprintf("SELECT %s FROM volumes WHERE organization_id = $1", volumeColumns)
 	mockPool.ExpectQuery(regexp.QuoteMeta(query)).
-		WithArgs(organizationID, 51).
+		WithArgs(organizationID).
 		WillReturnRows(rows)
 
-	checkRelations := make([]string, 0, 2)
+	volumeName := "volume-name"
+	agentsClient := fakeAgentsClient{
+		getVolume: func(ctx context.Context, req *agentsv1.GetVolumeRequest) (*agentsv1.GetVolumeResponse, error) {
+			return &agentsv1.GetVolumeResponse{Volume: &agentsv1.Volume{Description: volumeName}}, nil
+		},
+		listVolumeAttachments: func(ctx context.Context, req *agentsv1.ListVolumeAttachmentsRequest) (*agentsv1.ListVolumeAttachmentsResponse, error) {
+			return &agentsv1.ListVolumeAttachmentsResponse{}, nil
+		},
+	}
+
+	var gotCheckReq *authorizationv1.CheckRequest
 	authorizationClient := fakeAuthorizationClient{
 		check: func(ctx context.Context, req *authorizationv1.CheckRequest) (*authorizationv1.CheckResponse, error) {
 			relation := req.GetTupleKey().GetRelation()
@@ -79,7 +92,7 @@ func TestListVolumesFiltersOrganization(t *testing.T) {
 		},
 	}
 
-	srv := New(Options{Pool: mockPool, AuthorizationClient: authorizationClient})
+	srv := New(Options{Pool: mockPool, AuthorizationClient: authorizationClient, AgentsClient: agentsClient})
 	organizationIDValue := organizationID.String()
 	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(identityMetadata, callerID.String()))
 	resp, err := srv.ListVolumes(ctx, &runnersv1.ListVolumesRequest{OrganizationId: &organizationIDValue})
@@ -92,125 +105,14 @@ func TestListVolumesFiltersOrganization(t *testing.T) {
 	if resp.GetVolumes()[0].GetOrganizationId() != organizationID.String() {
 		t.Fatalf("expected organization id %q, got %q", organizationID.String(), resp.GetVolumes()[0].GetOrganizationId())
 	}
-	if len(checkRelations) != 2 {
-		t.Fatalf("expected 2 authorization checks, got %d", len(checkRelations))
+	if resp.GetVolumes()[0].GetVolumeName() != volumeName {
+		t.Fatalf("expected volume name %q, got %q", volumeName, resp.GetVolumes()[0].GetVolumeName())
 	}
-	if checkRelations[0] != clusterAdminRelation || checkRelations[1] != organizationMemberRelation {
-		t.Fatalf("unexpected relation order %v", checkRelations)
+	if gotCheckReq == nil {
+		t.Fatal("expected authorization Check to be called")
 	}
-
-	if err := mockPool.ExpectationsWereMet(); err != nil {
-		t.Fatalf("unmet expectations: %v", err)
-	}
-}
-
-func TestListVolumesAllowsClusterAdminForOrganization(t *testing.T) {
-	mockPool, err := pgxmock.NewPool()
-	if err != nil {
-		t.Fatalf("failed to create mock pool: %v", err)
-	}
-
-	volumeID := uuid.New()
-	volumeResourceID := uuid.New()
-	threadID := uuid.New()
-	runnerID := uuid.New()
-	agentID := uuid.New()
-	organizationID := uuid.New()
-	callerID := uuid.New()
-	now := time.Now().UTC()
-
-	rows := pgxmock.NewRows(volumeRowColumns).
-		AddRow(volumeID, nil, volumeResourceID, threadID, runnerID, agentID, organizationID, "10", volumeStatusActive, nil, nil, now, now)
-
-	query := fmt.Sprintf("SELECT %s FROM volumes WHERE organization_id = $1 ORDER BY id ASC LIMIT $2", volumeColumns)
-	mockPool.ExpectQuery(regexp.QuoteMeta(query)).
-		WithArgs(organizationID, 51).
-		WillReturnRows(rows)
-
-	checkRelations := make([]string, 0, 1)
-	authorizationClient := fakeAuthorizationClient{
-		check: func(ctx context.Context, req *authorizationv1.CheckRequest) (*authorizationv1.CheckResponse, error) {
-			relation := req.GetTupleKey().GetRelation()
-			checkRelations = append(checkRelations, relation)
-			if relation != clusterAdminRelation {
-				t.Fatalf("expected cluster admin relation, got %s", relation)
-			}
-			if req.GetTupleKey().GetObject() != clusterObject {
-				t.Fatalf("expected cluster object %s, got %s", clusterObject, req.GetTupleKey().GetObject())
-			}
-			return &authorizationv1.CheckResponse{Allowed: true}, nil
-		},
-	}
-
-	srv := New(Options{Pool: mockPool, AuthorizationClient: authorizationClient})
-	organizationIDValue := organizationID.String()
-	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(identityMetadata, callerID.String()))
-	resp, err := srv.ListVolumes(ctx, &runnersv1.ListVolumesRequest{OrganizationId: &organizationIDValue})
-	if err != nil {
-		t.Fatalf("ListVolumes failed: %v", err)
-	}
-	if len(resp.GetVolumes()) != 1 {
-		t.Fatalf("expected 1 volume, got %d", len(resp.GetVolumes()))
-	}
-	if len(checkRelations) != 1 || checkRelations[0] != clusterAdminRelation {
-		t.Fatalf("expected cluster admin check, got %v", checkRelations)
-	}
-
-	if err := mockPool.ExpectationsWereMet(); err != nil {
-		t.Fatalf("unmet expectations: %v", err)
-	}
-}
-
-func TestListVolumesAllowsClusterAdminWithoutOrganization(t *testing.T) {
-	mockPool, err := pgxmock.NewPool()
-	if err != nil {
-		t.Fatalf("failed to create mock pool: %v", err)
-	}
-
-	volumeID := uuid.New()
-	volumeResourceID := uuid.New()
-	threadID := uuid.New()
-	runnerID := uuid.New()
-	agentID := uuid.New()
-	organizationID := uuid.New()
-	callerID := uuid.New()
-	now := time.Now().UTC()
-
-	rows := pgxmock.NewRows(volumeRowColumns).
-		AddRow(volumeID, nil, volumeResourceID, threadID, runnerID, agentID, organizationID, "10", volumeStatusActive, nil, nil, now, now)
-
-	query := fmt.Sprintf("SELECT %s FROM volumes WHERE runner_id = $1 ORDER BY id ASC LIMIT $2", volumeColumns)
-	mockPool.ExpectQuery(regexp.QuoteMeta(query)).
-		WithArgs(runnerID, 51).
-		WillReturnRows(rows)
-
-	checkRelations := make([]string, 0, 1)
-	authorizationClient := fakeAuthorizationClient{
-		check: func(ctx context.Context, req *authorizationv1.CheckRequest) (*authorizationv1.CheckResponse, error) {
-			relation := req.GetTupleKey().GetRelation()
-			checkRelations = append(checkRelations, relation)
-			if relation != clusterAdminRelation {
-				t.Fatalf("expected cluster admin relation, got %s", relation)
-			}
-			if req.GetTupleKey().GetObject() != clusterObject {
-				t.Fatalf("expected cluster object %s, got %s", clusterObject, req.GetTupleKey().GetObject())
-			}
-			return &authorizationv1.CheckResponse{Allowed: true}, nil
-		},
-	}
-
-	srv := New(Options{Pool: mockPool, AuthorizationClient: authorizationClient})
-	runnerIDValue := runnerID.String()
-	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(identityMetadata, callerID.String()))
-	resp, err := srv.ListVolumes(ctx, &runnersv1.ListVolumesRequest{RunnerId: &runnerIDValue})
-	if err != nil {
-		t.Fatalf("ListVolumes failed: %v", err)
-	}
-	if len(resp.GetVolumes()) != 1 {
-		t.Fatalf("expected 1 volume, got %d", len(resp.GetVolumes()))
-	}
-	if len(checkRelations) != 1 || checkRelations[0] != clusterAdminRelation {
-		t.Fatalf("expected cluster admin check, got %v", checkRelations)
+	if gotCheckReq.GetTupleKey().GetRelation() != organizationViewVolumes {
+		t.Fatalf("expected view volumes relation, got %s", gotCheckReq.GetTupleKey().GetRelation())
 	}
 
 	if err := mockPool.ExpectationsWereMet(); err != nil {
@@ -236,12 +138,22 @@ func TestListVolumesFiltersRunner(t *testing.T) {
 	rows := pgxmock.NewRows(volumeRowColumns).
 		AddRow(volumeID, nil, volumeResourceID, threadID, runnerID, agentID, organizationID, "10", volumeStatusActive, nil, nil, now, now)
 
-	query := fmt.Sprintf("SELECT %s FROM volumes WHERE runner_id = $1 ORDER BY id ASC LIMIT $2", volumeColumns)
+	query := fmt.Sprintf("SELECT %s FROM volumes WHERE organization_id = $1 AND runner_id = ANY($2)", volumeColumns)
 	mockPool.ExpectQuery(regexp.QuoteMeta(query)).
-		WithArgs(runnerID, 51).
+		WithArgs(organizationID, pgtype.FlatArray[uuid.UUID]([]uuid.UUID{runnerID})).
 		WillReturnRows(rows)
 
-	checkRelations := make([]string, 0, 2)
+	volumeName := "volume-name"
+	agentsClient := fakeAgentsClient{
+		getVolume: func(ctx context.Context, req *agentsv1.GetVolumeRequest) (*agentsv1.GetVolumeResponse, error) {
+			return &agentsv1.GetVolumeResponse{Volume: &agentsv1.Volume{Description: volumeName}}, nil
+		},
+		listVolumeAttachments: func(ctx context.Context, req *agentsv1.ListVolumeAttachmentsRequest) (*agentsv1.ListVolumeAttachmentsResponse, error) {
+			return &agentsv1.ListVolumeAttachmentsResponse{}, nil
+		},
+	}
+
+	var gotCheckReq *authorizationv1.CheckRequest
 	authorizationClient := fakeAuthorizationClient{
 		check: func(ctx context.Context, req *authorizationv1.CheckRequest) (*authorizationv1.CheckResponse, error) {
 			relation := req.GetTupleKey().GetRelation()
@@ -264,10 +176,11 @@ func TestListVolumesFiltersRunner(t *testing.T) {
 		},
 	}
 
-	srv := New(Options{Pool: mockPool, AuthorizationClient: authorizationClient})
+	srv := New(Options{Pool: mockPool, AuthorizationClient: authorizationClient, AgentsClient: agentsClient})
 	runnerIDValue := runnerID.String()
+	organizationIDValue := organizationID.String()
 	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(identityMetadata, callerID.String()))
-	resp, err := srv.ListVolumes(ctx, &runnersv1.ListVolumesRequest{RunnerId: &runnerIDValue})
+	resp, err := srv.ListVolumes(ctx, &runnersv1.ListVolumesRequest{OrganizationId: &organizationIDValue, RunnerId: &runnerIDValue})
 	if err != nil {
 		t.Fatalf("ListVolumes failed: %v", err)
 	}
@@ -277,67 +190,11 @@ func TestListVolumesFiltersRunner(t *testing.T) {
 	if resp.GetVolumes()[0].GetRunnerId() != runnerID.String() {
 		t.Fatalf("expected runner id %q, got %q", runnerID.String(), resp.GetVolumes()[0].GetRunnerId())
 	}
-	if len(checkRelations) != 2 {
-		t.Fatalf("expected 2 authorization checks, got %d", len(checkRelations))
+	if resp.GetVolumes()[0].GetVolumeName() != volumeName {
+		t.Fatalf("expected volume name %q, got %q", volumeName, resp.GetVolumes()[0].GetVolumeName())
 	}
-	if checkRelations[0] != clusterAdminRelation || checkRelations[1] != organizationMemberRelation {
-		t.Fatalf("unexpected relation order %v", checkRelations)
-	}
-
-	if err := mockPool.ExpectationsWereMet(); err != nil {
-		t.Fatalf("unmet expectations: %v", err)
-	}
-}
-
-func TestListVolumesByThreadAllowsClusterAdmin(t *testing.T) {
-	mockPool, err := pgxmock.NewPool()
-	if err != nil {
-		t.Fatalf("failed to create mock pool: %v", err)
-	}
-
-	volumeID := uuid.New()
-	volumeResourceID := uuid.New()
-	threadID := uuid.New()
-	runnerID := uuid.New()
-	agentID := uuid.New()
-	organizationID := uuid.New()
-	callerID := uuid.New()
-	now := time.Now().UTC()
-
-	rows := pgxmock.NewRows(volumeRowColumns).
-		AddRow(volumeID, nil, volumeResourceID, threadID, runnerID, agentID, organizationID, "10", volumeStatusActive, nil, nil, now, now)
-
-	query := fmt.Sprintf("SELECT %s FROM volumes WHERE thread_id = $1 ORDER BY id ASC LIMIT $2", volumeColumns)
-	mockPool.ExpectQuery(regexp.QuoteMeta(query)).
-		WithArgs(threadID, 51).
-		WillReturnRows(rows)
-
-	checkRelations := make([]string, 0, 1)
-	authorizationClient := fakeAuthorizationClient{
-		check: func(ctx context.Context, req *authorizationv1.CheckRequest) (*authorizationv1.CheckResponse, error) {
-			relation := req.GetTupleKey().GetRelation()
-			checkRelations = append(checkRelations, relation)
-			if relation != clusterAdminRelation {
-				t.Fatalf("expected cluster admin relation, got %s", relation)
-			}
-			if req.GetTupleKey().GetObject() != clusterObject {
-				t.Fatalf("expected cluster object %s, got %s", clusterObject, req.GetTupleKey().GetObject())
-			}
-			return &authorizationv1.CheckResponse{Allowed: true}, nil
-		},
-	}
-
-	srv := New(Options{Pool: mockPool, AuthorizationClient: authorizationClient})
-	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(identityMetadata, callerID.String()))
-	resp, err := srv.ListVolumesByThread(ctx, &runnersv1.ListVolumesByThreadRequest{ThreadId: threadID.String()})
-	if err != nil {
-		t.Fatalf("ListVolumesByThread failed: %v", err)
-	}
-	if len(resp.GetVolumes()) != 1 {
-		t.Fatalf("expected 1 volume, got %d", len(resp.GetVolumes()))
-	}
-	if len(checkRelations) != 1 || checkRelations[0] != clusterAdminRelation {
-		t.Fatalf("expected cluster admin check, got %v", checkRelations)
+	if gotCheckReq == nil {
+		t.Fatal("expected authorization Check to be called")
 	}
 
 	if err := mockPool.ExpectationsWereMet(); err != nil {
@@ -363,12 +220,22 @@ func TestListVolumesPendingSample(t *testing.T) {
 	rows := pgxmock.NewRows(volumeRowColumns).
 		AddRow(volumeID, nil, volumeResourceID, threadID, runnerID, agentID, organizationID, "10", volumeStatusActive, nil, nil, now, now)
 
-	query := fmt.Sprintf("SELECT %s FROM volumes WHERE %s ORDER BY id ASC LIMIT $1", volumeColumns, pendingSampleClause)
+	query := fmt.Sprintf("SELECT %s FROM volumes WHERE organization_id = $1 AND %s", volumeColumns, pendingSampleClause)
 	mockPool.ExpectQuery(regexp.QuoteMeta(query)).
-		WithArgs(51).
+		WithArgs(organizationID).
 		WillReturnRows(rows)
 
-	checkRelations := make([]string, 0, 2)
+	volumeName := "volume-name"
+	agentsClient := fakeAgentsClient{
+		getVolume: func(ctx context.Context, req *agentsv1.GetVolumeRequest) (*agentsv1.GetVolumeResponse, error) {
+			return &agentsv1.GetVolumeResponse{Volume: &agentsv1.Volume{Description: volumeName}}, nil
+		},
+		listVolumeAttachments: func(ctx context.Context, req *agentsv1.ListVolumeAttachmentsRequest) (*agentsv1.ListVolumeAttachmentsResponse, error) {
+			return &agentsv1.ListVolumeAttachmentsResponse{}, nil
+		},
+	}
+
+	var gotCheckReq *authorizationv1.CheckRequest
 	authorizationClient := fakeAuthorizationClient{
 		check: func(ctx context.Context, req *authorizationv1.CheckRequest) (*authorizationv1.CheckResponse, error) {
 			relation := req.GetTupleKey().GetRelation()
@@ -391,10 +258,11 @@ func TestListVolumesPendingSample(t *testing.T) {
 		},
 	}
 
-	srv := New(Options{Pool: mockPool, AuthorizationClient: authorizationClient})
+	srv := New(Options{Pool: mockPool, AuthorizationClient: authorizationClient, AgentsClient: agentsClient})
 	pendingSample := true
+	organizationIDValue := organizationID.String()
 	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(identityMetadata, callerID.String()))
-	resp, err := srv.ListVolumes(ctx, &runnersv1.ListVolumesRequest{PendingSample: &pendingSample})
+	resp, err := srv.ListVolumes(ctx, &runnersv1.ListVolumesRequest{OrganizationId: &organizationIDValue, PendingSample: &pendingSample})
 	if err != nil {
 		t.Fatalf("ListVolumes failed: %v", err)
 	}
@@ -413,9 +281,200 @@ func TestListVolumesPendingSample(t *testing.T) {
 	}
 }
 
+func TestListVolumesFiltersAttachments(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("failed to create mock pool: %v", err)
+	}
+
+	volumeID := uuid.New()
+	volumeResourceID := uuid.New()
+	otherVolumeID := uuid.New()
+	otherResourceID := uuid.New()
+	threadID := uuid.New()
+	runnerID := uuid.New()
+	agentID := uuid.New()
+	organizationID := uuid.New()
+	callerID := uuid.New()
+	now := time.Now().UTC()
+
+	rows := pgxmock.NewRows(volumeRowColumns).
+		AddRow(volumeID, nil, volumeResourceID, threadID, runnerID, agentID, organizationID, "10", volumeStatusActive, nil, nil, now, now).
+		AddRow(otherVolumeID, nil, otherResourceID, threadID, runnerID, agentID, organizationID, "20", volumeStatusActive, nil, nil, now, now)
+
+	query := fmt.Sprintf("SELECT %s FROM volumes WHERE organization_id = $1", volumeColumns)
+	mockPool.ExpectQuery(regexp.QuoteMeta(query)).
+		WithArgs(organizationID).
+		WillReturnRows(rows)
+
+	volumeName := "data-volume"
+	otherName := "other-volume"
+	agentsClient := fakeAgentsClient{
+		getVolume: func(ctx context.Context, req *agentsv1.GetVolumeRequest) (*agentsv1.GetVolumeResponse, error) {
+			switch req.GetId() {
+			case volumeResourceID.String():
+				return &agentsv1.GetVolumeResponse{Volume: &agentsv1.Volume{Description: volumeName}}, nil
+			case otherResourceID.String():
+				return &agentsv1.GetVolumeResponse{Volume: &agentsv1.Volume{Description: otherName}}, nil
+			default:
+				return &agentsv1.GetVolumeResponse{Volume: &agentsv1.Volume{}}, nil
+			}
+		},
+		listVolumeAttachments: func(ctx context.Context, req *agentsv1.ListVolumeAttachmentsRequest) (*agentsv1.ListVolumeAttachmentsResponse, error) {
+			if req.GetVolumeId() == volumeResourceID.String() {
+				return &agentsv1.ListVolumeAttachmentsResponse{
+					VolumeAttachments: []*agentsv1.VolumeAttachment{{
+						VolumeId: volumeResourceID.String(),
+						Target:   &agentsv1.VolumeAttachment_AgentId{AgentId: agentID.String()},
+					}},
+				}, nil
+			}
+			return &agentsv1.ListVolumeAttachmentsResponse{}, nil
+		},
+		getAgent: func(ctx context.Context, req *agentsv1.GetAgentRequest) (*agentsv1.GetAgentResponse, error) {
+			return &agentsv1.GetAgentResponse{Agent: &agentsv1.Agent{Name: "agent"}}, nil
+		},
+	}
+
+	authorizationClient := fakeAuthorizationClient{
+		check: func(ctx context.Context, req *authorizationv1.CheckRequest) (*authorizationv1.CheckResponse, error) {
+			return &authorizationv1.CheckResponse{Allowed: true}, nil
+		},
+	}
+
+	srv := New(Options{Pool: mockPool, AuthorizationClient: authorizationClient, AgentsClient: agentsClient})
+	organizationIDValue := organizationID.String()
+	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(identityMetadata, callerID.String()))
+	resp, err := srv.ListVolumes(ctx, &runnersv1.ListVolumesRequest{
+		OrganizationId: &organizationIDValue,
+		Filter: &runnersv1.ListVolumesFilter{
+			AttachedToKindIn: []runnersv1.VolumeAttachmentFilterKind{
+				runnersv1.VolumeAttachmentFilterKind_VOLUME_ATTACHMENT_FILTER_KIND_AGENT,
+			},
+			VolumeNameSubstring: &volumeName,
+		},
+	})
+	if err != nil {
+		t.Fatalf("ListVolumes failed: %v", err)
+	}
+	if len(resp.GetVolumes()) != 1 {
+		t.Fatalf("expected 1 volume, got %d", len(resp.GetVolumes()))
+	}
+	volume := resp.GetVolumes()[0]
+	if volume.GetVolumeName() != volumeName {
+		t.Fatalf("expected volume name %q, got %q", volumeName, volume.GetVolumeName())
+	}
+	attachments := volume.GetAttachments()
+	if len(attachments) != 1 {
+		t.Fatalf("expected 1 attachment, got %d", len(attachments))
+	}
+	if attachments[0].GetKind() != runnersv1.AttachmentKind_ATTACHMENT_KIND_AGENT {
+		t.Fatalf("expected agent attachment, got %v", attachments[0].GetKind())
+	}
+
+	if err := mockPool.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestListVolumesPaginationByName(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("failed to create mock pool: %v", err)
+	}
+
+	volumeID := uuid.New()
+	volumeResourceID := uuid.New()
+	otherVolumeID := uuid.New()
+	otherResourceID := uuid.New()
+	threadID := uuid.New()
+	runnerID := uuid.New()
+	agentID := uuid.New()
+	organizationID := uuid.New()
+	callerID := uuid.New()
+	now := time.Now().UTC()
+
+	rows := pgxmock.NewRows(volumeRowColumns).
+		AddRow(volumeID, nil, volumeResourceID, threadID, runnerID, agentID, organizationID, "10", volumeStatusActive, nil, nil, now, now).
+		AddRow(otherVolumeID, nil, otherResourceID, threadID, runnerID, agentID, organizationID, "20", volumeStatusActive, nil, nil, now, now)
+
+	query := fmt.Sprintf("SELECT %s FROM volumes WHERE organization_id = $1", volumeColumns)
+	mockPool.ExpectQuery(regexp.QuoteMeta(query)).WithArgs(organizationID).WillReturnRows(rows)
+	rowsSecond := pgxmock.NewRows(volumeRowColumns).
+		AddRow(volumeID, nil, volumeResourceID, threadID, runnerID, agentID, organizationID, "10", volumeStatusActive, nil, nil, now, now).
+		AddRow(otherVolumeID, nil, otherResourceID, threadID, runnerID, agentID, organizationID, "20", volumeStatusActive, nil, nil, now, now)
+	mockPool.ExpectQuery(regexp.QuoteMeta(query)).WithArgs(organizationID).WillReturnRows(rowsSecond)
+
+	volumeName := "alpha"
+	otherName := "beta"
+	agentsClient := fakeAgentsClient{
+		getVolume: func(ctx context.Context, req *agentsv1.GetVolumeRequest) (*agentsv1.GetVolumeResponse, error) {
+			switch req.GetId() {
+			case volumeResourceID.String():
+				return &agentsv1.GetVolumeResponse{Volume: &agentsv1.Volume{Description: volumeName}}, nil
+			case otherResourceID.String():
+				return &agentsv1.GetVolumeResponse{Volume: &agentsv1.Volume{Description: otherName}}, nil
+			default:
+				return &agentsv1.GetVolumeResponse{Volume: &agentsv1.Volume{}}, nil
+			}
+		},
+		listVolumeAttachments: func(ctx context.Context, req *agentsv1.ListVolumeAttachmentsRequest) (*agentsv1.ListVolumeAttachmentsResponse, error) {
+			return &agentsv1.ListVolumeAttachmentsResponse{}, nil
+		},
+	}
+
+	authorizationClient := fakeAuthorizationClient{
+		check: func(ctx context.Context, req *authorizationv1.CheckRequest) (*authorizationv1.CheckResponse, error) {
+			return &authorizationv1.CheckResponse{Allowed: true}, nil
+		},
+	}
+
+	srv := New(Options{Pool: mockPool, AuthorizationClient: authorizationClient, AgentsClient: agentsClient})
+	organizationIDValue := organizationID.String()
+	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(identityMetadata, callerID.String()))
+	pageSize := int32(1)
+	resp, err := srv.ListVolumes(ctx, &runnersv1.ListVolumesRequest{OrganizationId: &organizationIDValue, PageSize: pageSize})
+	if err != nil {
+		t.Fatalf("ListVolumes failed: %v", err)
+	}
+	if len(resp.GetVolumes()) != 1 {
+		t.Fatalf("expected 1 volume, got %d", len(resp.GetVolumes()))
+	}
+	if resp.GetVolumes()[0].GetVolumeName() != volumeName {
+		t.Fatalf("expected first volume name %q, got %q", volumeName, resp.GetVolumes()[0].GetVolumeName())
+	}
+	if resp.GetNextPageToken() == "" {
+		t.Fatal("expected next page token")
+	}
+
+	secondResp, err := srv.ListVolumes(ctx, &runnersv1.ListVolumesRequest{OrganizationId: &organizationIDValue, PageSize: pageSize, PageToken: resp.GetNextPageToken()})
+	if err != nil {
+		t.Fatalf("ListVolumes page 2 failed: %v", err)
+	}
+	if len(secondResp.GetVolumes()) != 1 {
+		t.Fatalf("expected 1 volume on second page, got %d", len(secondResp.GetVolumes()))
+	}
+	if secondResp.GetVolumes()[0].GetVolumeName() != otherName {
+		t.Fatalf("expected second volume name %q, got %q", otherName, secondResp.GetVolumes()[0].GetVolumeName())
+	}
+	if secondResp.GetNextPageToken() != "" {
+		t.Fatalf("expected empty next page token, got %q", secondResp.GetNextPageToken())
+	}
+
+	if err := mockPool.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
 func TestListVolumesInvalidUUID(t *testing.T) {
-	srv := New(Options{})
+	authorizationClient := fakeAuthorizationClient{
+		check: func(ctx context.Context, req *authorizationv1.CheckRequest) (*authorizationv1.CheckResponse, error) {
+			return &authorizationv1.CheckResponse{Allowed: true}, nil
+		},
+	}
+	srv := New(Options{AuthorizationClient: authorizationClient})
 	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(identityMetadata, uuid.NewString()))
+	organizationIDValue := uuid.NewString()
 
 	cases := []struct {
 		name string
@@ -432,7 +491,7 @@ func TestListVolumesInvalidUUID(t *testing.T) {
 			name: "runner_id",
 			req: func() *runnersv1.ListVolumesRequest {
 				value := "not-a-uuid"
-				return &runnersv1.ListVolumesRequest{RunnerId: &value}
+				return &runnersv1.ListVolumesRequest{OrganizationId: &organizationIDValue, RunnerId: &value}
 			}(),
 		},
 	}
@@ -565,6 +624,77 @@ func TestUpdateVolume(t *testing.T) {
 	}
 	if resp.GetVolume().GetInstanceId() != instanceID {
 		t.Fatalf("expected instance id %q, got %q", instanceID, resp.GetVolume().GetInstanceId())
+	}
+
+	if err := mockPool.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestUpdateVolumePublishesNotification(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("failed to create mock pool: %v", err)
+	}
+
+	volumeID := uuid.New()
+	volumeResourceID := uuid.New()
+	threadID := uuid.New()
+	runnerID := uuid.New()
+	agentID := uuid.New()
+	organizationID := uuid.New()
+	now := time.Now().UTC()
+
+	selectRows := pgxmock.NewRows(volumeRowColumns).
+		AddRow(volumeID, nil, volumeResourceID, threadID, runnerID, agentID, organizationID, "10", volumeStatusProvisioning, nil, nil, now, now)
+	selectQuery := fmt.Sprintf("SELECT %s FROM volumes WHERE id = $1", volumeColumns)
+	mockPool.ExpectQuery(regexp.QuoteMeta(selectQuery)).
+		WithArgs(volumeID).
+		WillReturnRows(selectRows)
+
+	updateRows := pgxmock.NewRows(volumeRowColumns).
+		AddRow(volumeID, nil, volumeResourceID, threadID, runnerID, agentID, organizationID, "10", volumeStatusActive, nil, nil, now, now)
+	updateQuery := fmt.Sprintf("UPDATE volumes SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING %s", volumeColumns)
+	mockPool.ExpectQuery(regexp.QuoteMeta(updateQuery)).
+		WithArgs(volumeStatusActive, volumeID).
+		WillReturnRows(updateRows)
+
+	published := []*notificationsv1.PublishRequest{}
+	notificationsClient := fakeNotificationsClient{publish: func(ctx context.Context, req *notificationsv1.PublishRequest) (*notificationsv1.PublishResponse, error) {
+		published = append(published, req)
+		return &notificationsv1.PublishResponse{}, nil
+	}}
+
+	srv := New(Options{Pool: mockPool, NotificationsClient: notificationsClient})
+	_, err = srv.UpdateVolume(context.Background(), &runnersv1.UpdateVolumeRequest{
+		Id:     volumeID.String(),
+		Status: runnersv1.VolumeStatus_VOLUME_STATUS_ACTIVE.Enum(),
+	})
+	if err != nil {
+		t.Fatalf("UpdateVolume failed: %v", err)
+	}
+	if len(published) != 1 {
+		t.Fatalf("expected 1 notification, got %d", len(published))
+	}
+	if published[0].GetEvent() != "volume.updated" {
+		t.Fatalf("expected volume.updated event, got %q", published[0].GetEvent())
+	}
+	rooms := published[0].GetRooms()
+	if len(rooms) != 2 {
+		t.Fatalf("expected 2 rooms, got %d", len(rooms))
+	}
+	if rooms[0] != fmt.Sprintf("organization:%s", organizationID.String()) {
+		t.Fatalf("unexpected organization room %q", rooms[0])
+	}
+	if rooms[1] != fmt.Sprintf("volume:%s", volumeID.String()) {
+		t.Fatalf("unexpected volume room %q", rooms[1])
+	}
+	payloadFields := published[0].GetPayload().AsMap()
+	if payloadFields["volume_id"] != volumeID.String() {
+		t.Fatalf("expected payload volume_id %q, got %v", volumeID.String(), payloadFields["volume_id"])
+	}
+	if payloadFields["status"] != volumeStatusActive {
+		t.Fatalf("expected payload status %q, got %v", volumeStatusActive, payloadFields["status"])
 	}
 
 	if err := mockPool.ExpectationsWereMet(); err != nil {

@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	agentsv1 "github.com/agynio/runners/.gen/go/agynio/api/agents/v1"
 	authorizationv1 "github.com/agynio/runners/.gen/go/agynio/api/authorization/v1"
 	identityv1 "github.com/agynio/runners/.gen/go/agynio/api/identity/v1"
 	runnersv1 "github.com/agynio/runners/.gen/go/agynio/api/runners/v1"
@@ -138,7 +139,56 @@ func (f fakeIdentityClient) ResolveNickname(ctx context.Context, req *identityv1
 func (f fakeIdentityClient) BatchGetNicknames(ctx context.Context, req *identityv1.BatchGetNicknamesRequest, opts ...grpc.CallOption) (*identityv1.BatchGetNicknamesResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "not implemented")
 }
+type fakeAgentsClient struct {
+	getAgent              func(ctx context.Context, req *agentsv1.GetAgentRequest) (*agentsv1.GetAgentResponse, error)
+	getVolume             func(ctx context.Context, req *agentsv1.GetVolumeRequest) (*agentsv1.GetVolumeResponse, error)
+	listVolumes           func(ctx context.Context, req *agentsv1.ListVolumesRequest) (*agentsv1.ListVolumesResponse, error)
+	listVolumeAttachments func(ctx context.Context, req *agentsv1.ListVolumeAttachmentsRequest) (*agentsv1.ListVolumeAttachmentsResponse, error)
+	getMcp                func(ctx context.Context, req *agentsv1.GetMcpRequest) (*agentsv1.GetMcpResponse, error)
+	getHook               func(ctx context.Context, req *agentsv1.GetHookRequest) (*agentsv1.GetHookResponse, error)
+}
 
+func (f fakeAgentsClient) GetAgent(ctx context.Context, req *agentsv1.GetAgentRequest, opts ...grpc.CallOption) (*agentsv1.GetAgentResponse, error) {
+	if f.getAgent == nil {
+		return nil, status.Error(codes.Unimplemented, "not implemented")
+	}
+	return f.getAgent(ctx, req)
+}
+
+func (f fakeAgentsClient) GetVolume(ctx context.Context, req *agentsv1.GetVolumeRequest, opts ...grpc.CallOption) (*agentsv1.GetVolumeResponse, error) {
+	if f.getVolume == nil {
+		return nil, status.Error(codes.Unimplemented, "not implemented")
+	}
+	return f.getVolume(ctx, req)
+}
+
+func (f fakeAgentsClient) ListVolumes(ctx context.Context, req *agentsv1.ListVolumesRequest, opts ...grpc.CallOption) (*agentsv1.ListVolumesResponse, error) {
+	if f.listVolumes == nil {
+		return nil, status.Error(codes.Unimplemented, "not implemented")
+	}
+	return f.listVolumes(ctx, req)
+}
+
+func (f fakeAgentsClient) ListVolumeAttachments(ctx context.Context, req *agentsv1.ListVolumeAttachmentsRequest, opts ...grpc.CallOption) (*agentsv1.ListVolumeAttachmentsResponse, error) {
+	if f.listVolumeAttachments == nil {
+		return nil, status.Error(codes.Unimplemented, "not implemented")
+	}
+	return f.listVolumeAttachments(ctx, req)
+}
+
+func (f fakeAgentsClient) GetMcp(ctx context.Context, req *agentsv1.GetMcpRequest, opts ...grpc.CallOption) (*agentsv1.GetMcpResponse, error) {
+	if f.getMcp == nil {
+		return nil, status.Error(codes.Unimplemented, "not implemented")
+	}
+	return f.getMcp(ctx, req)
+}
+
+func (f fakeAgentsClient) GetHook(ctx context.Context, req *agentsv1.GetHookRequest, opts ...grpc.CallOption) (*agentsv1.GetHookResponse, error) {
+	if f.getHook == nil {
+		return nil, status.Error(codes.Unimplemented, "not implemented")
+	}
+	return f.getHook(ctx, req)
+}
 type fakeAuthorizationClient struct {
 	check func(ctx context.Context, req *authorizationv1.CheckRequest) (*authorizationv1.CheckResponse, error)
 	write func(ctx context.Context, req *authorizationv1.WriteRequest) (*authorizationv1.WriteResponse, error)

@@ -24,6 +24,8 @@ const (
 	clusterAdminRelation       = "admin"
 	organizationMemberRelation = "member"
 	organizationOwnerRelation  = "owner"
+	organizationViewWorkloads  = "can_view_workloads"
+	organizationViewVolumes    = "can_view_volumes"
 	identityObjectPrefix       = "identity:"
 	organizationObjectPrefix   = "organization:"
 	identityMetadata           = "x-identity-id"
@@ -35,6 +37,7 @@ type Server struct {
 	pool                 dbPool
 	identityClient       identityv1.IdentityServiceClient
 	authorizationClient  authorizationv1.AuthorizationServiceClient
+	agentsClient         agentsClient
 	zitiManagementClient zitimanagementv1.ZitiManagementServiceClient
 	notificationsClient  notificationsv1.NotificationsServiceClient
 	zitiDialer           ZitiDialer
@@ -46,6 +49,7 @@ type Options struct {
 	Pool                 dbPool
 	IdentityClient       identityv1.IdentityServiceClient
 	AuthorizationClient  authorizationv1.AuthorizationServiceClient
+	AgentsClient         agentsClient
 	ZitiManagementClient zitimanagementv1.ZitiManagementServiceClient
 	NotificationsClient  notificationsv1.NotificationsServiceClient
 	ZitiDialer           ZitiDialer
@@ -57,6 +61,7 @@ func New(options Options) *Server {
 		pool:                 options.Pool,
 		identityClient:       options.IdentityClient,
 		authorizationClient:  options.AuthorizationClient,
+		agentsClient:         options.AgentsClient,
 		zitiManagementClient: options.ZitiManagementClient,
 		notificationsClient:  options.NotificationsClient,
 		zitiDialer:           options.ZitiDialer,
