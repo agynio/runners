@@ -495,8 +495,14 @@ func (s *Server) ListWorkloads(ctx context.Context, req *runnersv1.ListWorkloads
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "organization_id: %v", err)
 	}
-	if err := s.requireRelation(ctx, callerID, organizationViewWorkloads, organizationObject(organizationID)); err != nil {
+	isClusterAdmin, err := s.clusterAdminAllowed(ctx, callerID)
+	if err != nil {
 		return nil, err
+	}
+	if !isClusterAdmin {
+		if err := s.requireRelation(ctx, callerID, organizationViewWorkloads, organizationObject(organizationID)); err != nil {
+			return nil, err
+		}
 	}
 
 	filter := workloadListFilter{OrganizationID: organizationID}

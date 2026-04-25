@@ -366,8 +366,14 @@ func (s *Server) ListVolumes(ctx context.Context, req *runnersv1.ListVolumesRequ
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "organization_id: %v", err)
 	}
-	if err := s.requireRelation(ctx, callerID, organizationViewVolumes, organizationObject(organizationID)); err != nil {
+	isClusterAdmin, err := s.clusterAdminAllowed(ctx, callerID)
+	if err != nil {
 		return nil, err
+	}
+	if !isClusterAdmin {
+		if err := s.requireRelation(ctx, callerID, organizationViewVolumes, organizationObject(organizationID)); err != nil {
+			return nil, err
+		}
 	}
 
 	filter := volumeListFilter{OrganizationID: organizationID}

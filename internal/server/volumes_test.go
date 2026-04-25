@@ -79,26 +79,12 @@ func TestListVolumesFiltersOrganization(t *testing.T) {
 		},
 	}
 
-	var gotCheckReq *authorizationv1.CheckRequest
+	var gotCheckReqs []*authorizationv1.CheckRequest
 	authorizationClient := fakeAuthorizationClient{
 		check: func(ctx context.Context, req *authorizationv1.CheckRequest) (*authorizationv1.CheckResponse, error) {
-			relation := req.GetTupleKey().GetRelation()
-			checkRelations = append(checkRelations, relation)
-			switch relation {
-			case clusterAdminRelation:
-				if req.GetTupleKey().GetObject() != clusterObject {
-					t.Fatalf("expected cluster object %s, got %s", clusterObject, req.GetTupleKey().GetObject())
-				}
-				return &authorizationv1.CheckResponse{Allowed: false}, nil
-			case organizationMemberRelation:
-				if req.GetTupleKey().GetObject() != organizationObject(organizationID) {
-					t.Fatalf("expected organization object %s, got %s", organizationObject(organizationID), req.GetTupleKey().GetObject())
-				}
-				return &authorizationv1.CheckResponse{Allowed: true}, nil
-			default:
-				t.Fatalf("unexpected relation %s", relation)
-				return nil, status.Error(codes.Internal, "unexpected relation")
-			}
+			gotCheckReqs = append(gotCheckReqs, req)
+			allowed := req.GetTupleKey().GetRelation() != clusterAdminRelation
+			return &authorizationv1.CheckResponse{Allowed: allowed}, nil
 		},
 	}
 
@@ -118,11 +104,20 @@ func TestListVolumesFiltersOrganization(t *testing.T) {
 	if resp.GetVolumes()[0].GetVolumeName() != volumeName {
 		t.Fatalf("expected volume name %q, got %q", volumeName, resp.GetVolumes()[0].GetVolumeName())
 	}
-	if gotCheckReq == nil {
-		t.Fatal("expected authorization Check to be called")
+	if len(gotCheckReqs) != 2 {
+		t.Fatalf("expected 2 authorization checks, got %d", len(gotCheckReqs))
 	}
-	if gotCheckReq.GetTupleKey().GetRelation() != organizationViewVolumes {
-		t.Fatalf("expected view volumes relation, got %s", gotCheckReq.GetTupleKey().GetRelation())
+	if gotCheckReqs[0].GetTupleKey().GetRelation() != clusterAdminRelation {
+		t.Fatalf("expected cluster admin relation, got %s", gotCheckReqs[0].GetTupleKey().GetRelation())
+	}
+	if gotCheckReqs[0].GetTupleKey().GetObject() != clusterObject {
+		t.Fatalf("expected cluster object %q, got %q", clusterObject, gotCheckReqs[0].GetTupleKey().GetObject())
+	}
+	if gotCheckReqs[1].GetTupleKey().GetRelation() != organizationViewVolumes {
+		t.Fatalf("expected view volumes relation, got %s", gotCheckReqs[1].GetTupleKey().GetRelation())
+	}
+	if gotCheckReqs[1].GetTupleKey().GetObject() != organizationObject(organizationID) {
+		t.Fatalf("expected organization object %q, got %q", organizationObject(organizationID), gotCheckReqs[1].GetTupleKey().GetObject())
 	}
 
 	if err := mockPool.ExpectationsWereMet(); err != nil {
@@ -628,10 +623,10 @@ func TestListVolumesRequiresViewVolumes(t *testing.T) {
 	organizationID := uuid.New()
 	callerID := uuid.New()
 
-	var gotCheckReq *authorizationv1.CheckRequest
+	var gotCheckReqs []*authorizationv1.CheckRequest
 	authorizationClient := fakeAuthorizationClient{
 		check: func(ctx context.Context, req *authorizationv1.CheckRequest) (*authorizationv1.CheckResponse, error) {
-			gotCheckReq = req
+			gotCheckReqs = append(gotCheckReqs, req)
 			return &authorizationv1.CheckResponse{Allowed: false}, nil
 		},
 	}
@@ -643,11 +638,95 @@ func TestListVolumesRequiresViewVolumes(t *testing.T) {
 	if status.Code(err) != codes.PermissionDenied {
 		t.Fatalf("expected PermissionDenied error, got %v", err)
 	}
-	if gotCheckReq == nil {
-		t.Fatal("expected authorization Check to be called")
+	if len(gotCheckReqs) != 2 {
+		t.Fatalf("expected 2 authorization checks, got %d", len(gotCheckReqs))
 	}
-	if gotCheckReq.GetTupleKey().GetRelation() != organizationViewVolumes {
-		t.Fatalf("expected view volumes relation, got %s", gotCheckReq.GetTupleKey().GetRelation())
+	if gotCheckReqs[0].GetTupleKey().GetRelation() != clusterAdminRelation {
+		t.Fatalf("expected cluster admin relation, got %s", gotCheckReqs[0].GetTupleKey().GetRelation())
+	}
+	if gotCheckReqs[0].GetTupleKey().GetObject() != clusterObject {
+		t.Fatalf("expected cluster object %q, got %q", clusterObject, gotCheckReqs[0].GetTupleKey().GetObject())
+	}
+	if gotCheckReqs[1].GetTupleKey().GetRelation() != organizationViewVolumes {
+		t.Fatalf("expected view volumes relation, got %s", gotCheckReqs[1].GetTupleKey().GetRelation())
+	}
+	if gotCheckReqs[1].GetTupleKey().GetObject() != organizationObject(organizationID) {
+		t.Fatalf("expected organization object %q, got %q", organizationObject(organizationID), gotCheckReqs[1].GetTupleKey().GetObject())
+	}
+
+	if err := mockPool.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestListVolumesAllowsClusterAdmin(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("failed to create mock pool: %v", err)
+	}
+
+	volumeID := uuid.New()
+	volumeResourceID := uuid.New()
+	threadID := uuid.New()
+	runnerID := uuid.New()
+	agentID := uuid.New()
+	organizationID := uuid.New()
+	callerID := uuid.New()
+	now := time.Now().UTC()
+
+	rows := pgxmock.NewRows(volumeRowColumns).
+		AddRow(volumeID, nil, volumeResourceID, threadID, runnerID, agentID, organizationID, "10", volumeStatusActive, nil, nil, now, now)
+
+	volumeIDRows := pgxmock.NewRows([]string{"volume_id"}).AddRow(volumeResourceID)
+	volumeIDQuery := "SELECT DISTINCT volume_id FROM volumes WHERE volumes.organization_id = $1"
+	mockPool.ExpectQuery(regexp.QuoteMeta(volumeIDQuery)).
+		WithArgs(organizationID).
+		WillReturnRows(volumeIDRows)
+
+	volumeName := "volume-name"
+	limit := normalizePageSize(0)
+	sortExpr := "CASE volumes.volume_id WHEN $2 THEN $3 END"
+	query := fmt.Sprintf("SELECT %s FROM volumes WHERE volumes.organization_id = $1 ORDER BY %s ASC, volumes.id ASC LIMIT $4", volumeColumns, sortExpr)
+	mockPool.ExpectQuery(regexp.QuoteMeta(query)).
+		WithArgs(organizationID, volumeResourceID, strings.ToLower(volumeName), int(limit)+1).
+		WillReturnRows(rows)
+
+	agentsClient := fakeAgentsClient{
+		getVolume: func(ctx context.Context, req *agentsv1.GetVolumeRequest) (*agentsv1.GetVolumeResponse, error) {
+			return &agentsv1.GetVolumeResponse{Volume: &agentsv1.Volume{Description: volumeName}}, nil
+		},
+		listVolumeAttachments: func(ctx context.Context, req *agentsv1.ListVolumeAttachmentsRequest) (*agentsv1.ListVolumeAttachmentsResponse, error) {
+			return &agentsv1.ListVolumeAttachmentsResponse{}, nil
+		},
+	}
+
+	var gotCheckReqs []*authorizationv1.CheckRequest
+	authorizationClient := fakeAuthorizationClient{
+		check: func(ctx context.Context, req *authorizationv1.CheckRequest) (*authorizationv1.CheckResponse, error) {
+			gotCheckReqs = append(gotCheckReqs, req)
+			allowed := req.GetTupleKey().GetRelation() == clusterAdminRelation
+			return &authorizationv1.CheckResponse{Allowed: allowed}, nil
+		},
+	}
+
+	srv := New(Options{Pool: mockPool, AuthorizationClient: authorizationClient, AgentsClient: agentsClient})
+	organizationIDValue := organizationID.String()
+	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(identityMetadata, callerID.String()))
+	resp, err := srv.ListVolumes(ctx, &runnersv1.ListVolumesRequest{OrganizationId: &organizationIDValue})
+	if err != nil {
+		t.Fatalf("ListVolumes failed: %v", err)
+	}
+	if len(resp.GetVolumes()) != 1 {
+		t.Fatalf("expected 1 volume, got %d", len(resp.GetVolumes()))
+	}
+	if len(gotCheckReqs) != 1 {
+		t.Fatalf("expected 1 authorization check, got %d", len(gotCheckReqs))
+	}
+	if gotCheckReqs[0].GetTupleKey().GetRelation() != clusterAdminRelation {
+		t.Fatalf("expected cluster admin relation, got %s", gotCheckReqs[0].GetTupleKey().GetRelation())
+	}
+	if gotCheckReqs[0].GetTupleKey().GetObject() != clusterObject {
+		t.Fatalf("expected cluster object %q, got %q", clusterObject, gotCheckReqs[0].GetTupleKey().GetObject())
 	}
 
 	if err := mockPool.ExpectationsWereMet(); err != nil {
