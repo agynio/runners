@@ -135,6 +135,10 @@ func (f fakeIdentityClient) ResolveNickname(ctx context.Context, req *identityv1
 	return nil, status.Error(codes.Unimplemented, "not implemented")
 }
 
+func (f fakeIdentityClient) BatchGetNicknames(ctx context.Context, req *identityv1.BatchGetNicknamesRequest, opts ...grpc.CallOption) (*identityv1.BatchGetNicknamesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "not implemented")
+}
+
 type fakeAuthorizationClient struct {
 	check func(ctx context.Context, req *authorizationv1.CheckRequest) (*authorizationv1.CheckResponse, error)
 	write func(ctx context.Context, req *authorizationv1.WriteRequest) (*authorizationv1.WriteResponse, error)
