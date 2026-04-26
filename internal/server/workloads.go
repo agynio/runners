@@ -431,18 +431,25 @@ func (s *Server) ListWorkloadsByThread(ctx context.Context, req *runnersv1.ListW
 		}
 		return nil, status.Errorf(codes.Internal, "list workloads: %v", err)
 	}
-	memberCache := map[uuid.UUID]bool{}
-	filtered := make([]workloadRecord, 0, len(workloads))
-	for _, workload := range workloads {
-		allowed, err := s.memberAllowed(ctx, callerID, workload.OrganizationID, memberCache)
-		if err != nil {
-			return nil, err
-		}
-		if allowed {
-			filtered = append(filtered, workload)
-		}
+	isClusterAdmin, err := s.clusterAdminAllowed(ctx, callerID)
+	if err != nil {
+		return nil, err
 	}
-	protoWorkloads, err := toProtoWorkloadList(filtered)
+	if !isClusterAdmin {
+		memberCache := map[uuid.UUID]bool{}
+		filtered := make([]workloadRecord, 0, len(workloads))
+		for _, workload := range workloads {
+			allowed, err := s.memberAllowed(ctx, callerID, workload.OrganizationID, memberCache)
+			if err != nil {
+				return nil, err
+			}
+			if allowed {
+				filtered = append(filtered, workload)
+			}
+		}
+		workloads = filtered
+	}
+	protoWorkloads, err := toProtoWorkloadList(workloads)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "convert workloads: %v", err)
 	}
@@ -466,12 +473,6 @@ func (s *Server) ListWorkloads(ctx context.Context, req *runnersv1.ListWorkloads
 		}
 		organizationID = &parsed
 	}
-	if organizationID != nil {
-		if err := s.requireOrgMember(ctx, callerID, *organizationID); err != nil {
-			return nil, err
-		}
-	}
-
 	var runnerID *uuid.UUID
 	if req.RunnerId != nil {
 		parsed, err := parseUUID(req.GetRunnerId())
@@ -479,6 +480,16 @@ func (s *Server) ListWorkloads(ctx context.Context, req *runnersv1.ListWorkloads
 			return nil, status.Errorf(codes.InvalidArgument, "runner_id: %v", err)
 		}
 		runnerID = &parsed
+	}
+
+	isClusterAdmin, err := s.clusterAdminAllowed(ctx, callerID)
+	if err != nil {
+		return nil, err
+	}
+	if organizationID != nil && !isClusterAdmin {
+		if err := s.requireOrgMember(ctx, callerID, *organizationID); err != nil {
+			return nil, err
+		}
 	}
 
 	pendingSample := req.PendingSample != nil && req.GetPendingSample()
@@ -491,7 +502,7 @@ func (s *Server) ListWorkloads(ctx context.Context, req *runnersv1.ListWorkloads
 		}
 		return nil, status.Errorf(codes.Internal, "list workloads: %v", err)
 	}
-	if organizationID == nil {
+	if organizationID == nil && !isClusterAdmin {
 		memberCache := map[uuid.UUID]bool{}
 		filtered := make([]workloadRecord, 0, len(workloads))
 		for _, workload := range workloads {

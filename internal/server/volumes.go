@@ -218,18 +218,25 @@ func (s *Server) ListVolumesByThread(ctx context.Context, req *runnersv1.ListVol
 		}
 		return nil, status.Errorf(codes.Internal, "list volumes: %v", err)
 	}
-	memberCache := map[uuid.UUID]bool{}
-	filtered := make([]volumeRecord, 0, len(volumes))
-	for _, volume := range volumes {
-		allowed, err := s.memberAllowed(ctx, callerID, volume.OrganizationID, memberCache)
-		if err != nil {
-			return nil, err
-		}
-		if allowed {
-			filtered = append(filtered, volume)
-		}
+	isClusterAdmin, err := s.clusterAdminAllowed(ctx, callerID)
+	if err != nil {
+		return nil, err
 	}
-	protoVolumes, err := toProtoVolumeList(filtered)
+	if !isClusterAdmin {
+		memberCache := map[uuid.UUID]bool{}
+		filtered := make([]volumeRecord, 0, len(volumes))
+		for _, volume := range volumes {
+			allowed, err := s.memberAllowed(ctx, callerID, volume.OrganizationID, memberCache)
+			if err != nil {
+				return nil, err
+			}
+			if allowed {
+				filtered = append(filtered, volume)
+			}
+		}
+		volumes = filtered
+	}
+	protoVolumes, err := toProtoVolumeList(volumes)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "convert volumes: %v", err)
 	}
@@ -253,12 +260,6 @@ func (s *Server) ListVolumes(ctx context.Context, req *runnersv1.ListVolumesRequ
 		}
 		organizationID = &parsed
 	}
-	if organizationID != nil {
-		if err := s.requireOrgMember(ctx, callerID, *organizationID); err != nil {
-			return nil, err
-		}
-	}
-
 	var runnerID *uuid.UUID
 	if req.RunnerId != nil {
 		parsed, err := parseUUID(req.GetRunnerId())
@@ -266,6 +267,16 @@ func (s *Server) ListVolumes(ctx context.Context, req *runnersv1.ListVolumesRequ
 			return nil, status.Errorf(codes.InvalidArgument, "runner_id: %v", err)
 		}
 		runnerID = &parsed
+	}
+
+	isClusterAdmin, err := s.clusterAdminAllowed(ctx, callerID)
+	if err != nil {
+		return nil, err
+	}
+	if organizationID != nil && !isClusterAdmin {
+		if err := s.requireOrgMember(ctx, callerID, *organizationID); err != nil {
+			return nil, err
+		}
 	}
 
 	pendingSample := req.PendingSample != nil && req.GetPendingSample()
@@ -278,7 +289,7 @@ func (s *Server) ListVolumes(ctx context.Context, req *runnersv1.ListVolumesRequ
 		}
 		return nil, status.Errorf(codes.Internal, "list volumes: %v", err)
 	}
-	if organizationID == nil {
+	if organizationID == nil && !isClusterAdmin {
 		memberCache := map[uuid.UUID]bool{}
 		filtered := make([]volumeRecord, 0, len(volumes))
 		for _, volume := range volumes {
