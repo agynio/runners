@@ -373,6 +373,54 @@ func TestListWorkloadsByThreadPagination(t *testing.T) {
 	}
 }
 
+func TestListWorkloadsByThreadPaginationTieBreak(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("failed to create mock pool: %v", err)
+	}
+
+	threadID := uuid.New()
+	runnerID := uuid.New()
+	agentID := uuid.New()
+	organizationID := uuid.New()
+	containersJSON := []byte("[]")
+	pageSize := int32(1)
+	limit := normalizePageSize(pageSize)
+
+	createdAt := time.Now().UTC()
+	firstID := uuid.MustParse("ffffffff-ffff-ffff-ffff-ffffffffffff")
+	secondID := uuid.MustParse("00000000-0000-0000-0000-000000000000")
+
+	rows := pgxmock.NewRows(workloadRowColumns).
+		AddRow(firstID, runnerID, threadID, agentID, organizationID, workloadStatusRunning, nil, nil, containersJSON, "ziti-id", int32(0), int64(0), nil, createdAt, nil, nil, createdAt, createdAt).
+		AddRow(secondID, runnerID, threadID, agentID, organizationID, workloadStatusRunning, nil, nil, containersJSON, "ziti-id", int32(0), int64(0), nil, createdAt, nil, nil, createdAt, createdAt)
+
+	query := fmt.Sprintf("SELECT %s FROM workloads WHERE thread_id = $1 ORDER BY created_at DESC, id DESC LIMIT $2", workloadColumns)
+	mockPool.ExpectQuery(regexp.QuoteMeta(query)).
+		WithArgs(threadID, int(limit)+1).
+		WillReturnRows(rows)
+
+	srv := New(Options{Pool: mockPool})
+	workloads, nextToken, err := srv.listWorkloadsByThread(context.Background(), threadID, nil, nil, pageSize, "")
+	if err != nil {
+		t.Fatalf("listWorkloadsByThread failed: %v", err)
+	}
+	if len(workloads) != 1 {
+		t.Fatalf("expected 1 workload, got %d", len(workloads))
+	}
+	if workloads[0].Meta.ID != firstID {
+		t.Fatalf("expected first workload id %s, got %s", firstID, workloads[0].Meta.ID)
+	}
+	expectedToken := encodeWorkloadCursor(createdAt, firstID)
+	if nextToken != expectedToken {
+		t.Fatalf("expected next token %q, got %q", expectedToken, nextToken)
+	}
+
+	if err := mockPool.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
 func TestListWorkloadsByThreadInvalidPageToken(t *testing.T) {
 	srv := New(Options{})
 	threadID := uuid.New()

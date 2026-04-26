@@ -654,7 +654,7 @@ func (s *Server) touchWorkloadForAgent(ctx context.Context, id uuid.UUID, agentI
 
 func (s *Server) listWorkloadsByThread(ctx context.Context, threadID uuid.UUID, agentID *uuid.UUID, statuses []string, pageSize int32, pageToken string) ([]workloadRecord, string, error) {
 	limit := normalizePageSize(pageSize)
-	clauses := []string{fmt.Sprintf("thread_id = $1")}
+	clauses := []string{"thread_id = $1"}
 	args := []any{threadID}
 
 	if agentID != nil {
