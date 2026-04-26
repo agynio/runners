@@ -10,6 +10,7 @@ import (
 const (
 	defaultIdentityAddress       = "identity:50051"
 	defaultAuthorizationAddress  = "authorization:50051"
+	defaultAgentsAddress         = "agents:50051"
 	defaultZitiManagementAddress = "ziti-management:50051"
 	defaultNotificationsAddress  = "notifications:50051"
 	defaultGRPCAddr              = ":50051"
@@ -20,6 +21,7 @@ type Config struct {
 	DatabaseURL              string
 	IdentityAddress          string
 	AuthorizationAddress     string
+	AgentsAddress            string
 	ZitiManagementAddress    string
 	NotificationsAddress     string
 	ZitiLeaseRenewalInterval time.Duration
@@ -39,6 +41,7 @@ func Load() (Config, error) {
 
 	cfg.IdentityAddress = readEnv("IDENTITY_ADDRESS", defaultIdentityAddress)
 	cfg.AuthorizationAddress = readEnv("AUTHORIZATION_ADDRESS", defaultAuthorizationAddress)
+	cfg.AgentsAddress = readEnv("AGENTS_ADDRESS", defaultAgentsAddress)
 	cfg.ZitiManagementAddress = readEnv("ZITI_MANAGEMENT_ADDRESS", defaultZitiManagementAddress)
 	cfg.NotificationsAddress = readEnv("NOTIFICATIONS_ADDRESS", defaultNotificationsAddress)
 	leaseRenewalInterval := strings.TrimSpace(os.Getenv("ZITI_LEASE_RENEWAL_INTERVAL"))

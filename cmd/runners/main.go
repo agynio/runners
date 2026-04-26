@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	agentsv1 "github.com/agynio/runners/.gen/go/agynio/api/agents/v1"
 	authorizationv1 "github.com/agynio/runners/.gen/go/agynio/api/authorization/v1"
 	identityv1 "github.com/agynio/runners/.gen/go/agynio/api/identity/v1"
 	notificationsv1 "github.com/agynio/runners/.gen/go/agynio/api/notifications/v1"
@@ -65,6 +66,12 @@ func run() error {
 	}
 	defer authorizationConn.Close()
 
+	agentsConn, err := grpc.DialContext(ctx, cfg.AgentsAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return fmt.Errorf("dial agents service: %w", err)
+	}
+	defer agentsConn.Close()
+
 	zitiManagementConn, err := grpc.DialContext(ctx, cfg.ZitiManagementAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return fmt.Errorf("dial ziti management service: %w", err)
@@ -90,6 +97,7 @@ func run() error {
 		Pool:                 pool,
 		IdentityClient:       identityv1.NewIdentityServiceClient(identityConn),
 		AuthorizationClient:  authorizationv1.NewAuthorizationServiceClient(authorizationConn),
+		AgentsClient:         agentsv1.NewAgentsServiceClient(agentsConn),
 		ZitiManagementClient: zitiMgmtClient,
 		NotificationsClient:  notificationsv1.NewNotificationsServiceClient(notificationsConn),
 		ZitiDialer:           zitiManager,

@@ -22,16 +22,27 @@ jobs:
           path: service
 
       - name: Provision cluster
-        uses: agynio/bootstrap/.github/actions/provision@adf1dc4453de5934a9bae8c0f03f7b417e472d79
+        uses: agynio/bootstrap/.github/actions/provision@main
         env:
           TF_VAR_ziti_management_chart_version: "0.10.10"
 
       - name: Setup DevSpace
         uses: agynio/e2e/.github/actions/setup-devspace@main
 
+      - name: Checkout agents-orchestrator
+        uses: actions/checkout@v4
+        with:
+          repository: agynio/agents-orchestrator
+          ref: cd934479a503d27998d34e01872fa1e885319cb9
+          path: agents-orchestrator
+
       - name: Deploy runners from source
         run: devspace run deploy -n platform
         working-directory: service
+
+      - name: Deploy agents-orchestrator from source
+        run: devspace run deploy -n platform
+        working-directory: agents-orchestrator
 
       - name: Run E2E tests
         uses: agynio/e2e/.github/actions/run-tests@main
