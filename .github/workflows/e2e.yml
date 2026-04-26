@@ -22,9 +22,7 @@ jobs:
           path: service
 
       - name: Provision cluster
-        uses: agynio/bootstrap/.github/actions/provision@ec73ff7f1cfcdca65a829e8e1a0ff8b8c050535d
-        with:
-          ref: ec73ff7f1cfcdca65a829e8e1a0ff8b8c050535d
+        uses: agynio/bootstrap/.github/actions/provision@main
         env:
           TF_VAR_ziti_management_chart_version: "0.10.10"
 
