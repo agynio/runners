@@ -328,25 +328,18 @@ func (s *Server) ListVolumesByThread(ctx context.Context, req *runnersv1.ListVol
 		}
 		return nil, status.Errorf(codes.Internal, "list volumes: %v", err)
 	}
-	isClusterAdmin, err := s.clusterAdminAllowed(ctx, callerID)
-	if err != nil {
-		return nil, err
-	}
-	if !isClusterAdmin {
-		memberCache := map[uuid.UUID]bool{}
-		filtered := make([]volumeRecord, 0, len(volumes))
-		for _, volume := range volumes {
-			allowed, err := s.memberAllowed(ctx, callerID, volume.OrganizationID, memberCache)
-			if err != nil {
-				return nil, err
-			}
-			if allowed {
-				filtered = append(filtered, volume)
-			}
+	memberCache := map[uuid.UUID]bool{}
+	filtered := make([]volumeRecord, 0, len(volumes))
+	for _, volume := range volumes {
+		allowed, err := s.memberAllowed(ctx, callerID, volume.OrganizationID, memberCache)
+		if err != nil {
+			return nil, err
 		}
-		volumes = filtered
+		if allowed {
+			filtered = append(filtered, volume)
+		}
 	}
-	protoVolumes, err := toProtoVolumeList(volumes)
+	protoVolumes, err := toProtoVolumeList(filtered)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "convert volumes: %v", err)
 	}

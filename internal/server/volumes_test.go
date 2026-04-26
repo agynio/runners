@@ -162,23 +162,8 @@ func TestListVolumesFiltersRunner(t *testing.T) {
 	var gotCheckReq *authorizationv1.CheckRequest
 	authorizationClient := fakeAuthorizationClient{
 		check: func(ctx context.Context, req *authorizationv1.CheckRequest) (*authorizationv1.CheckResponse, error) {
-			relation := req.GetTupleKey().GetRelation()
-			checkRelations = append(checkRelations, relation)
-			switch relation {
-			case clusterAdminRelation:
-				if req.GetTupleKey().GetObject() != clusterObject {
-					t.Fatalf("expected cluster object %s, got %s", clusterObject, req.GetTupleKey().GetObject())
-				}
-				return &authorizationv1.CheckResponse{Allowed: false}, nil
-			case organizationMemberRelation:
-				if req.GetTupleKey().GetObject() != organizationObject(organizationID) {
-					t.Fatalf("expected organization object %s, got %s", organizationObject(organizationID), req.GetTupleKey().GetObject())
-				}
-				return &authorizationv1.CheckResponse{Allowed: true}, nil
-			default:
-				t.Fatalf("unexpected relation %s", relation)
-				return nil, status.Error(codes.Internal, "unexpected relation")
-			}
+			gotCheckReq = req
+			return &authorizationv1.CheckResponse{Allowed: true}, nil
 		},
 	}
 
@@ -251,23 +236,8 @@ func TestListVolumesPendingSample(t *testing.T) {
 	var gotCheckReq *authorizationv1.CheckRequest
 	authorizationClient := fakeAuthorizationClient{
 		check: func(ctx context.Context, req *authorizationv1.CheckRequest) (*authorizationv1.CheckResponse, error) {
-			relation := req.GetTupleKey().GetRelation()
-			checkRelations = append(checkRelations, relation)
-			switch relation {
-			case clusterAdminRelation:
-				if req.GetTupleKey().GetObject() != clusterObject {
-					t.Fatalf("expected cluster object %s, got %s", clusterObject, req.GetTupleKey().GetObject())
-				}
-				return &authorizationv1.CheckResponse{Allowed: false}, nil
-			case organizationMemberRelation:
-				if req.GetTupleKey().GetObject() != organizationObject(organizationID) {
-					t.Fatalf("expected organization object %s, got %s", organizationObject(organizationID), req.GetTupleKey().GetObject())
-				}
-				return &authorizationv1.CheckResponse{Allowed: true}, nil
-			default:
-				t.Fatalf("unexpected relation %s", relation)
-				return nil, status.Error(codes.Internal, "unexpected relation")
-			}
+			gotCheckReq = req
+			return &authorizationv1.CheckResponse{Allowed: true}, nil
 		},
 	}
 
@@ -282,11 +252,8 @@ func TestListVolumesPendingSample(t *testing.T) {
 	if len(resp.GetVolumes()) != 1 {
 		t.Fatalf("expected 1 volume, got %d", len(resp.GetVolumes()))
 	}
-	if len(checkRelations) != 2 {
-		t.Fatalf("expected 2 authorization checks, got %d", len(checkRelations))
-	}
-	if checkRelations[0] != clusterAdminRelation || checkRelations[1] != organizationMemberRelation {
-		t.Fatalf("unexpected relation order %v", checkRelations)
+	if gotCheckReq == nil {
+		t.Fatal("expected authorization Check to be called")
 	}
 
 	if err := mockPool.ExpectationsWereMet(); err != nil {

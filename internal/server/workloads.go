@@ -457,25 +457,18 @@ func (s *Server) ListWorkloadsByThread(ctx context.Context, req *runnersv1.ListW
 		}
 		return nil, status.Errorf(codes.Internal, "list workloads: %v", err)
 	}
-	isClusterAdmin, err := s.clusterAdminAllowed(ctx, callerID)
-	if err != nil {
-		return nil, err
-	}
-	if !isClusterAdmin {
-		memberCache := map[uuid.UUID]bool{}
-		filtered := make([]workloadRecord, 0, len(workloads))
-		for _, workload := range workloads {
-			allowed, err := s.memberAllowed(ctx, callerID, workload.OrganizationID, memberCache)
-			if err != nil {
-				return nil, err
-			}
-			if allowed {
-				filtered = append(filtered, workload)
-			}
+	memberCache := map[uuid.UUID]bool{}
+	filtered := make([]workloadRecord, 0, len(workloads))
+	for _, workload := range workloads {
+		allowed, err := s.memberAllowed(ctx, callerID, workload.OrganizationID, memberCache)
+		if err != nil {
+			return nil, err
 		}
-		workloads = filtered
+		if allowed {
+			filtered = append(filtered, workload)
+		}
 	}
-	protoWorkloads, err := toProtoWorkloadList(workloads)
+	protoWorkloads, err := toProtoWorkloadList(filtered)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "convert workloads: %v", err)
 	}
