@@ -98,7 +98,7 @@ func TestListWorkloadsFiltersOrganization(t *testing.T) {
 	authorizationClient := fakeAuthorizationClient{
 		check: func(ctx context.Context, req *authorizationv1.CheckRequest) (*authorizationv1.CheckResponse, error) {
 			gotCheckReqs = append(gotCheckReqs, req)
-			allowed := req.GetTupleKey().GetRelation() != clusterAdminRelation
+			allowed := req.GetTupleKey().GetRelation() == organizationViewWorkloads
 			return &authorizationv1.CheckResponse{Allowed: allowed}, nil
 		},
 	}
@@ -122,20 +122,14 @@ func TestListWorkloadsFiltersOrganization(t *testing.T) {
 	if resp.GetWorkloads()[0].GetRunnerName() != runnerName {
 		t.Fatalf("expected runner name %q, got %q", runnerName, resp.GetWorkloads()[0].GetRunnerName())
 	}
-	if len(gotCheckReqs) != 2 {
-		t.Fatalf("expected 2 authorization checks, got %d", len(gotCheckReqs))
+	if len(gotCheckReqs) != 1 {
+		t.Fatalf("expected 1 authorization check, got %d", len(gotCheckReqs))
 	}
-	if gotCheckReqs[0].GetTupleKey().GetRelation() != clusterAdminRelation {
-		t.Fatalf("expected cluster admin relation, got %s", gotCheckReqs[0].GetTupleKey().GetRelation())
+	if gotCheckReqs[0].GetTupleKey().GetRelation() != organizationViewWorkloads {
+		t.Fatalf("expected view workloads relation, got %s", gotCheckReqs[0].GetTupleKey().GetRelation())
 	}
-	if gotCheckReqs[0].GetTupleKey().GetObject() != clusterObject {
-		t.Fatalf("expected cluster object %q, got %q", clusterObject, gotCheckReqs[0].GetTupleKey().GetObject())
-	}
-	if gotCheckReqs[1].GetTupleKey().GetRelation() != organizationViewWorkloads {
-		t.Fatalf("expected view workloads relation, got %s", gotCheckReqs[1].GetTupleKey().GetRelation())
-	}
-	if gotCheckReqs[1].GetTupleKey().GetObject() != organizationObject(organizationID) {
-		t.Fatalf("expected organization object %q, got %q", organizationObject(organizationID), gotCheckReqs[1].GetTupleKey().GetObject())
+	if gotCheckReqs[0].GetTupleKey().GetObject() != organizationObject(organizationID) {
+		t.Fatalf("expected organization object %q, got %q", organizationObject(organizationID), gotCheckReqs[0].GetTupleKey().GetObject())
 	}
 
 	if err := mockPool.ExpectationsWereMet(); err != nil {
@@ -181,7 +175,7 @@ func TestListWorkloadsFiltersRunner(t *testing.T) {
 	authorizationClient := fakeAuthorizationClient{
 		check: func(ctx context.Context, req *authorizationv1.CheckRequest) (*authorizationv1.CheckResponse, error) {
 			gotCheckReqs = append(gotCheckReqs, req)
-			allowed := req.GetTupleKey().GetRelation() != clusterAdminRelation
+			allowed := req.GetTupleKey().GetRelation() == organizationViewWorkloads
 			return &authorizationv1.CheckResponse{Allowed: allowed}, nil
 		},
 	}
@@ -206,20 +200,14 @@ func TestListWorkloadsFiltersRunner(t *testing.T) {
 	if resp.GetWorkloads()[0].GetRunnerName() != runnerName {
 		t.Fatalf("expected runner name %q, got %q", runnerName, resp.GetWorkloads()[0].GetRunnerName())
 	}
-	if len(gotCheckReqs) != 2 {
-		t.Fatalf("expected 2 authorization checks, got %d", len(gotCheckReqs))
+	if len(gotCheckReqs) != 1 {
+		t.Fatalf("expected 1 authorization check, got %d", len(gotCheckReqs))
 	}
-	if gotCheckReqs[0].GetTupleKey().GetRelation() != clusterAdminRelation {
-		t.Fatalf("expected cluster admin relation, got %s", gotCheckReqs[0].GetTupleKey().GetRelation())
+	if gotCheckReqs[0].GetTupleKey().GetRelation() != organizationViewWorkloads {
+		t.Fatalf("expected view workloads relation, got %s", gotCheckReqs[0].GetTupleKey().GetRelation())
 	}
-	if gotCheckReqs[0].GetTupleKey().GetObject() != clusterObject {
-		t.Fatalf("expected cluster object %q, got %q", clusterObject, gotCheckReqs[0].GetTupleKey().GetObject())
-	}
-	if gotCheckReqs[1].GetTupleKey().GetRelation() != organizationViewWorkloads {
-		t.Fatalf("expected view workloads relation, got %s", gotCheckReqs[1].GetTupleKey().GetRelation())
-	}
-	if gotCheckReqs[1].GetTupleKey().GetObject() != organizationObject(organizationID) {
-		t.Fatalf("expected organization object %q, got %q", organizationObject(organizationID), gotCheckReqs[1].GetTupleKey().GetObject())
+	if gotCheckReqs[0].GetTupleKey().GetObject() != organizationObject(organizationID) {
+		t.Fatalf("expected organization object %q, got %q", organizationObject(organizationID), gotCheckReqs[0].GetTupleKey().GetObject())
 	}
 
 	if err := mockPool.ExpectationsWereMet(); err != nil {
@@ -559,90 +547,19 @@ func TestListWorkloadsRequiresViewWorkloads(t *testing.T) {
 	if status.Code(err) != codes.PermissionDenied {
 		t.Fatalf("expected PermissionDenied error, got %v", err)
 	}
-	if len(gotCheckReqs) != 2 {
-		t.Fatalf("expected 2 authorization checks, got %d", len(gotCheckReqs))
+	if len(gotCheckReqs) != 1 {
+		t.Fatalf("expected 1 authorization check, got %d", len(gotCheckReqs))
 	}
-	if gotCheckReqs[0].GetTupleKey().GetRelation() != clusterAdminRelation {
-		t.Fatalf("expected cluster admin relation, got %s", gotCheckReqs[0].GetTupleKey().GetRelation())
+	if gotCheckReqs[0].GetTupleKey().GetRelation() != organizationViewWorkloads {
+		t.Fatalf("expected view workloads relation, got %s", gotCheckReqs[0].GetTupleKey().GetRelation())
 	}
-	if gotCheckReqs[0].GetTupleKey().GetObject() != clusterObject {
-		t.Fatalf("expected cluster object %q, got %q", clusterObject, gotCheckReqs[0].GetTupleKey().GetObject())
-	}
-	if gotCheckReqs[1].GetTupleKey().GetRelation() != organizationViewWorkloads {
-		t.Fatalf("expected view workloads relation, got %s", gotCheckReqs[1].GetTupleKey().GetRelation())
-	}
-	if gotCheckReqs[1].GetTupleKey().GetObject() != organizationObject(organizationID) {
-		t.Fatalf("expected organization object %q, got %q", organizationObject(organizationID), gotCheckReqs[1].GetTupleKey().GetObject())
+	if gotCheckReqs[0].GetTupleKey().GetObject() != organizationObject(organizationID) {
+		t.Fatalf("expected organization object %q, got %q", organizationObject(organizationID), gotCheckReqs[0].GetTupleKey().GetObject())
 	}
 
 	if err := mockPool.ExpectationsWereMet(); err != nil {
 		t.Fatalf("unmet expectations: %v", err)
 	}
-}
-
-func TestListWorkloadsAllowsClusterAdmin(t *testing.T) {
-	mockPool, err := pgxmock.NewPool()
-	if err != nil {
-		t.Fatalf("failed to create mock pool: %v", err)
-	}
-
-	workloadID := uuid.New()
-	runnerID := uuid.New()
-	threadID := uuid.New()
-	agentID := uuid.New()
-	organizationID := uuid.New()
-	callerID := uuid.New()
-	now := time.Now().UTC()
-	containersJSON := []byte("[]")
-
-	rows := pgxmock.NewRows(workloadRowColumns).
-		AddRow(workloadID, runnerID, threadID, agentID, organizationID, workloadStatusRunning, nil, nil, containersJSON, "ziti-id", int32(0), int64(0), nil, now, nil, nil, now, now)
-
-	query := fmt.Sprintf("SELECT %s FROM workloads WHERE workloads.organization_id = $1 ORDER BY workloads.created_at DESC, workloads.id ASC LIMIT $2", workloadColumns)
-	mockPool.ExpectQuery(regexp.QuoteMeta(query)).
-		WithArgs(organizationID, 51).
-		WillReturnRows(rows)
-
-	runnerName := "runner-name"
-	runnerRows := pgxmock.NewRows([]string{"id", "name"}).AddRow(runnerID, runnerName)
-	mockPool.ExpectQuery(regexp.QuoteMeta("SELECT id, name FROM runners WHERE id = ANY($1)")).
-		WithArgs(pgtype.FlatArray[uuid.UUID]([]uuid.UUID{runnerID})).
-		WillReturnRows(runnerRows)
-
-	agentName := "agent-name"
-	agentsClient := fakeAgentsClient{getAgent: func(ctx context.Context, req *agentsv1.GetAgentRequest) (*agentsv1.GetAgentResponse, error) {
-		return &agentsv1.GetAgentResponse{Agent: &agentsv1.Agent{Name: agentName}}, nil
-	}}
-
-	var gotCheckReqs []*authorizationv1.CheckRequest
-	authorizationClient := fakeAuthorizationClient{
-		check: func(ctx context.Context, req *authorizationv1.CheckRequest) (*authorizationv1.CheckResponse, error) {
-			gotCheckReqs = append(gotCheckReqs, req)
-			allowed := req.GetTupleKey().GetRelation() == clusterAdminRelation
-			return &authorizationv1.CheckResponse{Allowed: allowed}, nil
-		},
-	}
-
-	srv := New(Options{Pool: mockPool, AuthorizationClient: authorizationClient, AgentsClient: agentsClient})
-	organizationIDValue := organizationID.String()
-	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(identityMetadata, callerID.String()))
-	resp, err := srv.ListWorkloads(ctx, &runnersv1.ListWorkloadsRequest{OrganizationId: &organizationIDValue})
-	if err != nil {
-		t.Fatalf("ListWorkloads failed: %v", err)
-	}
-	if len(resp.GetWorkloads()) != 1 {
-		t.Fatalf("expected 1 workload, got %d", len(resp.GetWorkloads()))
-	}
-	if len(gotCheckReqs) != 1 {
-		t.Fatalf("expected 1 authorization check, got %d", len(gotCheckReqs))
-	}
-	if gotCheckReqs[0].GetTupleKey().GetRelation() != clusterAdminRelation {
-		t.Fatalf("expected cluster admin relation, got %s", gotCheckReqs[0].GetTupleKey().GetRelation())
-	}
-	if gotCheckReqs[0].GetTupleKey().GetObject() != clusterObject {
-		t.Fatalf("expected cluster object %q, got %q", clusterObject, gotCheckReqs[0].GetTupleKey().GetObject())
-	}
-
 	if err := mockPool.ExpectationsWereMet(); err != nil {
 		t.Fatalf("unmet expectations: %v", err)
 	}

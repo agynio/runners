@@ -27,10 +27,6 @@ func (s *Server) requireClusterAdmin(ctx context.Context, identityID uuid.UUID) 
 	return s.requireRelation(ctx, identityID, clusterAdminRelation, clusterObject)
 }
 
-func (s *Server) clusterAdminAllowed(ctx context.Context, identityID uuid.UUID) (bool, error) {
-	return s.relationAllowed(ctx, identityID, clusterAdminRelation, clusterObject)
-}
-
 func (s *Server) requireOrgOwner(ctx context.Context, identityID uuid.UUID, organizationID uuid.UUID) error {
 	return s.requireRelation(ctx, identityID, organizationOwnerRelation, organizationObject(organizationID))
 }

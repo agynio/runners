@@ -366,14 +366,8 @@ func (s *Server) ListVolumes(ctx context.Context, req *runnersv1.ListVolumesRequ
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "organization_id: %v", err)
 	}
-	isClusterAdmin, err := s.clusterAdminAllowed(ctx, callerID)
-	if err != nil {
+	if err := s.requireRelation(ctx, callerID, organizationViewVolumes, organizationObject(organizationID)); err != nil {
 		return nil, err
-	}
-	if !isClusterAdmin {
-		if err := s.requireRelation(ctx, callerID, organizationViewVolumes, organizationObject(organizationID)); err != nil {
-			return nil, err
-		}
 	}
 
 	filter := volumeListFilter{OrganizationID: organizationID}
@@ -842,18 +836,6 @@ func parseVolumeSize(value string) (*big.Rat, error) {
 	return size, nil
 }
 
-func compareVolumeSize(a, b string) (int, error) {
-	left, err := parseVolumeSize(a)
-	if err != nil {
-		return 0, err
-	}
-	right, err := parseVolumeSize(b)
-	if err != nil {
-		return 0, err
-	}
-	return left.Cmp(right), nil
-}
-
 func volumeCursorPrimary(field volumeSortField, cursor listCursor) (any, error) {
 	switch field {
 	case volumeSortName:
@@ -903,64 +885,6 @@ func volumePrimaryValue(item volumeListItem, field volumeSortField) (string, err
 		return item.record.Meta.CreatedAt.UTC().Format(time.RFC3339Nano), nil
 	default:
 		return "", errors.New("invalid sort field")
-	}
-}
-
-func compareVolumePrimary(item volumeListItem, other volumeListItem, field volumeSortField) (int, error) {
-	switch field {
-	case volumeSortName:
-		return strings.Compare(strings.ToLower(item.volumeName), strings.ToLower(other.volumeName)), nil
-	case volumeSortSize:
-		return compareVolumeSize(item.record.SizeGB, other.record.SizeGB)
-	case volumeSortStatus:
-		return strings.Compare(item.record.Status, other.record.Status), nil
-	case volumeSortCreated:
-		if item.record.Meta.CreatedAt.Before(other.record.Meta.CreatedAt) {
-			return -1, nil
-		}
-		if item.record.Meta.CreatedAt.After(other.record.Meta.CreatedAt) {
-			return 1, nil
-		}
-		return 0, nil
-	default:
-		return 0, errors.New("invalid sort field")
-	}
-}
-
-func compareVolumePrimaryToCursor(item volumeListItem, cursorPrimary any, field volumeSortField) (int, error) {
-	switch field {
-	case volumeSortName:
-		cursorName, ok := cursorPrimary.(string)
-		if !ok {
-			return 0, errors.New("invalid cursor name")
-		}
-		return strings.Compare(strings.ToLower(item.volumeName), cursorName), nil
-	case volumeSortSize:
-		cursorSize, ok := cursorPrimary.(string)
-		if !ok {
-			return 0, errors.New("invalid cursor size")
-		}
-		return compareVolumeSize(item.record.SizeGB, cursorSize)
-	case volumeSortStatus:
-		cursorStatus, ok := cursorPrimary.(string)
-		if !ok {
-			return 0, errors.New("invalid cursor status")
-		}
-		return strings.Compare(item.record.Status, cursorStatus), nil
-	case volumeSortCreated:
-		cursorTime, ok := cursorPrimary.(time.Time)
-		if !ok {
-			return 0, errors.New("invalid cursor created_at")
-		}
-		if item.record.Meta.CreatedAt.Before(cursorTime) {
-			return -1, nil
-		}
-		if item.record.Meta.CreatedAt.After(cursorTime) {
-			return 1, nil
-		}
-		return 0, nil
-	default:
-		return 0, errors.New("invalid sort field")
 	}
 }
 
@@ -1479,84 +1403,6 @@ func matchesVolumeAttachmentKinds(attachments []*runnersv1.Attachment, kindFilte
 		}
 	}
 	return false
-}
-
-func filterVolumeItemsByAttachmentKind(items []volumeListItem, filterKinds []runnersv1.VolumeAttachmentFilterKind) []volumeListItem {
-	if len(items) == 0 {
-		return items
-	}
-	if len(filterKinds) == 0 {
-		return items
-	}
-	kindFilter := map[runnersv1.VolumeAttachmentFilterKind]bool{}
-	for _, kind := range filterKinds {
-		kindFilter[kind] = true
-	}
-	filtered := make([]volumeListItem, 0, len(items))
-	for _, item := range items {
-		if matchesVolumeAttachmentKinds(item.attachments, kindFilter) {
-			filtered = append(filtered, item)
-		}
-	}
-	return filtered
-}
-
-func filterVolumeItems(items []volumeListItem, filter volumeListFilter) []volumeListItem {
-	items = filterVolumeItemsByName(items, filter.VolumeNameContains)
-	return filterVolumeItemsByAttachmentKind(items, filter.AttachedKinds)
-}
-
-func sortVolumeItems(items []volumeListItem, sortSpec volumeListSort) error {
-	var sortErr error
-	sort.SliceStable(items, func(i, j int) bool {
-		if sortErr != nil {
-			return false
-		}
-		primaryCmp, err := compareVolumePrimary(items[i], items[j], sortSpec.Field)
-		if err != nil {
-			sortErr = err
-			return false
-		}
-		if primaryCmp == 0 {
-			return compareUUID(items[i].record.Meta.ID, items[j].record.Meta.ID) < 0
-		}
-		if sortSpec.Direction == sortAsc {
-			return primaryCmp < 0
-		}
-		return primaryCmp > 0
-	})
-	return sortErr
-}
-
-func applyVolumeCursor(items []volumeListItem, sort volumeListSort, pageToken string) ([]volumeListItem, error) {
-	if pageToken == "" {
-		return items, nil
-	}
-	cursor, cursorID, err := decodeListCursor(pageToken)
-	if err != nil {
-		return nil, InvalidPageToken(err)
-	}
-	cursorPrimary, err := volumeCursorPrimary(sort.Field, cursor)
-	if err != nil {
-		return nil, InvalidPageToken(err)
-	}
-
-	for idx, item := range items {
-		primaryCmp, err := compareVolumePrimaryToCursor(item, cursorPrimary, sort.Field)
-		if err != nil {
-			return nil, err
-		}
-		if sort.Direction == sortAsc {
-			if primaryCmp > 0 || (primaryCmp == 0 && compareUUID(item.record.Meta.ID, cursorID) > 0) {
-				return items[idx:], nil
-			}
-			continue
-		}
-		if primaryCmp < 0 || (primaryCmp == 0 && compareUUID(item.record.Meta.ID, cursorID) > 0) {
-			return items[idx:], nil
-		}
-	}
-	return []volumeListItem{}, nil
 }
 
 func paginateVolumeItems(items []volumeListItem, sort volumeListSort, pageSize int32) ([]volumeListItem, string, error) {
