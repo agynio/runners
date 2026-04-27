@@ -33,6 +33,12 @@ authorizationPolicy:
   identityServiceAccounts:
     - name: gateway
       namespace: ""
+    - name: expose
+      namespace: ""
+    - name: notifications
+      namespace: ""
+    - name: chat
+      namespace: ""
 
 rbac:
   create: false

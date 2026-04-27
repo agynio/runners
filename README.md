@@ -38,3 +38,11 @@ devspace run test-e2e --tag svc_runners
 
 E2E coverage is centralized in [agynio/e2e](https://github.com/agynio/e2e) under the go-core suite.
 See [E2E Testing](https://github.com/agynio/architecture/blob/main/architecture/operations/e2e-testing.md).
+
+## Helm chart defaults
+
+The chart ships with a DENY-based Istio AuthorizationPolicy. By default,
+`authorizationPolicy.identityServiceAccounts` allows in-mesh callers that
+forward `x-identity-id` (`gateway`, `expose`, `notifications`, `chat`).
+Override the list if your deployment uses different service accounts (for
+example, add `agents-orchestrator-e2e` for E2E runs).
