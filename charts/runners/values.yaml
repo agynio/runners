@@ -30,6 +30,9 @@ authorizationPolicy:
   orchestratorServiceAccount:
     name: agents-orchestrator
     namespace: ""
+  identityServiceAccounts:
+    - name: gateway
+      namespace: ""
 
 rbac:
   create: false

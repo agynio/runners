@@ -2,9 +2,14 @@
 {{- $orchestratorNamespace := .Values.authorizationPolicy.orchestratorServiceAccount.namespace | default .Release.Namespace }}
 {{- $orchestratorName := .Values.authorizationPolicy.orchestratorServiceAccount.name }}
 {{- $orchestratorPrincipal := printf "cluster.local/ns/%s/sa/%s" $orchestratorNamespace $orchestratorName }}
+{{- $identityServiceAccounts := .Values.authorizationPolicy.identityServiceAccounts | default list }}
+{{- $identityPrincipals := list $orchestratorPrincipal }}
+{{- range $identityServiceAccounts }}
+{{- $identityNamespace := .namespace | default $.Release.Namespace }}
+{{- $identityPrincipals = append $identityPrincipals (printf "cluster.local/ns/%s/sa/%s" $identityNamespace .name) }}
+{{- end }}
 {{- $gatewayPaths := list "/agynio.api.runners.v1.RunnersService/RegisterRunner" "/agynio.api.runners.v1.RunnersService/GetRunner" "/agynio.api.runners.v1.RunnersService/ListRunners" "/agynio.api.runners.v1.RunnersService/UpdateRunner" "/agynio.api.runners.v1.RunnersService/DeleteRunner" "/agynio.api.runners.v1.RunnersService/GetWorkload" "/agynio.api.runners.v1.RunnersService/ListWorkloadsByThread" "/agynio.api.runners.v1.RunnersService/ListWorkloads" "/agynio.api.runners.v1.RunnersService/TouchWorkload" "/agynio.api.runners.v1.RunnersService/StreamWorkloadLogs" "/agynio.api.runners.v1.RunnersService/GetVolume" "/agynio.api.runners.v1.RunnersService/ListVolumes" "/agynio.api.runners.v1.RunnersService/ListVolumesByThread" }}
-{{- $orchestratorPaths := list "/agynio.api.runners.v1.RunnersService/CreateWorkload" "/agynio.api.runners.v1.RunnersService/UpdateWorkload" "/agynio.api.runners.v1.RunnersService/UpdateWorkloadStatus" "/agynio.api.runners.v1.RunnersService/DeleteWorkload" "/agynio.api.runners.v1.RunnersService/BatchUpdateWorkloadSampledAt" "/agynio.api.runners.v1.RunnersService/CreateVolume" "/agynio.api.runners.v1.RunnersService/UpdateVolume" "/agynio.api.runners.v1.RunnersService/BatchUpdateVolumeSampledAt" "/agynio.api.runners.v1.RunnersService/ListWorkloads" "/agynio.api.runners.v1.RunnersService/ListWorkloadsByThread" "/agynio.api.runners.v1.RunnersService/ListVolumes" "/agynio.api.runners.v1.RunnersService/ListVolumesByThread" "/agynio.api.runners.v1.RunnersService/GetRunner" "/agynio.api.runners.v1.RunnersService/ListRunners" }}
-{{- $tokenPaths := list "/agynio.api.runners.v1.RunnersService/ValidateServiceToken" "/agynio.api.runners.v1.RunnersService/EnrollRunner" }}
+{{- $orchestratorPaths := list "/agynio.api.runners.v1.RunnersService/CreateWorkload" "/agynio.api.runners.v1.RunnersService/UpdateWorkload" "/agynio.api.runners.v1.RunnersService/UpdateWorkloadStatus" "/agynio.api.runners.v1.RunnersService/DeleteWorkload" "/agynio.api.runners.v1.RunnersService/BatchUpdateWorkloadSampledAt" "/agynio.api.runners.v1.RunnersService/CreateVolume" "/agynio.api.runners.v1.RunnersService/UpdateVolume" "/agynio.api.runners.v1.RunnersService/BatchUpdateVolumeSampledAt" }}
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
@@ -15,11 +20,11 @@ spec:
   selector:
     matchLabels:
       {{- include "service-base.selectorLabels" . | nindent 6 }}
-  action: ALLOW
+  action: DENY
   rules:
     - from:
         - source:
-            principals:
+            notPrincipals:
               - {{ $orchestratorPrincipal | quote }}
       to:
         - operation:
@@ -27,20 +32,30 @@ spec:
               {{ range $orchestratorPaths }}
               - {{ . | quote }}
               {{ end }}
-    - when:
-        - key: request.headers[x-identity-id]
-          values:
-            - "*"
+    - from:
+        - source:
+            notPrincipals:
+              {{ range $identityPrincipals }}
+              - {{ . | quote }}
+              {{ end }}
       to:
         - operation:
             paths:
               {{ range $gatewayPaths }}
               - {{ . | quote }}
               {{ end }}
-    - to:
+    - from:
+        - source:
+            notPrincipals:
+              - {{ $orchestratorPrincipal | quote }}
+      when:
+        - key: request.headers[x-identity-id]
+          notValues:
+            - "*"
+      to:
         - operation:
             paths:
-              {{ range $tokenPaths }}
+              {{ range $gatewayPaths }}
               - {{ . | quote }}
               {{ end }}
 {{- end }}
