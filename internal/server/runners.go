@@ -259,7 +259,7 @@ func (s *Server) UpdateRunner(ctx context.Context, req *runnersv1.UpdateRunnerRe
 }
 
 func (s *Server) ListRunners(ctx context.Context, req *runnersv1.ListRunnersRequest) (*runnersv1.ListRunnersResponse, error) {
-	callerID, err := identityFromMetadata(ctx)
+	callerID, err := identityFromMetadataOptional(ctx)
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, "unauthenticated: %v", err)
 	}
@@ -271,8 +271,8 @@ func (s *Server) ListRunners(ctx context.Context, req *runnersv1.ListRunnersRequ
 		}
 		organizationID = &parsed
 	}
-	if organizationID != nil {
-		if err := s.requireOrgMember(ctx, callerID, *organizationID); err != nil {
+	if callerID != nil && organizationID != nil {
+		if err := s.requireOrgMember(ctx, *callerID, *organizationID); err != nil {
 			return nil, err
 		}
 	}
@@ -286,7 +286,7 @@ func (s *Server) ListRunners(ctx context.Context, req *runnersv1.ListRunnersRequ
 		return nil, status.Errorf(codes.Internal, "list runners: %v", err)
 	}
 
-	if organizationID == nil {
+	if callerID != nil && organizationID == nil {
 		memberCache := map[uuid.UUID]bool{}
 		filtered := make([]runnerRecord, 0, len(runners))
 		for _, runner := range runners {
@@ -294,7 +294,7 @@ func (s *Server) ListRunners(ctx context.Context, req *runnersv1.ListRunnersRequ
 				filtered = append(filtered, runner)
 				continue
 			}
-			allowed, err := s.memberAllowed(ctx, callerID, *runner.OrganizationID, memberCache)
+			allowed, err := s.memberAllowed(ctx, *callerID, *runner.OrganizationID, memberCache)
 			if err != nil {
 				return nil, err
 			}

@@ -567,6 +567,53 @@ func TestListRunnersRequiresMember(t *testing.T) {
 	}
 }
 
+func TestListRunnersInternalNoIdentity(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("failed to create mock pool: %v", err)
+	}
+
+	runnerID := uuid.New()
+	organizationID := uuid.New()
+	identityID := uuid.New()
+	now := time.Now().UTC()
+	labelsJSON := []byte("{}")
+	capabilitiesJSON := []byte("[]")
+	rows := pgxmock.NewRows([]string{"id", "name", "organization_id", "identity_id", "ziti_identity_id", "ziti_service_id", "ziti_service_name", "status", "labels", "capabilities", "created_at", "updated_at"}).
+		AddRow(runnerID, "runner-1", pgtype.UUID{Bytes: organizationID, Valid: true}, identityID, "", "service-id", "runner-service", runnerStatusOffline, labelsJSON, capabilitiesJSON, now, now)
+
+	limit := normalizePageSize(0)
+	query := fmt.Sprintf("SELECT %s FROM runners ORDER BY id ASC LIMIT $1", runnerColumns)
+	mockPool.ExpectQuery(regexp.QuoteMeta(query)).WithArgs(int(limit) + 1).WillReturnRows(rows)
+
+	checkCalls := 0
+	authorizationClient := fakeAuthorizationClient{
+		check: func(ctx context.Context, req *authorizationv1.CheckRequest) (*authorizationv1.CheckResponse, error) {
+			checkCalls++
+			return &authorizationv1.CheckResponse{Allowed: false}, nil
+		},
+	}
+
+	srv := New(Options{Pool: mockPool, AuthorizationClient: authorizationClient})
+	resp, err := srv.ListRunners(context.Background(), &runnersv1.ListRunnersRequest{})
+	if err != nil {
+		t.Fatalf("ListRunners failed: %v", err)
+	}
+	if len(resp.GetRunners()) != 1 {
+		t.Fatalf("expected 1 runner, got %d", len(resp.GetRunners()))
+	}
+	if resp.GetRunners()[0].GetOrganizationId() != organizationID.String() {
+		t.Fatalf("expected organization id %q, got %q", organizationID.String(), resp.GetRunners()[0].GetOrganizationId())
+	}
+	if checkCalls != 0 {
+		t.Fatalf("expected no authorization checks, got %d", checkCalls)
+	}
+
+	if err := mockPool.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
 func TestUpdateRunnerUpdatesLabels(t *testing.T) {
 	mockPool, err := pgxmock.NewPool()
 	if err != nil {
