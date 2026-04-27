@@ -25,6 +25,12 @@ serviceAccount:
 
 automountServiceAccountToken: true
 
+authorizationPolicy:
+  enabled: true
+  orchestratorServiceAccount:
+    name: agents-orchestrator
+    namespace: ""
+
 rbac:
   create: false
   clusterWide: false

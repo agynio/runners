@@ -1,0 +1,25 @@
+{{- if .Values.authorizationPolicy.enabled }}
+{{- $orchestratorNamespace := .Values.authorizationPolicy.orchestratorServiceAccount.namespace | default .Release.Namespace }}
+{{- $orchestratorName := .Values.authorizationPolicy.orchestratorServiceAccount.name }}
+{{- $orchestratorPrincipal := printf "cluster.local/ns/%s/sa/%s" $orchestratorNamespace $orchestratorName }}
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: {{ include "service-base.fullname" . }}-internal
+  labels:
+    {{- include "service-base.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "service-base.selectorLabels" . | nindent 6 }}
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - {{ $orchestratorPrincipal | quote }}
+    - when:
+        - key: request.headers[x-identity-id]
+          values:
+            - "*"
+{{- end }}

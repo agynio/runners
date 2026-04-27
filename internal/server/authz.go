@@ -23,6 +23,25 @@ func identityFromMetadata(ctx context.Context) (uuid.UUID, error) {
 	return parseUUID(values[0])
 }
 
+func identityFromMetadataOptional(ctx context.Context) (*uuid.UUID, error) {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return nil, nil
+	}
+	values := md.Get(identityMetadata)
+	if len(values) == 0 {
+		return nil, nil
+	}
+	if len(values) != 1 {
+		return nil, fmt.Errorf("expected single value")
+	}
+	parsed, err := parseUUID(values[0])
+	if err != nil {
+		return nil, err
+	}
+	return &parsed, nil
+}
+
 func (s *Server) requireClusterAdmin(ctx context.Context, identityID uuid.UUID) error {
 	return s.requireRelation(ctx, identityID, clusterAdminRelation, clusterObject)
 }

@@ -139,6 +139,7 @@ func (f fakeIdentityClient) ResolveNickname(ctx context.Context, req *identityv1
 func (f fakeIdentityClient) BatchGetNicknames(ctx context.Context, req *identityv1.BatchGetNicknamesRequest, opts ...grpc.CallOption) (*identityv1.BatchGetNicknamesResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "not implemented")
 }
+
 type fakeAgentsClient struct {
 	getAgent              func(ctx context.Context, req *agentsv1.GetAgentRequest) (*agentsv1.GetAgentResponse, error)
 	getVolume             func(ctx context.Context, req *agentsv1.GetVolumeRequest) (*agentsv1.GetVolumeResponse, error)
@@ -189,6 +190,7 @@ func (f fakeAgentsClient) GetHook(ctx context.Context, req *agentsv1.GetHookRequ
 	}
 	return f.getHook(ctx, req)
 }
+
 type fakeAuthorizationClient struct {
 	check func(ctx context.Context, req *authorizationv1.CheckRequest) (*authorizationv1.CheckResponse, error)
 	write func(ctx context.Context, req *authorizationv1.WriteRequest) (*authorizationv1.WriteResponse, error)
@@ -484,6 +486,52 @@ func TestGetRunnerRequiresMember(t *testing.T) {
 	_, err = srv.GetRunner(ctx, &runnersv1.GetRunnerRequest{Id: runnerID.String()})
 	if status.Code(err) != codes.PermissionDenied {
 		t.Fatalf("expected PermissionDenied error, got %v", err)
+	}
+
+	if err := mockPool.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestGetRunnerInternalNoIdentity(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("failed to create mock pool: %v", err)
+	}
+
+	runnerID := uuid.New()
+	organizationID := uuid.New()
+	identityID := uuid.New()
+	now := time.Now().UTC()
+	labelsJSON := []byte("{}")
+	capabilitiesJSON := []byte("[]")
+	rows := pgxmock.NewRows([]string{"id", "name", "organization_id", "identity_id", "ziti_identity_id", "ziti_service_id", "ziti_service_name", "status", "labels", "capabilities", "created_at", "updated_at"}).
+		AddRow(runnerID, "runner-1", pgtype.UUID{Bytes: organizationID, Valid: true}, identityID, "", "service-id", "runner-service", runnerStatusOffline, labelsJSON, capabilitiesJSON, now, now)
+
+	query := fmt.Sprintf(`SELECT %s FROM runners WHERE id = $1`, runnerColumns)
+	mockPool.ExpectQuery(regexp.QuoteMeta(query)).WithArgs(runnerID).WillReturnRows(rows)
+
+	checkCalls := 0
+	authorizationClient := fakeAuthorizationClient{
+		check: func(ctx context.Context, req *authorizationv1.CheckRequest) (*authorizationv1.CheckResponse, error) {
+			checkCalls++
+			return &authorizationv1.CheckResponse{Allowed: false}, nil
+		},
+	}
+
+	srv := New(Options{Pool: mockPool, AuthorizationClient: authorizationClient})
+	resp, err := srv.GetRunner(context.Background(), &runnersv1.GetRunnerRequest{Id: runnerID.String()})
+	if err != nil {
+		t.Fatalf("GetRunner failed: %v", err)
+	}
+	if resp.GetRunner() == nil {
+		t.Fatal("expected runner in response")
+	}
+	if resp.GetRunner().GetOrganizationId() != organizationID.String() {
+		t.Fatalf("expected organization id %q, got %q", organizationID.String(), resp.GetRunner().GetOrganizationId())
+	}
+	if checkCalls != 0 {
+		t.Fatalf("expected no authorization checks, got %d", checkCalls)
 	}
 
 	if err := mockPool.ExpectationsWereMet(); err != nil {

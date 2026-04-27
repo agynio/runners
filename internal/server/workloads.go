@@ -91,7 +91,7 @@ type workloadUpdateInput struct {
 }
 
 type workloadListFilter struct {
-	OrganizationID uuid.UUID
+	OrganizationID *uuid.UUID
 	AgentIDs       []uuid.UUID
 	RunnerIDs      []uuid.UUID
 	Statuses       []string
@@ -429,7 +429,7 @@ func (s *Server) GetWorkload(ctx context.Context, req *runnersv1.GetWorkloadRequ
 }
 
 func (s *Server) ListWorkloadsByThread(ctx context.Context, req *runnersv1.ListWorkloadsByThreadRequest) (*runnersv1.ListWorkloadsByThreadResponse, error) {
-	callerID, err := identityFromMetadata(ctx)
+	callerID, err := identityFromMetadataOptional(ctx)
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, "unauthenticated: %v", err)
 	}
@@ -457,18 +457,21 @@ func (s *Server) ListWorkloadsByThread(ctx context.Context, req *runnersv1.ListW
 		}
 		return nil, status.Errorf(codes.Internal, "list workloads: %v", err)
 	}
-	memberCache := map[uuid.UUID]bool{}
-	filtered := make([]workloadRecord, 0, len(workloads))
-	for _, workload := range workloads {
-		allowed, err := s.memberAllowed(ctx, callerID, workload.OrganizationID, memberCache)
-		if err != nil {
-			return nil, err
+	if callerID != nil {
+		memberCache := map[uuid.UUID]bool{}
+		filtered := make([]workloadRecord, 0, len(workloads))
+		for _, workload := range workloads {
+			allowed, err := s.memberAllowed(ctx, *callerID, workload.OrganizationID, memberCache)
+			if err != nil {
+				return nil, err
+			}
+			if allowed {
+				filtered = append(filtered, workload)
+			}
 		}
-		if allowed {
-			filtered = append(filtered, workload)
-		}
+		workloads = filtered
 	}
-	protoWorkloads, err := toProtoWorkloadList(filtered)
+	protoWorkloads, err := toProtoWorkloadList(workloads)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "convert workloads: %v", err)
 	}
@@ -476,20 +479,27 @@ func (s *Server) ListWorkloadsByThread(ctx context.Context, req *runnersv1.ListW
 }
 
 func (s *Server) ListWorkloads(ctx context.Context, req *runnersv1.ListWorkloadsRequest) (*runnersv1.ListWorkloadsResponse, error) {
-	callerID, err := identityFromMetadata(ctx)
+	callerID, err := identityFromMetadataOptional(ctx)
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, "unauthenticated: %v", err)
 	}
 	orgValue := strings.TrimSpace(req.GetOrganizationId())
+	var organizationID *uuid.UUID
 	if orgValue == "" {
-		return nil, status.Error(codes.InvalidArgument, "organization_id: value is empty")
+		if callerID != nil {
+			return nil, status.Error(codes.InvalidArgument, "organization_id: value is empty")
+		}
+	} else {
+		parsed, err := parseUUID(orgValue)
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "organization_id: %v", err)
+		}
+		organizationID = &parsed
 	}
-	organizationID, err := parseUUID(orgValue)
-	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "organization_id: %v", err)
-	}
-	if err := s.requireRelation(ctx, callerID, organizationViewWorkloads, organizationObject(organizationID)); err != nil {
-		return nil, err
+	if callerID != nil {
+		if err := s.requireRelation(ctx, *callerID, organizationViewWorkloads, organizationObject(*organizationID)); err != nil {
+			return nil, err
+		}
 	}
 
 	filter := workloadListFilter{OrganizationID: organizationID}
@@ -969,8 +979,12 @@ func buildWorkloadAgentSortExpr(agentNames map[uuid.UUID]string, startIndex int)
 
 func (s *Server) listWorkloads(ctx context.Context, filter workloadListFilter, sort workloadListSort, pageSize int32, pageToken string) ([]workloadRecord, string, error) {
 	limit := normalizePageSize(pageSize)
-	clauses := []string{fmt.Sprintf("workloads.organization_id = $%d", 1)}
-	args := []any{filter.OrganizationID}
+	clauses := []string{}
+	args := []any{}
+	if filter.OrganizationID != nil {
+		clauses = append(clauses, fmt.Sprintf("workloads.organization_id = $%d", len(args)+1))
+		args = append(args, *filter.OrganizationID)
+	}
 
 	if len(filter.AgentIDs) > 0 {
 		clauses = append(clauses, fmt.Sprintf("workloads.agent_id = ANY($%d)", len(args)+1))

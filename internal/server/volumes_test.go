@@ -119,6 +119,75 @@ func TestListVolumesFiltersOrganization(t *testing.T) {
 	}
 }
 
+func TestListVolumesInternalNoIdentity(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("failed to create mock pool: %v", err)
+	}
+
+	volumeID := uuid.New()
+	volumeResourceID := uuid.New()
+	threadID := uuid.New()
+	runnerID := uuid.New()
+	agentID := uuid.New()
+	organizationID := uuid.New()
+	now := time.Now().UTC()
+
+	rows := pgxmock.NewRows(volumeRowColumns).
+		AddRow(volumeID, nil, volumeResourceID, threadID, runnerID, agentID, organizationID, "10", volumeStatusActive, nil, nil, now, now)
+	volumeIDRows := pgxmock.NewRows([]string{"volume_id"}).AddRow(volumeResourceID)
+	volumeIDQuery := "SELECT DISTINCT volume_id FROM volumes"
+	mockPool.ExpectQuery(regexp.QuoteMeta(volumeIDQuery)).
+		WillReturnRows(volumeIDRows)
+
+	volumeName := "volume-name"
+	limit := normalizePageSize(0)
+	sortExpr := "CASE volumes.volume_id WHEN $1 THEN $2 END"
+	query := fmt.Sprintf("SELECT %s FROM volumes ORDER BY %s ASC, volumes.id ASC LIMIT $3", volumeColumns, sortExpr)
+	mockPool.ExpectQuery(regexp.QuoteMeta(query)).
+		WithArgs(volumeResourceID, strings.ToLower(volumeName), int(limit)+1).
+		WillReturnRows(rows)
+
+	agentsClient := fakeAgentsClient{
+		getVolume: func(ctx context.Context, req *agentsv1.GetVolumeRequest) (*agentsv1.GetVolumeResponse, error) {
+			return &agentsv1.GetVolumeResponse{Volume: &agentsv1.Volume{Description: volumeName}}, nil
+		},
+		listVolumeAttachments: func(ctx context.Context, req *agentsv1.ListVolumeAttachmentsRequest) (*agentsv1.ListVolumeAttachmentsResponse, error) {
+			return &agentsv1.ListVolumeAttachmentsResponse{}, nil
+		},
+	}
+
+	checkCalls := 0
+	authorizationClient := fakeAuthorizationClient{
+		check: func(ctx context.Context, req *authorizationv1.CheckRequest) (*authorizationv1.CheckResponse, error) {
+			checkCalls++
+			return &authorizationv1.CheckResponse{Allowed: true}, nil
+		},
+	}
+
+	srv := New(Options{Pool: mockPool, AuthorizationClient: authorizationClient, AgentsClient: agentsClient})
+	resp, err := srv.ListVolumes(context.Background(), &runnersv1.ListVolumesRequest{})
+	if err != nil {
+		t.Fatalf("ListVolumes failed: %v", err)
+	}
+	if len(resp.GetVolumes()) != 1 {
+		t.Fatalf("expected 1 volume, got %d", len(resp.GetVolumes()))
+	}
+	if resp.GetVolumes()[0].GetOrganizationId() != organizationID.String() {
+		t.Fatalf("expected organization id %q, got %q", organizationID.String(), resp.GetVolumes()[0].GetOrganizationId())
+	}
+	if resp.GetVolumes()[0].GetVolumeName() != volumeName {
+		t.Fatalf("expected volume name %q, got %q", volumeName, resp.GetVolumes()[0].GetVolumeName())
+	}
+	if checkCalls != 0 {
+		t.Fatalf("expected no authorization checks, got %d", checkCalls)
+	}
+
+	if err := mockPool.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
 func TestListVolumesFiltersRunner(t *testing.T) {
 	mockPool, err := pgxmock.NewPool()
 	if err != nil {
@@ -612,6 +681,57 @@ func TestListVolumesRequiresViewVolumes(t *testing.T) {
 	if err := mockPool.ExpectationsWereMet(); err != nil {
 		t.Fatalf("unmet expectations: %v", err)
 	}
+	if err := mockPool.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestListVolumesByThreadInternalNoIdentity(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("failed to create mock pool: %v", err)
+	}
+
+	volumeID := uuid.New()
+	volumeResourceID := uuid.New()
+	threadID := uuid.New()
+	runnerID := uuid.New()
+	agentID := uuid.New()
+	organizationID := uuid.New()
+	now := time.Now().UTC()
+	limit := normalizePageSize(0)
+
+	rows := pgxmock.NewRows(volumeRowColumns).
+		AddRow(volumeID, nil, volumeResourceID, threadID, runnerID, agentID, organizationID, "10", volumeStatusActive, nil, nil, now, now)
+
+	query := fmt.Sprintf("SELECT %s FROM volumes WHERE thread_id = $1 ORDER BY id ASC LIMIT $2", volumeColumns)
+	mockPool.ExpectQuery(regexp.QuoteMeta(query)).
+		WithArgs(threadID, int(limit)+1).
+		WillReturnRows(rows)
+
+	checkCalls := 0
+	authorizationClient := fakeAuthorizationClient{
+		check: func(ctx context.Context, req *authorizationv1.CheckRequest) (*authorizationv1.CheckResponse, error) {
+			checkCalls++
+			return &authorizationv1.CheckResponse{Allowed: false}, nil
+		},
+	}
+
+	srv := New(Options{Pool: mockPool, AuthorizationClient: authorizationClient})
+	resp, err := srv.ListVolumesByThread(context.Background(), &runnersv1.ListVolumesByThreadRequest{ThreadId: threadID.String()})
+	if err != nil {
+		t.Fatalf("ListVolumesByThread failed: %v", err)
+	}
+	if len(resp.GetVolumes()) != 1 {
+		t.Fatalf("expected 1 volume, got %d", len(resp.GetVolumes()))
+	}
+	if resp.GetVolumes()[0].GetOrganizationId() != organizationID.String() {
+		t.Fatalf("expected organization id %q, got %q", organizationID.String(), resp.GetVolumes()[0].GetOrganizationId())
+	}
+	if checkCalls != 0 {
+		t.Fatalf("expected no authorization checks, got %d", checkCalls)
+	}
+
 	if err := mockPool.ExpectationsWereMet(); err != nil {
 		t.Fatalf("unmet expectations: %v", err)
 	}

@@ -67,7 +67,7 @@ type volumeUpdateInput struct {
 }
 
 type volumeListFilter struct {
-	OrganizationID     uuid.UUID
+	OrganizationID     *uuid.UUID
 	RunnerIDs          []uuid.UUID
 	Statuses           []string
 	AttachedKinds      []runnersv1.VolumeAttachmentFilterKind
@@ -312,7 +312,7 @@ func (s *Server) GetVolume(ctx context.Context, req *runnersv1.GetVolumeRequest)
 }
 
 func (s *Server) ListVolumesByThread(ctx context.Context, req *runnersv1.ListVolumesByThreadRequest) (*runnersv1.ListVolumesByThreadResponse, error) {
-	callerID, err := identityFromMetadata(ctx)
+	callerID, err := identityFromMetadataOptional(ctx)
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, "unauthenticated: %v", err)
 	}
@@ -328,18 +328,21 @@ func (s *Server) ListVolumesByThread(ctx context.Context, req *runnersv1.ListVol
 		}
 		return nil, status.Errorf(codes.Internal, "list volumes: %v", err)
 	}
-	memberCache := map[uuid.UUID]bool{}
-	filtered := make([]volumeRecord, 0, len(volumes))
-	for _, volume := range volumes {
-		allowed, err := s.memberAllowed(ctx, callerID, volume.OrganizationID, memberCache)
-		if err != nil {
-			return nil, err
+	if callerID != nil {
+		memberCache := map[uuid.UUID]bool{}
+		filtered := make([]volumeRecord, 0, len(volumes))
+		for _, volume := range volumes {
+			allowed, err := s.memberAllowed(ctx, *callerID, volume.OrganizationID, memberCache)
+			if err != nil {
+				return nil, err
+			}
+			if allowed {
+				filtered = append(filtered, volume)
+			}
 		}
-		if allowed {
-			filtered = append(filtered, volume)
-		}
+		volumes = filtered
 	}
-	protoVolumes, err := toProtoVolumeList(filtered)
+	protoVolumes, err := toProtoVolumeList(volumes)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "convert volumes: %v", err)
 	}
@@ -347,20 +350,27 @@ func (s *Server) ListVolumesByThread(ctx context.Context, req *runnersv1.ListVol
 }
 
 func (s *Server) ListVolumes(ctx context.Context, req *runnersv1.ListVolumesRequest) (*runnersv1.ListVolumesResponse, error) {
-	callerID, err := identityFromMetadata(ctx)
+	callerID, err := identityFromMetadataOptional(ctx)
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, "unauthenticated: %v", err)
 	}
 	orgValue := strings.TrimSpace(req.GetOrganizationId())
+	var organizationID *uuid.UUID
 	if orgValue == "" {
-		return nil, status.Error(codes.InvalidArgument, "organization_id: value is empty")
+		if callerID != nil {
+			return nil, status.Error(codes.InvalidArgument, "organization_id: value is empty")
+		}
+	} else {
+		parsed, err := parseUUID(orgValue)
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "organization_id: %v", err)
+		}
+		organizationID = &parsed
 	}
-	organizationID, err := parseUUID(orgValue)
-	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "organization_id: %v", err)
-	}
-	if err := s.requireRelation(ctx, callerID, organizationViewVolumes, organizationObject(organizationID)); err != nil {
-		return nil, err
+	if callerID != nil {
+		if err := s.requireRelation(ctx, *callerID, organizationViewVolumes, organizationObject(*organizationID)); err != nil {
+			return nil, err
+		}
 	}
 
 	filter := volumeListFilter{OrganizationID: organizationID}
@@ -882,8 +892,12 @@ func volumePrimaryValue(item volumeListItem, field volumeSortField) (string, err
 }
 
 func (s *Server) listVolumeIDs(ctx context.Context, filter volumeListFilter) ([]uuid.UUID, error) {
-	clauses := []string{fmt.Sprintf("volumes.organization_id = $%d", 1)}
-	args := []any{filter.OrganizationID}
+	clauses := []string{}
+	args := []any{}
+	if filter.OrganizationID != nil {
+		clauses = append(clauses, fmt.Sprintf("volumes.organization_id = $%d", len(args)+1))
+		args = append(args, *filter.OrganizationID)
+	}
 
 	if len(filter.RunnerIDs) > 0 {
 		clauses = append(clauses, fmt.Sprintf("volumes.runner_id = ANY($%d)", len(args)+1))
@@ -936,8 +950,12 @@ func addVolumeCursorClause(clauses *[]string, args *[]any, column string, direct
 
 func (s *Server) listVolumesPage(ctx context.Context, filter volumeListFilter, sort volumeListSort, pageSize int32, pageToken string) ([]volumeRecord, string, error) {
 	limit := normalizePageSize(pageSize)
-	clauses := []string{fmt.Sprintf("volumes.organization_id = $%d", 1)}
-	args := []any{filter.OrganizationID}
+	clauses := []string{}
+	args := []any{}
+	if filter.OrganizationID != nil {
+		clauses = append(clauses, fmt.Sprintf("volumes.organization_id = $%d", len(args)+1))
+		args = append(args, *filter.OrganizationID)
+	}
 
 	if len(filter.RunnerIDs) > 0 {
 		clauses = append(clauses, fmt.Sprintf("volumes.runner_id = ANY($%d)", len(args)+1))
@@ -1020,8 +1038,12 @@ func (s *Server) listVolumesPage(ctx context.Context, filter volumeListFilter, s
 
 func (s *Server) listVolumesByNamePage(ctx context.Context, filter volumeListFilter, sort volumeListSort, pageSize int32, pageToken string, volumeNames map[uuid.UUID]string) ([]volumeRecord, string, error) {
 	limit := normalizePageSize(pageSize)
-	clauses := []string{fmt.Sprintf("volumes.organization_id = $%d", 1)}
-	args := []any{filter.OrganizationID}
+	clauses := []string{}
+	args := []any{}
+	if filter.OrganizationID != nil {
+		clauses = append(clauses, fmt.Sprintf("volumes.organization_id = $%d", len(args)+1))
+		args = append(args, *filter.OrganizationID)
+	}
 
 	if len(filter.RunnerIDs) > 0 {
 		clauses = append(clauses, fmt.Sprintf("volumes.runner_id = ANY($%d)", len(args)+1))

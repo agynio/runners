@@ -177,7 +177,7 @@ func (s *Server) RegisterRunner(ctx context.Context, req *runnersv1.RegisterRunn
 }
 
 func (s *Server) GetRunner(ctx context.Context, req *runnersv1.GetRunnerRequest) (*runnersv1.GetRunnerResponse, error) {
-	callerID, err := identityFromMetadata(ctx)
+	callerID, err := identityFromMetadataOptional(ctx)
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, "unauthenticated: %v", err)
 	}
@@ -189,8 +189,8 @@ func (s *Server) GetRunner(ctx context.Context, req *runnersv1.GetRunnerRequest)
 	if err != nil {
 		return nil, toStatusError(err)
 	}
-	if runner.OrganizationID != nil {
-		if err := s.requireOrgMember(ctx, callerID, *runner.OrganizationID); err != nil {
+	if callerID != nil && runner.OrganizationID != nil {
+		if err := s.requireOrgMember(ctx, *callerID, *runner.OrganizationID); err != nil {
 			return nil, err
 		}
 	}
