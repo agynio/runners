@@ -2,6 +2,9 @@
 {{- $orchestratorNamespace := .Values.authorizationPolicy.orchestratorServiceAccount.namespace | default .Release.Namespace }}
 {{- $orchestratorName := .Values.authorizationPolicy.orchestratorServiceAccount.name }}
 {{- $orchestratorPrincipal := printf "cluster.local/ns/%s/sa/%s" $orchestratorNamespace $orchestratorName }}
+{{- $gatewayPaths := list "/agynio.api.runners.v1.RunnersService/RegisterRunner" "/agynio.api.runners.v1.RunnersService/GetRunner" "/agynio.api.runners.v1.RunnersService/ListRunners" "/agynio.api.runners.v1.RunnersService/UpdateRunner" "/agynio.api.runners.v1.RunnersService/DeleteRunner" "/agynio.api.runners.v1.RunnersService/GetWorkload" "/agynio.api.runners.v1.RunnersService/ListWorkloadsByThread" "/agynio.api.runners.v1.RunnersService/ListWorkloads" "/agynio.api.runners.v1.RunnersService/TouchWorkload" "/agynio.api.runners.v1.RunnersService/StreamWorkloadLogs" "/agynio.api.runners.v1.RunnersService/GetVolume" "/agynio.api.runners.v1.RunnersService/ListVolumes" "/agynio.api.runners.v1.RunnersService/ListVolumesByThread" }}
+{{- $orchestratorPaths := list "/agynio.api.runners.v1.RunnersService/CreateWorkload" "/agynio.api.runners.v1.RunnersService/UpdateWorkload" "/agynio.api.runners.v1.RunnersService/UpdateWorkloadStatus" "/agynio.api.runners.v1.RunnersService/DeleteWorkload" "/agynio.api.runners.v1.RunnersService/BatchUpdateWorkloadSampledAt" "/agynio.api.runners.v1.RunnersService/CreateVolume" "/agynio.api.runners.v1.RunnersService/UpdateVolume" "/agynio.api.runners.v1.RunnersService/BatchUpdateVolumeSampledAt" "/agynio.api.runners.v1.RunnersService/ListWorkloads" "/agynio.api.runners.v1.RunnersService/ListWorkloadsByThread" "/agynio.api.runners.v1.RunnersService/ListVolumes" "/agynio.api.runners.v1.RunnersService/ListVolumesByThread" "/agynio.api.runners.v1.RunnersService/GetRunner" }}
+{{- $tokenPaths := list "/agynio.api.runners.v1.RunnersService/ValidateServiceToken" "/agynio.api.runners.v1.RunnersService/EnrollRunner" }}
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
@@ -18,8 +21,26 @@ spec:
         - source:
             principals:
               - {{ $orchestratorPrincipal | quote }}
+      to:
+        - operation:
+            paths:
+              {{ range $orchestratorPaths }}
+              - {{ . | quote }}
+              {{ end }}
     - when:
         - key: request.headers[x-identity-id]
           values:
             - "*"
+      to:
+        - operation:
+            paths:
+              {{ range $gatewayPaths }}
+              - {{ . | quote }}
+              {{ end }}
+    - to:
+        - operation:
+            paths:
+              {{ range $tokenPaths }}
+              - {{ . | quote }}
+              {{ end }}
 {{- end }}

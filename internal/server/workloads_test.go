@@ -525,6 +525,10 @@ func TestListWorkloadsInvalidUUID(t *testing.T) {
 		req  *runnersv1.ListWorkloadsRequest
 	}{
 		{
+			name: "organization_id_missing",
+			req:  &runnersv1.ListWorkloadsRequest{},
+		},
+		{
 			name: "organization_id",
 			req: func() *runnersv1.ListWorkloadsRequest {
 				value := "not-a-uuid"

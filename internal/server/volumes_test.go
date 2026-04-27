@@ -578,6 +578,10 @@ func TestListVolumesInvalidUUID(t *testing.T) {
 		req  *runnersv1.ListVolumesRequest
 	}{
 		{
+			name: "organization_id_missing",
+			req:  &runnersv1.ListVolumesRequest{},
+		},
+		{
 			name: "organization_id",
 			req: func() *runnersv1.ListVolumesRequest {
 				value := "not-a-uuid"

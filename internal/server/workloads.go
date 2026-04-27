@@ -485,21 +485,24 @@ func (s *Server) ListWorkloads(ctx context.Context, req *runnersv1.ListWorkloads
 	}
 	orgValue := strings.TrimSpace(req.GetOrganizationId())
 	var organizationID *uuid.UUID
-	if orgValue == "" {
-		if callerID != nil {
+	if callerID != nil {
+		if orgValue == "" {
 			return nil, status.Error(codes.InvalidArgument, "organization_id: value is empty")
 		}
-	} else {
 		parsed, err := parseUUID(orgValue)
 		if err != nil {
 			return nil, status.Errorf(codes.InvalidArgument, "organization_id: %v", err)
 		}
 		organizationID = &parsed
-	}
-	if callerID != nil {
 		if err := s.requireRelation(ctx, *callerID, organizationViewWorkloads, organizationObject(*organizationID)); err != nil {
 			return nil, err
 		}
+	} else if orgValue != "" {
+		parsed, err := parseUUID(orgValue)
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "organization_id: %v", err)
+		}
+		organizationID = &parsed
 	}
 
 	filter := workloadListFilter{OrganizationID: organizationID}
