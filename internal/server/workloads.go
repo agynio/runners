@@ -30,6 +30,9 @@ const (
 	workloadStatusStopped  = "stopped"
 	workloadStatusFailed   = "failed"
 
+	workloadAgentStateProcessing = "processing"
+	workloadAgentStateIdle       = "idle"
+
 	workloadFailureReasonStartFailed     = "start_failed"
 	workloadFailureReasonImagePullFailed = "image_pull_failed"
 	workloadFailureReasonConfigInvalid   = "config_invalid"
@@ -44,7 +47,7 @@ const (
 	containerStatusTerminated = "terminated"
 	containerStatusWaiting    = "waiting"
 
-	workloadColumns = `id, runner_id, thread_id, agent_id, organization_id, status, failure_reason, failure_message, containers, ziti_identity_id, allocated_cpu_millicores, allocated_ram_bytes, instance_id, last_activity_at, last_metering_sampled_at, removed_at, created_at, updated_at`
+	workloadColumns = `id, runner_id, thread_id, agent_id, organization_id, status, agent_state, failure_reason, failure_message, containers, ziti_identity_id, allocated_cpu_millicores, allocated_ram_bytes, instance_id, last_activity_at, last_metering_sampled_at, removed_at, created_at, updated_at`
 )
 
 type workloadRecord struct {
@@ -54,6 +57,7 @@ type workloadRecord struct {
 	AgentID                uuid.UUID
 	OrganizationID         uuid.UUID
 	Status                 string
+	AgentState             string
 	FailureReason          *string
 	FailureMessage         *string
 	Containers             []containerRecord
@@ -80,14 +84,15 @@ type workloadInsertInput struct {
 }
 
 type workloadUpdateInput struct {
-	ID             uuid.UUID
-	Status         *string
-	FailureReason  *string
-	FailureMessage *string
-	ContainersJSON *[]byte
-	InstanceID     *string
-	RemovedAt      *time.Time
-	LastMeteringAt *time.Time
+	ID                uuid.UUID
+	Status            *string
+	FailureReason     *string
+	FailureMessage    *string
+	ContainersJSON    *[]byte
+	InstanceID        *string
+	RemovedAt         *time.Time
+	LastMeteringAt    *time.Time
+	ResetLastActivity bool
 }
 
 type workloadListFilter struct {
@@ -263,8 +268,16 @@ func (s *Server) UpdateWorkload(ctx context.Context, req *runnersv1.UpdateWorklo
 		return nil, status.Error(codes.InvalidArgument, "at least one field must be provided")
 	}
 
-	var existingWorkload *workloadRecord
+	needsExisting := false
 	if s.notificationsClient != nil && (statusValue != nil || containersJSON != nil || failureReason != nil || failureMessage != nil) {
+		needsExisting = true
+	}
+	if statusValue != nil && *statusValue == workloadStatusRunning {
+		needsExisting = true
+	}
+
+	var existingWorkload *workloadRecord
+	if needsExisting {
 		workload, err := s.getWorkloadByID(ctx, id)
 		if err != nil {
 			return nil, toStatusError(err)
@@ -272,15 +285,18 @@ func (s *Server) UpdateWorkload(ctx context.Context, req *runnersv1.UpdateWorklo
 		existingWorkload = &workload
 	}
 
+	resetLastActivity := existingWorkload != nil && statusValue != nil && *statusValue == workloadStatusRunning && existingWorkload.Status == workloadStatusStarting
+
 	workload, err := s.updateWorkload(ctx, workloadUpdateInput{
-		ID:             id,
-		Status:         statusValue,
-		FailureReason:  failureReason,
-		FailureMessage: failureMessage,
-		ContainersJSON: containersJSON,
-		InstanceID:     instanceID,
-		RemovedAt:      removedAt,
-		LastMeteringAt: lastMeteringAt,
+		ID:                id,
+		Status:            statusValue,
+		FailureReason:     failureReason,
+		FailureMessage:    failureMessage,
+		ContainersJSON:    containersJSON,
+		InstanceID:        instanceID,
+		RemovedAt:         removedAt,
+		LastMeteringAt:    lastMeteringAt,
+		ResetLastActivity: resetLastActivity,
 	})
 	if err != nil {
 		return nil, toStatusError(err)
@@ -289,8 +305,9 @@ func (s *Server) UpdateWorkload(ctx context.Context, req *runnersv1.UpdateWorklo
 	containersChanged := existingWorkload != nil && containersJSON != nil && !containersEqualByName(existingWorkload.Containers, containerRecords)
 	failureReasonChanged := existingWorkload != nil && failureReason != nil && (existingWorkload.FailureReason == nil || *existingWorkload.FailureReason != *failureReason)
 	failureMessageChanged := existingWorkload != nil && failureMessage != nil && (existingWorkload.FailureMessage == nil || *existingWorkload.FailureMessage != *failureMessage)
-	if statusChanged || containersChanged || failureReasonChanged || failureMessageChanged {
-		s.publishWorkloadUpdateNotifications(ctx, workload, statusChanged, containersChanged, failureReasonChanged || failureMessageChanged)
+	agentStateChanged := existingWorkload != nil && workload.AgentState != existingWorkload.AgentState
+	if statusChanged || containersChanged || failureReasonChanged || failureMessageChanged || agentStateChanged {
+		s.publishWorkloadUpdateNotifications(ctx, workload, statusChanged, containersChanged, failureReasonChanged || failureMessageChanged, agentStateChanged)
 	}
 	protoWorkload, err := toProtoWorkload(workload)
 	if err != nil {
@@ -299,13 +316,14 @@ func (s *Server) UpdateWorkload(ctx context.Context, req *runnersv1.UpdateWorklo
 	return &runnersv1.UpdateWorkloadResponse{Workload: protoWorkload}, nil
 }
 
-func (s *Server) publishWorkloadUpdateNotifications(ctx context.Context, workload workloadRecord, statusChanged, containersChanged, failureChanged bool) {
+func (s *Server) publishWorkloadUpdateNotifications(ctx context.Context, workload workloadRecord, statusChanged, containersChanged, failureChanged, agentStateChanged bool) {
 	if s.notificationsClient == nil {
 		return
 	}
 	payloadFields := map[string]any{
 		"workload_id": workload.Meta.ID.String(),
 		"status":      workload.Status,
+		"agent_state": workload.AgentState,
 	}
 	if workload.FailureReason != nil {
 		payloadFields["failure_reason"] = *workload.FailureReason
@@ -323,7 +341,7 @@ func (s *Server) publishWorkloadUpdateNotifications(ctx context.Context, workloa
 		fmt.Sprintf("organization:%s", workload.OrganizationID.String()),
 		workloadRoom,
 	}
-	if statusChanged || containersChanged || failureChanged {
+	if statusChanged || containersChanged || failureChanged || agentStateChanged {
 		s.publishWorkloadNotification(ctx, "workload.updated", updatedRooms, payload)
 	}
 	if statusChanged {
@@ -388,8 +406,12 @@ func (s *Server) TouchWorkload(ctx context.Context, req *runnersv1.TouchWorkload
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "id: %v", err)
 	}
-	if err := s.touchWorkloadForAgent(ctx, id, callerID); err != nil {
+	workload, err := s.touchWorkloadForAgent(ctx, id, callerID)
+	if err != nil {
 		return nil, toStatusError(err)
+	}
+	if workload != nil {
+		s.publishWorkloadUpdateNotifications(ctx, *workload, false, false, false, true)
 	}
 	return &runnersv1.TouchWorkloadResponse{}, nil
 }
@@ -666,6 +688,9 @@ func (s *Server) updateWorkload(ctx context.Context, input workloadUpdateInput) 
 	if input.LastMeteringAt != nil {
 		addUpdateClause(&clauses, &args, "last_metering_sampled_at", *input.LastMeteringAt)
 	}
+	if input.ResetLastActivity {
+		clauses = append(clauses, "last_activity_at = NOW()")
+	}
 	query, args := buildUpdateQuery("workloads", workloadColumns, clauses, args, input.ID)
 	row := s.pool.QueryRow(ctx, query, args...)
 	workload, err := scanWorkload(row)
@@ -711,19 +736,28 @@ func (s *Server) softDeleteWorkload(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-func (s *Server) touchWorkloadForAgent(ctx context.Context, id uuid.UUID, agentID uuid.UUID) error {
+func (s *Server) touchWorkloadForAgent(ctx context.Context, id uuid.UUID, agentID uuid.UUID) (*workloadRecord, error) {
+	query := fmt.Sprintf("UPDATE workloads SET agent_state = $1, last_activity_at = NOW(), updated_at = NOW() WHERE id = $2 AND agent_id = $3 AND agent_state = $4 RETURNING %s", workloadColumns)
+	row := s.pool.QueryRow(ctx, query, workloadAgentStateProcessing, id, agentID, workloadAgentStateIdle)
+	workload, err := scanWorkload(row)
+	if err == nil {
+		return &workload, nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return nil, err
+	}
 	result, err := s.pool.Exec(ctx, `UPDATE workloads SET last_activity_at = NOW(), updated_at = NOW() WHERE id = $1 AND agent_id = $2`, id, agentID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if result.RowsAffected() == 0 {
 		_, err := s.getWorkloadByID(ctx, id)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		return PermissionDenied()
+		return nil, PermissionDenied()
 	}
-	return nil
+	return nil, nil
 }
 
 func (s *Server) listWorkloadsByThread(ctx context.Context, threadID uuid.UUID, agentID *uuid.UUID, statuses []string, pageSize int32, pageToken string) ([]workloadRecord, string, error) {
@@ -1191,6 +1225,7 @@ func scanWorkload(row pgx.Row) (workloadRecord, error) {
 		&workload.AgentID,
 		&workload.OrganizationID,
 		&workload.Status,
+		&workload.AgentState,
 		&failureReason,
 		&failureMessage,
 		&containersData,
@@ -1240,6 +1275,10 @@ func toProtoWorkload(record workloadRecord) (*runnersv1.Workload, error) {
 	if err != nil {
 		return nil, err
 	}
+	agentStateValue, err := workloadAgentStateFromString(record.AgentState)
+	if err != nil {
+		return nil, err
+	}
 	containers, err := containersToProto(record.Containers)
 	if err != nil {
 		return nil, err
@@ -1251,6 +1290,7 @@ func toProtoWorkload(record workloadRecord) (*runnersv1.Workload, error) {
 		AgentId:                record.AgentID.String(),
 		OrganizationId:         record.OrganizationID.String(),
 		Status:                 statusValue,
+		AgentState:             agentStateValue,
 		Containers:             containers,
 		ZitiIdentityId:         record.ZitiIdentityID,
 		LastActivityAt:         timestamppb.New(record.LastActivityAt),
@@ -1493,6 +1533,17 @@ func workloadStatusToString(status runnersv1.WorkloadStatus) (string, error) {
 	}
 }
 
+func workloadAgentStateToString(state runnersv1.WorkloadAgentState) (string, error) {
+	switch state {
+	case runnersv1.WorkloadAgentState_WORKLOAD_AGENT_STATE_PROCESSING:
+		return workloadAgentStateProcessing, nil
+	case runnersv1.WorkloadAgentState_WORKLOAD_AGENT_STATE_IDLE:
+		return workloadAgentStateIdle, nil
+	default:
+		return "", fmt.Errorf("invalid workload agent state: %s", state.String())
+	}
+}
+
 func workloadFailureReasonToString(reason runnersv1.WorkloadFailureReason) (string, error) {
 	switch reason {
 	case runnersv1.WorkloadFailureReason_WORKLOAD_FAILURE_REASON_START_FAILED:
@@ -1524,6 +1575,17 @@ func workloadStatusFromString(value string) (runnersv1.WorkloadStatus, error) {
 		return runnersv1.WorkloadStatus_WORKLOAD_STATUS_FAILED, nil
 	default:
 		return runnersv1.WorkloadStatus_WORKLOAD_STATUS_UNSPECIFIED, fmt.Errorf("invalid workload status: %s", value)
+	}
+}
+
+func workloadAgentStateFromString(value string) (runnersv1.WorkloadAgentState, error) {
+	switch value {
+	case workloadAgentStateProcessing:
+		return runnersv1.WorkloadAgentState_WORKLOAD_AGENT_STATE_PROCESSING, nil
+	case workloadAgentStateIdle:
+		return runnersv1.WorkloadAgentState_WORKLOAD_AGENT_STATE_IDLE, nil
+	default:
+		return runnersv1.WorkloadAgentState_WORKLOAD_AGENT_STATE_UNSPECIFIED, fmt.Errorf("invalid workload agent state: %s", value)
 	}
 }
 

@@ -14,19 +14,23 @@ const (
 	defaultZitiManagementAddress = "ziti-management:50051"
 	defaultNotificationsAddress  = "notifications:50051"
 	defaultGRPCAddr              = ":50051"
+	defaultWorkloadActivitySweep = 5 * time.Second
+	defaultKeepaliveGrace        = 25 * time.Second
 )
 
 // Config captures runtime configuration derived from the environment.
 type Config struct {
-	DatabaseURL              string
-	IdentityAddress          string
-	AuthorizationAddress     string
-	AgentsAddress            string
-	ZitiManagementAddress    string
-	NotificationsAddress     string
-	ZitiLeaseRenewalInterval time.Duration
-	ZitiEnrollmentTimeout    time.Duration
-	GRPCAddr                 string
+	DatabaseURL                   string
+	IdentityAddress               string
+	AuthorizationAddress          string
+	AgentsAddress                 string
+	ZitiManagementAddress         string
+	NotificationsAddress          string
+	ZitiLeaseRenewalInterval      time.Duration
+	ZitiEnrollmentTimeout         time.Duration
+	WorkloadActivitySweepInterval time.Duration
+	WorkloadKeepaliveGrace        time.Duration
+	GRPCAddr                      string
 }
 
 // Load reads configuration from environment variables, applying defaults when
@@ -70,6 +74,34 @@ func Load() (Config, error) {
 	}
 	if cfg.ZitiEnrollmentTimeout <= 0 {
 		return Config{}, fmt.Errorf("ZITI_ENROLLMENT_TIMEOUT must be greater than 0")
+	}
+
+	activitySweepInterval := strings.TrimSpace(os.Getenv("WORKLOAD_ACTIVITY_SWEEP_INTERVAL"))
+	if activitySweepInterval == "" {
+		cfg.WorkloadActivitySweepInterval = defaultWorkloadActivitySweep
+	} else {
+		parsed, err := time.ParseDuration(activitySweepInterval)
+		if err != nil {
+			return Config{}, fmt.Errorf("parse WORKLOAD_ACTIVITY_SWEEP_INTERVAL: %w", err)
+		}
+		cfg.WorkloadActivitySweepInterval = parsed
+	}
+	if cfg.WorkloadActivitySweepInterval <= 0 {
+		return Config{}, fmt.Errorf("WORKLOAD_ACTIVITY_SWEEP_INTERVAL must be greater than 0")
+	}
+
+	keepaliveGrace := strings.TrimSpace(os.Getenv("KEEPALIVE_GRACE"))
+	if keepaliveGrace == "" {
+		cfg.WorkloadKeepaliveGrace = defaultKeepaliveGrace
+	} else {
+		parsed, err := time.ParseDuration(keepaliveGrace)
+		if err != nil {
+			return Config{}, fmt.Errorf("parse KEEPALIVE_GRACE: %w", err)
+		}
+		cfg.WorkloadKeepaliveGrace = parsed
+	}
+	if cfg.WorkloadKeepaliveGrace <= 0 {
+		return Config{}, fmt.Errorf("KEEPALIVE_GRACE must be greater than 0")
 	}
 	cfg.GRPCAddr = readEnv("GRPC_ADDR", defaultGRPCAddr)
 
