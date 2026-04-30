@@ -382,10 +382,21 @@ func (s *Server) UpdateWorkloadStatus(ctx context.Context, req *runnersv1.Update
 		return nil, status.Errorf(codes.Internal, "marshal containers: %v", err)
 	}
 
+	var existingWorkload *workloadRecord
+	if statusValue == workloadStatusRunning {
+		workload, err := s.getWorkloadByID(ctx, id)
+		if err != nil {
+			return nil, toStatusError(err)
+		}
+		existingWorkload = &workload
+	}
+	resetLastActivity := existingWorkload != nil && existingWorkload.Status == workloadStatusStarting
+
 	workload, err := s.updateWorkload(ctx, workloadUpdateInput{
-		ID:             id,
-		Status:         &statusValue,
-		ContainersJSON: &containersJSON,
+		ID:                id,
+		Status:            &statusValue,
+		ContainersJSON:    &containersJSON,
+		ResetLastActivity: resetLastActivity,
 	})
 	if err != nil {
 		return nil, toStatusError(err)

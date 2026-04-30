@@ -704,6 +704,9 @@ func TestListWorkloadsByThreadInternalNoIdentity(t *testing.T) {
 	if resp.GetWorkloads()[0].GetOrganizationId() != organizationID.String() {
 		t.Fatalf("expected organization id %q, got %q", organizationID.String(), resp.GetWorkloads()[0].GetOrganizationId())
 	}
+	if resp.GetWorkloads()[0].GetAgentState() != runnersv1.WorkloadAgentState_WORKLOAD_AGENT_STATE_PROCESSING {
+		t.Fatalf("expected agent state %v, got %v", runnersv1.WorkloadAgentState_WORKLOAD_AGENT_STATE_PROCESSING, resp.GetWorkloads()[0].GetAgentState())
+	}
 	if checkCalls != 0 {
 		t.Fatalf("expected no authorization checks, got %d", checkCalls)
 	}
@@ -871,6 +874,63 @@ func TestGetWorkloadRequiresViewWorkloads(t *testing.T) {
 	}
 }
 
+func TestGetWorkloadReturnsAgentState(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("failed to create mock pool: %v", err)
+	}
+
+	workloadID := uuid.New()
+	runnerID := uuid.New()
+	threadID := uuid.New()
+	agentID := uuid.New()
+	organizationID := uuid.New()
+	callerID := uuid.New()
+	now := time.Now().UTC()
+	containersJSON := []byte("[]")
+
+	rows := pgxmock.NewRows(workloadRowColumns).
+		AddRow(workloadID, runnerID, threadID, agentID, organizationID, workloadStatusRunning, workloadAgentStateIdle, nil, nil, containersJSON, "ziti-id", int32(0), int64(0), nil, now, nil, nil, now, now)
+
+	query := fmt.Sprintf("SELECT %s FROM workloads WHERE id = $1", workloadColumns)
+	mockPool.ExpectQuery(regexp.QuoteMeta(query)).WithArgs(workloadID).WillReturnRows(rows)
+
+	runnerName := "runner-name"
+	runnerRows := pgxmock.NewRows([]string{"id", "name"}).AddRow(runnerID, runnerName)
+	mockPool.ExpectQuery(regexp.QuoteMeta("SELECT id, name FROM runners WHERE id = ANY($1)")).
+		WithArgs(pgtype.FlatArray[uuid.UUID]([]uuid.UUID{runnerID})).
+		WillReturnRows(runnerRows)
+
+	agentName := "agent-name"
+	agentsClient := fakeAgentsClient{getAgent: func(ctx context.Context, req *agentsv1.GetAgentRequest) (*agentsv1.GetAgentResponse, error) {
+		return &agentsv1.GetAgentResponse{Agent: &agentsv1.Agent{Name: agentName}}, nil
+	}}
+
+	authorizationClient := fakeAuthorizationClient{check: func(ctx context.Context, req *authorizationv1.CheckRequest) (*authorizationv1.CheckResponse, error) {
+		return &authorizationv1.CheckResponse{Allowed: true}, nil
+	}}
+
+	srv := New(Options{Pool: mockPool, AuthorizationClient: authorizationClient, AgentsClient: agentsClient})
+	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(identityMetadata, callerID.String()))
+	resp, err := srv.GetWorkload(ctx, &runnersv1.GetWorkloadRequest{Id: workloadID.String()})
+	if err != nil {
+		t.Fatalf("GetWorkload failed: %v", err)
+	}
+	if resp.GetWorkload().GetAgentState() != runnersv1.WorkloadAgentState_WORKLOAD_AGENT_STATE_IDLE {
+		t.Fatalf("expected agent state %v, got %v", runnersv1.WorkloadAgentState_WORKLOAD_AGENT_STATE_IDLE, resp.GetWorkload().GetAgentState())
+	}
+	if resp.GetWorkload().GetAgentName() != agentName {
+		t.Fatalf("expected agent name %q, got %q", agentName, resp.GetWorkload().GetAgentName())
+	}
+	if resp.GetWorkload().GetRunnerName() != runnerName {
+		t.Fatalf("expected runner name %q, got %q", runnerName, resp.GetWorkload().GetRunnerName())
+	}
+
+	if err := mockPool.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
 func TestTouchWorkload(t *testing.T) {
 	mockPool, err := pgxmock.NewPool()
 	if err != nil {
@@ -896,6 +956,47 @@ func TestTouchWorkload(t *testing.T) {
 	_, err = srv.TouchWorkload(ctx, &runnersv1.TouchWorkloadRequest{Id: workloadID.String()})
 	if err != nil {
 		t.Fatalf("TouchWorkload failed: %v", err)
+	}
+
+	if err := mockPool.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestTouchWorkloadNoPublishWhenProcessing(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("failed to create mock pool: %v", err)
+	}
+
+	workloadID := uuid.New()
+	agentID := uuid.New()
+	callerID := agentID
+
+	updateQuery := fmt.Sprintf("UPDATE workloads SET agent_state = $1, last_activity_at = NOW(), updated_at = NOW() WHERE id = $2 AND agent_id = $3 AND agent_state = $4 RETURNING %s", workloadColumns)
+	mockPool.ExpectQuery(regexp.QuoteMeta(updateQuery)).
+		WithArgs(workloadAgentStateProcessing, workloadID, callerID, workloadAgentStateIdle).
+		WillReturnRows(pgxmock.NewRows(workloadRowColumns))
+
+	query := "UPDATE workloads SET last_activity_at = NOW(), updated_at = NOW() WHERE id = $1 AND agent_id = $2"
+	mockPool.ExpectExec(regexp.QuoteMeta(query)).
+		WithArgs(workloadID, callerID).
+		WillReturnResult(pgxmock.NewResult("UPDATE", 1))
+
+	publishCalls := 0
+	notificationsClient := fakeNotificationsClient{publish: func(ctx context.Context, req *notificationsv1.PublishRequest) (*notificationsv1.PublishResponse, error) {
+		publishCalls++
+		return &notificationsv1.PublishResponse{}, nil
+	}}
+
+	srv := New(Options{Pool: mockPool, NotificationsClient: notificationsClient})
+	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(identityMetadata, callerID.String()))
+	_, err = srv.TouchWorkload(ctx, &runnersv1.TouchWorkloadRequest{Id: workloadID.String()})
+	if err != nil {
+		t.Fatalf("TouchWorkload failed: %v", err)
+	}
+	if publishCalls != 0 {
+		t.Fatalf("expected no notifications, got %d", publishCalls)
 	}
 
 	if err := mockPool.ExpectationsWereMet(); err != nil {
