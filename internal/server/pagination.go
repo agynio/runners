@@ -40,7 +40,7 @@ func listWithPagination[T any](
 		query.WriteString(" WHERE ")
 		query.WriteString(strings.Join(clauses, " AND "))
 	}
-	query.WriteString(fmt.Sprintf(" ORDER BY id ASC LIMIT $%d", len(args)+1))
+	fmt.Fprintf(&query, " ORDER BY id ASC LIMIT $%d", len(args)+1)
 	args = append(args, int(limit)+1)
 
 	rows, err := pool.Query(ctx, query.String(), args...)

@@ -54,29 +54,38 @@ func run() error {
 		return fmt.Errorf("apply migrations: %w", err)
 	}
 
-	identityConn, err := grpc.DialContext(ctx, cfg.IdentityAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	closeConn := func(name string, conn *grpc.ClientConn) {
+		if conn == nil {
+			return
+		}
+		if err := conn.Close(); err != nil {
+			log.Printf("close %s connection: %v", name, err)
+		}
+	}
+
+	identityConn, err := grpc.NewClient(cfg.IdentityAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return fmt.Errorf("dial identity service: %w", err)
 	}
-	defer identityConn.Close()
+	defer closeConn("identity", identityConn)
 
-	authorizationConn, err := grpc.DialContext(ctx, cfg.AuthorizationAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	authorizationConn, err := grpc.NewClient(cfg.AuthorizationAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return fmt.Errorf("dial authorization service: %w", err)
 	}
-	defer authorizationConn.Close()
+	defer closeConn("authorization", authorizationConn)
 
-	agentsConn, err := grpc.DialContext(ctx, cfg.AgentsAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	agentsConn, err := grpc.NewClient(cfg.AgentsAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return fmt.Errorf("dial agents service: %w", err)
 	}
-	defer agentsConn.Close()
+	defer closeConn("agents", agentsConn)
 
-	zitiManagementConn, err := grpc.DialContext(ctx, cfg.ZitiManagementAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	zitiManagementConn, err := grpc.NewClient(cfg.ZitiManagementAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return fmt.Errorf("dial ziti management service: %w", err)
 	}
-	defer zitiManagementConn.Close()
+	defer closeConn("ziti management", zitiManagementConn)
 
 	zitiMgmtClient := zitimanagementv1.NewZitiManagementServiceClient(zitiManagementConn)
 	zitiManager, err := zitimanager.New(ctx, zitiMgmtClient, cfg.ZitiEnrollmentTimeout, cfg.ZitiLeaseRenewalInterval)
@@ -86,14 +95,14 @@ func run() error {
 	defer zitiManager.Close()
 	go zitiManager.RunLeaseRenewal(ctx)
 
-	notificationsConn, err := grpc.DialContext(ctx, cfg.NotificationsAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	notificationsConn, err := grpc.NewClient(cfg.NotificationsAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return fmt.Errorf("dial notifications service: %w", err)
 	}
-	defer notificationsConn.Close()
+	defer closeConn("notifications", notificationsConn)
 
 	grpcServer := grpc.NewServer()
-	runnersv1.RegisterRunnersServiceServer(grpcServer, server.New(server.Options{
+	srv := server.New(server.Options{
 		Pool:                 pool,
 		IdentityClient:       identityv1.NewIdentityServiceClient(identityConn),
 		AuthorizationClient:  authorizationv1.NewAuthorizationServiceClient(authorizationConn),
@@ -101,13 +110,19 @@ func run() error {
 		ZitiManagementClient: zitiMgmtClient,
 		NotificationsClient:  notificationsv1.NewNotificationsServiceClient(notificationsConn),
 		ZitiDialer:           zitiManager,
-	}))
+	})
+	runnersv1.RegisterRunnersServiceServer(grpcServer, srv)
+	go srv.RunAgentActivitySweep(ctx, cfg.AgentActivitySweepInterval, cfg.KeepaliveGrace)
 
 	listener, err := net.Listen("tcp", cfg.GRPCAddr)
 	if err != nil {
 		return fmt.Errorf("listen on %s: %w", cfg.GRPCAddr, err)
 	}
-	defer listener.Close()
+	defer func() {
+		if err := listener.Close(); err != nil {
+			log.Printf("close listener: %v", err)
+		}
+	}()
 
 	errCh := make(chan error, 1)
 	go func() {

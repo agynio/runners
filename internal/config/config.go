@@ -18,15 +18,17 @@ const (
 
 // Config captures runtime configuration derived from the environment.
 type Config struct {
-	DatabaseURL              string
-	IdentityAddress          string
-	AuthorizationAddress     string
-	AgentsAddress            string
-	ZitiManagementAddress    string
-	NotificationsAddress     string
-	ZitiLeaseRenewalInterval time.Duration
-	ZitiEnrollmentTimeout    time.Duration
-	GRPCAddr                 string
+	DatabaseURL                string
+	IdentityAddress            string
+	AuthorizationAddress       string
+	AgentsAddress              string
+	ZitiManagementAddress      string
+	NotificationsAddress       string
+	ZitiLeaseRenewalInterval   time.Duration
+	ZitiEnrollmentTimeout      time.Duration
+	AgentActivitySweepInterval time.Duration
+	KeepaliveGrace             time.Duration
+	GRPCAddr                   string
 }
 
 // Load reads configuration from environment variables, applying defaults when
@@ -71,6 +73,28 @@ func Load() (Config, error) {
 	if cfg.ZitiEnrollmentTimeout <= 0 {
 		return Config{}, fmt.Errorf("ZITI_ENROLLMENT_TIMEOUT must be greater than 0")
 	}
+	sweepInterval := strings.TrimSpace(os.Getenv("AGENT_ACTIVITY_SWEEP_INTERVAL"))
+	if sweepInterval == "" {
+		cfg.AgentActivitySweepInterval = 5 * time.Second
+	} else {
+		parsed, err := time.ParseDuration(sweepInterval)
+		if err != nil {
+			return Config{}, fmt.Errorf("parse AGENT_ACTIVITY_SWEEP_INTERVAL: %w", err)
+		}
+		cfg.AgentActivitySweepInterval = parsed
+	}
+
+	keepaliveGrace := strings.TrimSpace(os.Getenv("KEEPALIVE_GRACE"))
+	if keepaliveGrace == "" {
+		cfg.KeepaliveGrace = 25 * time.Second
+	} else {
+		parsed, err := time.ParseDuration(keepaliveGrace)
+		if err != nil {
+			return Config{}, fmt.Errorf("parse KEEPALIVE_GRACE: %w", err)
+		}
+		cfg.KeepaliveGrace = parsed
+	}
+
 	cfg.GRPCAddr = readEnv("GRPC_ADDR", defaultGRPCAddr)
 
 	return cfg, nil

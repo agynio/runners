@@ -17,15 +17,3 @@ func uniqueUUIDs(values []uuid.UUID) []uuid.UUID {
 	}
 	return unique
 }
-
-func compareUUID(a, b uuid.UUID) int {
-	aValue := a.String()
-	bValue := b.String()
-	if aValue < bValue {
-		return -1
-	}
-	if aValue > bValue {
-		return 1
-	}
-	return 0
-}
