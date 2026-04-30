@@ -93,7 +93,7 @@ func run() error {
 	defer notificationsConn.Close()
 
 	grpcServer := grpc.NewServer()
-	runnersv1.RegisterRunnersServiceServer(grpcServer, server.New(server.Options{
+	srv := server.New(server.Options{
 		Pool:                 pool,
 		IdentityClient:       identityv1.NewIdentityServiceClient(identityConn),
 		AuthorizationClient:  authorizationv1.NewAuthorizationServiceClient(authorizationConn),
@@ -101,7 +101,9 @@ func run() error {
 		ZitiManagementClient: zitiMgmtClient,
 		NotificationsClient:  notificationsv1.NewNotificationsServiceClient(notificationsConn),
 		ZitiDialer:           zitiManager,
-	}))
+	})
+	runnersv1.RegisterRunnersServiceServer(grpcServer, srv)
+	go srv.RunAgentActivitySweep(ctx, cfg.AgentActivitySweepInterval, cfg.KeepaliveGrace)
 
 	listener, err := net.Listen("tcp", cfg.GRPCAddr)
 	if err != nil {
