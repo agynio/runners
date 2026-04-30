@@ -377,7 +377,6 @@ func (s *Server) ListVolumes(ctx context.Context, req *runnersv1.ListVolumesRequ
 	}
 
 	filter := volumeListFilter{OrganizationID: organizationID}
-	pendingSampleSet := false
 	if req.Filter != nil {
 		filter.RunnerIDs = make([]uuid.UUID, 0, len(req.Filter.RunnerIdIn))
 		for _, runnerValue := range req.Filter.RunnerIdIn {
@@ -403,29 +402,16 @@ func (s *Server) ListVolumes(ctx context.Context, req *runnersv1.ListVolumesRequ
 		}
 		if req.Filter.PendingSample != nil {
 			filter.PendingSample = req.Filter.GetPendingSample()
-			pendingSampleSet = true
 		}
 		if req.Filter.VolumeNameSubstring != nil {
 			filter.VolumeNameContains = strings.TrimSpace(req.Filter.GetVolumeNameSubstring())
 		}
 	}
 
-	if req.RunnerId != nil {
-		parsed, err := parseUUID(req.GetRunnerId())
-		if err != nil {
-			return nil, status.Errorf(codes.InvalidArgument, "runner_id: %v", err)
-		}
-		filter.RunnerIDs = append(filter.RunnerIDs, parsed)
-	}
-	if req.PendingSample != nil && !pendingSampleSet {
-		filter.PendingSample = req.GetPendingSample()
-	}
-
 	statusFilters := make([]runnersv1.VolumeStatus, 0)
 	if req.Filter != nil {
 		statusFilters = append(statusFilters, req.Filter.StatusIn...)
 	}
-	statusFilters = append(statusFilters, req.GetStatuses()...)
 	statuses, err := volumeStatusesToStrings(statusFilters)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "statuses: %v", err)
@@ -717,10 +703,10 @@ func (s *Server) listVolumesByThread(ctx context.Context, threadID uuid.UUID, pa
 	}
 
 	query := strings.Builder{}
-	query.WriteString(fmt.Sprintf("SELECT %s FROM volumes", volumeColumns))
+	fmt.Fprintf(&query, "SELECT %s FROM volumes", volumeColumns)
 	query.WriteString(" WHERE ")
 	query.WriteString(strings.Join(clauses, " AND "))
-	query.WriteString(fmt.Sprintf(" ORDER BY id ASC LIMIT $%d", len(args)+1))
+	fmt.Fprintf(&query, " ORDER BY id ASC LIMIT $%d", len(args)+1)
 	args = append(args, int(limit)+1)
 
 	rows, err := s.pool.Query(ctx, query.String(), args...)
@@ -990,12 +976,12 @@ func (s *Server) listVolumesPage(ctx context.Context, filter volumeListFilter, s
 	}
 
 	query := strings.Builder{}
-	query.WriteString(fmt.Sprintf("SELECT %s FROM volumes", volumeColumns))
+	fmt.Fprintf(&query, "SELECT %s FROM volumes", volumeColumns)
 	if len(clauses) > 0 {
 		query.WriteString(" WHERE ")
 		query.WriteString(strings.Join(clauses, " AND "))
 	}
-	query.WriteString(fmt.Sprintf(" ORDER BY %s %s, volumes.id ASC LIMIT $%d", sortColumn, sort.Direction, len(args)+1))
+	fmt.Fprintf(&query, " ORDER BY %s %s, volumes.id ASC LIMIT $%d", sortColumn, sort.Direction, len(args)+1)
 	args = append(args, int(limit)+1)
 
 	rows, err := s.pool.Query(ctx, query.String(), args...)
@@ -1079,12 +1065,12 @@ func (s *Server) listVolumesByNamePage(ctx context.Context, filter volumeListFil
 	}
 
 	query := strings.Builder{}
-	query.WriteString(fmt.Sprintf("SELECT %s FROM volumes", volumeColumns))
+	fmt.Fprintf(&query, "SELECT %s FROM volumes", volumeColumns)
 	if len(clauses) > 0 {
 		query.WriteString(" WHERE ")
 		query.WriteString(strings.Join(clauses, " AND "))
 	}
-	query.WriteString(fmt.Sprintf(" ORDER BY %s %s, volumes.id ASC LIMIT $%d", sortColumn, sort.Direction, len(args)+1))
+	fmt.Fprintf(&query, " ORDER BY %s %s, volumes.id ASC LIMIT $%d", sortColumn, sort.Direction, len(args)+1)
 	args = append(args, int(limit)+1)
 
 	rows, err := s.pool.Query(ctx, query.String(), args...)
@@ -1421,24 +1407,6 @@ func matchesVolumeAttachmentKinds(attachments []*runnersv1.Attachment, kindFilte
 		}
 	}
 	return false
-}
-
-func paginateVolumeItems(items []volumeListItem, sort volumeListSort, pageSize int32) ([]volumeListItem, string, error) {
-	limit := normalizePageSize(pageSize)
-	if len(items) <= int(limit) {
-		return items, "", nil
-	}
-	page := items[:limit]
-	lastItem := page[len(page)-1]
-	primary, err := volumePrimaryValue(lastItem, sort.Field)
-	if err != nil {
-		return nil, "", err
-	}
-	nextToken, err := encodeListCursor(primary, lastItem.record.Meta.ID)
-	if err != nil {
-		return nil, "", err
-	}
-	return page, nextToken, nil
 }
 
 func (s *Server) batchUpdateVolumeSampledAt(ctx context.Context, entries []sampledAtEntry) error {

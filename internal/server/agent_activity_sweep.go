@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"time"
@@ -26,6 +27,9 @@ func (s *Server) RunAgentActivitySweep(ctx context.Context, interval, keepaliveG
 
 	for {
 		if err := s.agentActivitySweepOnce(ctx, keepaliveGrace); err != nil {
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				return
+			}
 			log.Printf("runners: agent activity sweep: %v", err)
 		}
 

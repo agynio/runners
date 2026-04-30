@@ -253,7 +253,12 @@ func TestListWorkloadsFiltersRunner(t *testing.T) {
 	runnerIDValue := runnerID.String()
 	organizationIDValue := organizationID.String()
 	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(identityMetadata, callerID.String()))
-	resp, err := srv.ListWorkloads(ctx, &runnersv1.ListWorkloadsRequest{OrganizationId: &organizationIDValue, RunnerId: &runnerIDValue})
+	resp, err := srv.ListWorkloads(ctx, &runnersv1.ListWorkloadsRequest{
+		OrganizationId: &organizationIDValue,
+		Filter: &runnersv1.ListWorkloadsFilter{
+			RunnerIdIn: []string{runnerIDValue},
+		},
+	})
 	if err != nil {
 		t.Fatalf("ListWorkloads failed: %v", err)
 	}
@@ -330,7 +335,12 @@ func TestListWorkloadsPendingSample(t *testing.T) {
 	pendingSample := true
 	organizationIDValue := organizationID.String()
 	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(identityMetadata, callerID.String()))
-	resp, err := srv.ListWorkloads(ctx, &runnersv1.ListWorkloadsRequest{OrganizationId: &organizationIDValue, PendingSample: &pendingSample})
+	resp, err := srv.ListWorkloads(ctx, &runnersv1.ListWorkloadsRequest{
+		OrganizationId: &organizationIDValue,
+		Filter: &runnersv1.ListWorkloadsFilter{
+			PendingSample: &pendingSample,
+		},
+	})
 	if err != nil {
 		t.Fatalf("ListWorkloads failed: %v", err)
 	}
@@ -540,7 +550,10 @@ func TestListWorkloadsInvalidUUID(t *testing.T) {
 			name: "runner_id",
 			req: func() *runnersv1.ListWorkloadsRequest {
 				value := "not-a-uuid"
-				return &runnersv1.ListWorkloadsRequest{OrganizationId: &organizationIDValue, RunnerId: &value}
+				return &runnersv1.ListWorkloadsRequest{
+					OrganizationId: &organizationIDValue,
+					Filter:         &runnersv1.ListWorkloadsFilter{RunnerIdIn: []string{value}},
+				}
 			}(),
 		},
 	}
@@ -892,6 +905,77 @@ func TestTouchWorkload(t *testing.T) {
 	_, err = srv.TouchWorkload(ctx, &runnersv1.TouchWorkloadRequest{Id: workloadID.String()})
 	if err != nil {
 		t.Fatalf("TouchWorkload failed: %v", err)
+	}
+
+	if err := mockPool.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestTouchWorkloadIdleToProcessingPublishesNotification(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("failed to create mock pool: %v", err)
+	}
+
+	workloadID := uuid.New()
+	agentID := uuid.New()
+	callerID := agentID
+	runnerID := uuid.New()
+	threadID := uuid.New()
+	organizationID := uuid.New()
+	now := time.Now().UTC()
+	containersJSON := []byte("[]")
+
+	query := regexp.QuoteMeta("UPDATE workloads AS w")
+	rows := pgxmock.NewRows([]string{"agent_state_changed"}).AddRow(true)
+	mockPool.ExpectQuery(query).
+		WithArgs(workloadID, callerID, workloadAgentStateIdle, workloadAgentStateProcessing).
+		WillReturnRows(rows)
+
+	selectQuery := fmt.Sprintf("SELECT %s FROM workloads WHERE id = $1", workloadColumns)
+	workloadRows := pgxmock.NewRows(workloadRowColumns).
+		AddRow(workloadID, runnerID, threadID, agentID, organizationID, workloadStatusRunning, workloadAgentStateProcessing, nil, nil, containersJSON, "ziti-id", int32(0), int64(0), nil, now, nil, nil, now, now)
+	mockPool.ExpectQuery(regexp.QuoteMeta(selectQuery)).WithArgs(workloadID).WillReturnRows(workloadRows)
+
+	published := make([]*notificationsv1.PublishRequest, 0, 1)
+	notificationsClient := fakeNotificationsClient{publish: func(ctx context.Context, req *notificationsv1.PublishRequest) (*notificationsv1.PublishResponse, error) {
+		published = append(published, req)
+		return &notificationsv1.PublishResponse{}, nil
+	}}
+
+	srv := New(Options{Pool: mockPool, NotificationsClient: notificationsClient})
+	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(identityMetadata, callerID.String()))
+	_, err = srv.TouchWorkload(ctx, &runnersv1.TouchWorkloadRequest{Id: workloadID.String()})
+	if err != nil {
+		t.Fatalf("TouchWorkload failed: %v", err)
+	}
+	if len(published) != 1 {
+		t.Fatalf("expected 1 notification, got %d", len(published))
+	}
+
+	req := published[0]
+	if req.GetEvent() != "workload.updated" {
+		t.Fatalf("expected workload.updated event, got %s", req.GetEvent())
+	}
+	if req.GetSource() != "runners" {
+		t.Fatalf("expected source runners, got %q", req.GetSource())
+	}
+	rooms := req.GetRooms()
+	workloadRoom := fmt.Sprintf("workload:%s", workloadID)
+	orgRoom := fmt.Sprintf("organization:%s", organizationID)
+	if len(rooms) != 2 || !hasRoom(rooms, workloadRoom) || !hasRoom(rooms, orgRoom) {
+		t.Fatalf("unexpected rooms: %v", rooms)
+	}
+	payload := req.GetPayload().AsMap()
+	if payload["workload_id"] != workloadID.String() {
+		t.Fatalf("unexpected workload_id payload: %v", payload["workload_id"])
+	}
+	if payload["status"] != workloadStatusRunning {
+		t.Fatalf("unexpected status payload: %v", payload["status"])
+	}
+	if payload["agent_state"] != workloadAgentStateProcessing {
+		t.Fatalf("unexpected agent_state payload: %v", payload["agent_state"])
 	}
 
 	if err := mockPool.ExpectationsWereMet(); err != nil {

@@ -16,6 +16,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -80,21 +81,16 @@ func (s *Server) StreamWorkloadLogs(req *runnerv1.StreamWorkloadLogsRequest, str
 		}
 		return status.Errorf(codes.Unavailable, "dial runner: %v", err)
 	}
-	defer conn.Close()
+	defer func() {
+		if err := conn.Close(); err != nil {
+			log.Printf("runners: close runner connection: %v", err)
+		}
+	}()
 
 	// workload_id here is the platform workload UUID; runner expects instance_id.
-	runnerReq := &runnerv1.StreamWorkloadLogsRequest{
-		WorkloadId:    instanceID,
-		Follow:        req.GetFollow(),
-		Since:         req.GetSince(),
-		Tail:          req.GetTail(),
-		Stdout:        req.GetStdout(),
-		Stderr:        req.GetStderr(),
-		Timestamps:    req.GetTimestamps(),
-		ContainerName: containerName,
-		TailLines:     req.GetTailLines(),
-		SinceTime:     req.GetSinceTime(),
-	}
+	runnerReq := proto.Clone(req).(*runnerv1.StreamWorkloadLogsRequest)
+	runnerReq.WorkloadId = instanceID
+	runnerReq.ContainerName = containerName
 
 	runnerClient := runnerv1.NewRunnerServiceClient(conn)
 	grpcStream, err := runnerClient.StreamWorkloadLogs(ctx, runnerReq)

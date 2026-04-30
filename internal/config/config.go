@@ -83,9 +83,6 @@ func Load() (Config, error) {
 		}
 		cfg.AgentActivitySweepInterval = parsed
 	}
-	if cfg.AgentActivitySweepInterval <= 0 {
-		return Config{}, fmt.Errorf("AGENT_ACTIVITY_SWEEP_INTERVAL must be greater than 0")
-	}
 
 	keepaliveGrace := strings.TrimSpace(os.Getenv("KEEPALIVE_GRACE"))
 	if keepaliveGrace == "" {
@@ -96,9 +93,6 @@ func Load() (Config, error) {
 			return Config{}, fmt.Errorf("parse KEEPALIVE_GRACE: %w", err)
 		}
 		cfg.KeepaliveGrace = parsed
-	}
-	if cfg.KeepaliveGrace <= 0 {
-		return Config{}, fmt.Errorf("KEEPALIVE_GRACE must be greater than 0")
 	}
 
 	cfg.GRPCAddr = readEnv("GRPC_ADDR", defaultGRPCAddr)

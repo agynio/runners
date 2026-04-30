@@ -48,7 +48,7 @@ const (
 	containerStatusTerminated = "terminated"
 	containerStatusWaiting    = "waiting"
 
-	workloadColumns = `id, runner_id, thread_id, agent_id, organization_id, status, agent_state, failure_reason, failure_message, containers, ziti_identity_id, allocated_cpu_millicores, allocated_ram_bytes, instance_id, last_activity_at, last_metering_sampled_at, removed_at, created_at, updated_at`
+	workloadColumns = `workloads.id, workloads.runner_id, workloads.thread_id, workloads.agent_id, workloads.organization_id, workloads.status, workloads.agent_state, workloads.failure_reason, workloads.failure_message, workloads.containers, workloads.ziti_identity_id, workloads.allocated_cpu_millicores, workloads.allocated_ram_bytes, workloads.instance_id, workloads.last_activity_at, workloads.last_metering_sampled_at, workloads.removed_at, workloads.created_at, workloads.updated_at`
 )
 
 type workloadRecord struct {
@@ -522,7 +522,6 @@ func (s *Server) ListWorkloads(ctx context.Context, req *runnersv1.ListWorkloads
 	}
 
 	filter := workloadListFilter{OrganizationID: organizationID}
-	pendingSampleSet := false
 	if req.Filter != nil {
 		filter.AgentIDs = make([]uuid.UUID, 0, len(req.Filter.AgentIdIn))
 		for _, agentValue := range req.Filter.AgentIdIn {
@@ -556,26 +555,13 @@ func (s *Server) ListWorkloads(ctx context.Context, req *runnersv1.ListWorkloads
 		}
 		if req.Filter.PendingSample != nil {
 			filter.PendingSample = req.Filter.GetPendingSample()
-			pendingSampleSet = true
 		}
-	}
-
-	if req.RunnerId != nil {
-		parsed, err := parseUUID(req.GetRunnerId())
-		if err != nil {
-			return nil, status.Errorf(codes.InvalidArgument, "runner_id: %v", err)
-		}
-		filter.RunnerIDs = append(filter.RunnerIDs, parsed)
-	}
-	if req.PendingSample != nil && !pendingSampleSet {
-		filter.PendingSample = req.GetPendingSample()
 	}
 
 	statusFilters := make([]runnersv1.WorkloadStatus, 0)
 	if req.Filter != nil {
 		statusFilters = append(statusFilters, req.Filter.StatusIn...)
 	}
-	statusFilters = append(statusFilters, req.GetStatuses()...)
 	statuses, err := workloadStatusesToStrings(statusFilters)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "statuses: %v", err)
@@ -796,10 +782,10 @@ func (s *Server) listWorkloadsByThread(ctx context.Context, threadID uuid.UUID, 
 	}
 
 	query := strings.Builder{}
-	query.WriteString(fmt.Sprintf("SELECT %s FROM workloads", workloadColumns))
+	fmt.Fprintf(&query, "SELECT %s FROM workloads", workloadColumns)
 	query.WriteString(" WHERE ")
 	query.WriteString(strings.Join(clauses, " AND "))
-	query.WriteString(fmt.Sprintf(" ORDER BY created_at DESC, id DESC LIMIT $%d", len(args)+1))
+	fmt.Fprintf(&query, " ORDER BY created_at DESC, id DESC LIMIT $%d", len(args)+1)
 	args = append(args, int(limit)+1)
 
 	rows, err := s.pool.Query(ctx, query.String(), args...)
@@ -1113,13 +1099,13 @@ func (s *Server) listWorkloads(ctx context.Context, filter workloadListFilter, s
 	}
 
 	query := strings.Builder{}
-	query.WriteString(fmt.Sprintf("SELECT %s FROM workloads", workloadColumns))
+	fmt.Fprintf(&query, "SELECT %s FROM workloads", workloadColumns)
 	query.WriteString(joinClause)
 	if len(clauses) > 0 {
 		query.WriteString(" WHERE ")
 		query.WriteString(strings.Join(clauses, " AND "))
 	}
-	query.WriteString(fmt.Sprintf(" ORDER BY %s %s, workloads.id ASC LIMIT $%d", sortColumn, sort.Direction, len(args)+1))
+	fmt.Fprintf(&query, " ORDER BY %s %s, workloads.id ASC LIMIT $%d", sortColumn, sort.Direction, len(args)+1)
 	args = append(args, int(limit)+1)
 
 	rows, err := s.pool.Query(ctx, query.String(), args...)

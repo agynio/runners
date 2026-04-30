@@ -240,7 +240,12 @@ func TestListVolumesFiltersRunner(t *testing.T) {
 	runnerIDValue := runnerID.String()
 	organizationIDValue := organizationID.String()
 	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(identityMetadata, callerID.String()))
-	resp, err := srv.ListVolumes(ctx, &runnersv1.ListVolumesRequest{OrganizationId: &organizationIDValue, RunnerId: &runnerIDValue})
+	resp, err := srv.ListVolumes(ctx, &runnersv1.ListVolumesRequest{
+		OrganizationId: &organizationIDValue,
+		Filter: &runnersv1.ListVolumesFilter{
+			RunnerIdIn: []string{runnerIDValue},
+		},
+	})
 	if err != nil {
 		t.Fatalf("ListVolumes failed: %v", err)
 	}
@@ -314,7 +319,12 @@ func TestListVolumesPendingSample(t *testing.T) {
 	pendingSample := true
 	organizationIDValue := organizationID.String()
 	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(identityMetadata, callerID.String()))
-	resp, err := srv.ListVolumes(ctx, &runnersv1.ListVolumesRequest{OrganizationId: &organizationIDValue, PendingSample: &pendingSample})
+	resp, err := srv.ListVolumes(ctx, &runnersv1.ListVolumesRequest{
+		OrganizationId: &organizationIDValue,
+		Filter: &runnersv1.ListVolumesFilter{
+			PendingSample: &pendingSample,
+		},
+	})
 	if err != nil {
 		t.Fatalf("ListVolumes failed: %v", err)
 	}
@@ -592,7 +602,10 @@ func TestListVolumesInvalidUUID(t *testing.T) {
 			name: "runner_id",
 			req: func() *runnersv1.ListVolumesRequest {
 				value := "not-a-uuid"
-				return &runnersv1.ListVolumesRequest{OrganizationId: &organizationIDValue, RunnerId: &value}
+				return &runnersv1.ListVolumesRequest{
+					OrganizationId: &organizationIDValue,
+					Filter:         &runnersv1.ListVolumesFilter{RunnerIdIn: []string{value}},
+				}
 			}(),
 		},
 	}
