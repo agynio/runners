@@ -131,7 +131,7 @@ func TestStreamWorkloadLogsProxiesRunnerStream(t *testing.T) {
 	}
 
 	workloadRows := pgxmock.NewRows(workloadRowColumns).
-		AddRow(workloadID, runnerID, threadID, agentID, organizationID, workloadStatusRunning, nil, nil, containersJSON, "ziti-id", int32(0), int64(0), instanceID, now, nil, nil, now, now)
+		AddRow(workloadID, runnerID, threadID, agentID, organizationID, workloadStatusRunning, workloadAgentStateProcessing, nil, nil, containersJSON, "ziti-id", int32(0), int64(0), instanceID, now, nil, nil, now, now)
 	workloadQuery := fmt.Sprintf("SELECT %s FROM workloads WHERE id = $1", workloadColumns)
 	mockPool.ExpectQuery(regexp.QuoteMeta(workloadQuery)).
 		WithArgs(workloadID).
@@ -238,7 +238,7 @@ func TestStreamWorkloadLogsRequiresViewWorkloads(t *testing.T) {
 	containersJSON := []byte("[]")
 
 	workloadRows := pgxmock.NewRows(workloadRowColumns).
-		AddRow(workloadID, runnerID, threadID, agentID, organizationID, workloadStatusRunning, nil, nil, containersJSON, "ziti-id", int32(0), int64(0), "instance-1", now, nil, nil, now, now)
+		AddRow(workloadID, runnerID, threadID, agentID, organizationID, workloadStatusRunning, workloadAgentStateProcessing, nil, nil, containersJSON, "ziti-id", int32(0), int64(0), "instance-1", now, nil, nil, now, now)
 	workloadQuery := fmt.Sprintf("SELECT %s FROM workloads WHERE id = $1", workloadColumns)
 	mockPool.ExpectQuery(regexp.QuoteMeta(workloadQuery)).
 		WithArgs(workloadID).
@@ -295,7 +295,7 @@ func TestStreamWorkloadLogsMissingInstanceID(t *testing.T) {
 	containersJSON := []byte("[]")
 
 	workloadRows := pgxmock.NewRows(workloadRowColumns).
-		AddRow(workloadID, runnerID, threadID, agentID, organizationID, workloadStatusRunning, nil, nil, containersJSON, "ziti-id", int32(0), int64(0), nil, now, nil, nil, now, now)
+		AddRow(workloadID, runnerID, threadID, agentID, organizationID, workloadStatusRunning, workloadAgentStateProcessing, nil, nil, containersJSON, "ziti-id", int32(0), int64(0), nil, now, nil, nil, now, now)
 	workloadQuery := fmt.Sprintf("SELECT %s FROM workloads WHERE id = $1", workloadColumns)
 	mockPool.ExpectQuery(regexp.QuoteMeta(workloadQuery)).
 		WithArgs(workloadID).
