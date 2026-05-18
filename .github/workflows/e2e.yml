@@ -5,59 +5,35 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
 concurrency:
   group: e2e-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.sha }}
   cancel-in-progress: true
-
-env:
-  AGN_INIT_IMAGE: ghcr.io/agynio/agent-init-agn:latest
-  CODEX_INIT_IMAGE: ghcr.io/agynio/agent-init-codex:latest
-  CLAUDE_INIT_IMAGE: ghcr.io/agynio/agent-init-claude:0.1
-  AGN_EXPOSE_INIT_IMAGE: ghcr.io/agynio/agent-init-agn:latest
-  AGYN_AGENT_INIT_IMAGE: ghcr.io/agynio/agent-init:v1.0.0
 
 jobs:
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    permissions:
-      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          path: service
 
       - name: Provision cluster
         uses: agynio/bootstrap/.github/actions/provision@main
-        env:
-          TF_VAR_ziti_management_chart_version: "0.10.10"
 
       - name: Setup DevSpace
         uses: agynio/e2e/.github/actions/setup-devspace@main
 
-      - name: Checkout agents-orchestrator
-        uses: actions/checkout@v4
-        with:
-          repository: agynio/agents-orchestrator
-          ref: cd934479a503d27998d34e01872fa1e885319cb9
-          path: agents-orchestrator
-
       - name: Deploy runners from source
-        run: devspace run deploy -n platform
-        working-directory: service
-
-      - name: Deploy agents-orchestrator from source
-        run: devspace run deploy -n platform
-        working-directory: agents-orchestrator
+        run: devspace run deploy
 
       - name: Run E2E tests
         uses: agynio/e2e/.github/actions/run-tests@main
-        env:
-          AGN_INIT_IMAGE: ${{ env.AGN_INIT_IMAGE }}
-          CODEX_INIT_IMAGE: ${{ env.CODEX_INIT_IMAGE }}
-          CLAUDE_INIT_IMAGE: ${{ env.CLAUDE_INIT_IMAGE }}
-          AGN_EXPOSE_INIT_IMAGE: ${{ env.AGN_EXPOSE_INIT_IMAGE }}
-          AGYN_AGENT_INIT_IMAGE: ${{ env.AGYN_AGENT_INIT_IMAGE }}
         with:
           service: runners
+
+      - name: Restore ArgoCD sync
+        if: always()
+        run: devspace run restore-argocd
