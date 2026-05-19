@@ -60,10 +60,15 @@ functions:
                 - -c
                 - |
                   set -eux
-                  elapsed=0
-                  while [ ! -f /opt/app/data/go.mod ]; do
-                    sleep 1; elapsed=$((elapsed + 1))
-                    [ "$elapsed" -ge 300 ] && { echo "ERROR: sync timeout" >&2; exit 1; }
+                  start=$(date +%s)
+                  while [ ! -f /opt/app/data/go.mod ] \
+                    || [ ! -f /opt/app/data/go.sum ] \
+                    || [ ! -f /opt/app/data/buf.gen.yaml ] \
+                    || [ ! -f /opt/app/data/buf.yaml ] \
+                    || [ ! -f /opt/app/data/cmd/runners/main.go ]; do
+                    sleep 1
+                    elapsed=$(( $(date +%s) - start ))
+                    [ "$elapsed" -ge 300 ] && { echo "ERROR: sync timeout waiting for source files" >&2; exit 1; }
                   done
                   echo "Files synced, starting buf generate..."
                   ls -la /opt/app/data/
@@ -131,12 +136,6 @@ functions:
     done
     echo "Runners is running from source."
 
-commands:
-  deploy: |-
-    devspace run-pipeline deploy -n ${DEVSPACE_NAMESPACE} $@
-  restore-argocd: |-
-    devspace run-pipeline restore-argocd -n ${DEVSPACE_NAMESPACE} $@
-
 pipelines:
   dev:
     flags:
@@ -152,23 +151,18 @@ pipelines:
         start_dev --disable-pod-replace runners
       else
         start_dev --disable-pod-replace runners
-        sleep 10
+        wait_for_runners
         echo "Dev environment ready. Stopping dev session."
         stop_dev runners
       fi
 
-  deploy:
-    run: |-
-      disable_argocd_sync
-      wait_for_runners_deployment
-      patch_deployment
-      start_dev --disable-pod-replace runners-deploy
-      wait_for_runners
-      echo "Deploy complete. Runners is running from source."
-
   restore-argocd:
     run: |-
       restore_argocd_sync
+
+  wait-runners:
+    run: |-
+      wait_for_runners
 
 dev:
   runners:
@@ -199,30 +193,3 @@ dev:
         logs:
           enabled: true
           lastLines: 200
-
-  runners-deploy:
-    namespace: ${RUNNERS_NAMESPACE}
-    labelSelector:
-      app.kubernetes.io/name: runners
-      app.kubernetes.io/instance: runners
-    containers:
-      runners:
-        container: runners
-        sync:
-          - path: ./:/opt/app/data
-            noWatch: true
-            excludePaths:
-              - .git/
-              - .devspace/
-              - /.gen/
-              - /tmp/
-            uploadExcludePaths:
-              - .git/
-              - .devspace/
-              - /.gen/
-              - /tmp/
-            downloadExcludePaths:
-              - .git/
-              - .devspace/
-              - /.gen/
-              - /tmp/
