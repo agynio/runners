@@ -27,7 +27,7 @@ jobs:
         uses: agynio/e2e/.github/actions/setup-devspace@main
 
       - name: Deploy runners from source
-        run: devspace run deploy
+        run: devspace dev
 
       - name: Run E2E tests
         uses: agynio/e2e/.github/actions/run-tests@main
@@ -36,4 +36,4 @@ jobs:
 
       - name: Restore ArgoCD sync
         if: always()
-        run: devspace run restore-argocd
+        run: devspace run-pipeline restore-argocd
