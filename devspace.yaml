@@ -160,6 +160,10 @@ pipelines:
     run: |-
       restore_argocd_sync
 
+  wait-runners:
+    run: |-
+      wait_for_runners
+
 dev:
   runners:
     namespace: ${RUNNERS_NAMESPACE}

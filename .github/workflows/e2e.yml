@@ -27,7 +27,11 @@ jobs:
         uses: agynio/e2e/.github/actions/setup-devspace@main
 
       - name: Deploy runners from source
-        run: devspace dev
+        run: |
+          set -euo pipefail
+          devspace dev --watch > /tmp/runners-devspace.log 2>&1 &
+          echo "$!" > /tmp/runners-devspace.pid
+          devspace run-pipeline wait-runners
 
       - name: Run E2E tests
         uses: agynio/e2e/.github/actions/run-tests@main
@@ -36,4 +40,10 @@ jobs:
 
       - name: Restore ArgoCD sync
         if: always()
-        run: devspace run-pipeline restore-argocd
+        run: |
+          set +e
+          if [ -f /tmp/runners-devspace.pid ]; then
+            kill "$(cat /tmp/runners-devspace.pid)"
+            wait "$(cat /tmp/runners-devspace.pid)"
+          fi
+          devspace run-pipeline restore-argocd
