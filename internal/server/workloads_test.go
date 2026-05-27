@@ -716,6 +716,66 @@ func TestListWorkloadsByThreadInternalNoIdentity(t *testing.T) {
 	}
 }
 
+func TestListWorkloadsByThreadUsesViewWorkloadsRelation(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("failed to create mock pool: %v", err)
+	}
+
+	workloadID := uuid.New()
+	runnerID := uuid.New()
+	threadID := uuid.New()
+	agentID := uuid.New()
+	organizationID := uuid.New()
+	callerID := uuid.New()
+	now := time.Now().UTC()
+	containersJSON := []byte("[]")
+	limit := normalizePageSize(0)
+
+	rows := pgxmock.NewRows(workloadRowColumns).
+		AddRow(workloadID, runnerID, threadID, agentID, organizationID, workloadStatusRunning, workloadAgentStateProcessing, nil, nil, containersJSON, "ziti-id", int32(0), int64(0), nil, now, nil, nil, now, now)
+
+	query := fmt.Sprintf("SELECT %s FROM workloads WHERE thread_id = $1 ORDER BY created_at DESC, id DESC LIMIT $2", workloadColumns)
+	mockPool.ExpectQuery(regexp.QuoteMeta(query)).
+		WithArgs(threadID, int(limit)+1).
+		WillReturnRows(rows)
+
+	var gotCheckReqs []*authorizationv1.CheckRequest
+	authorizationClient := fakeAuthorizationClient{
+		check: func(ctx context.Context, req *authorizationv1.CheckRequest) (*authorizationv1.CheckResponse, error) {
+			gotCheckReqs = append(gotCheckReqs, req)
+			allowed := req.GetTupleKey().GetRelation() == organizationViewWorkloads
+			return &authorizationv1.CheckResponse{Allowed: allowed}, nil
+		},
+	}
+
+	srv := New(Options{Pool: mockPool, AuthorizationClient: authorizationClient})
+	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(identityMetadata, callerID.String()))
+	resp, err := srv.ListWorkloadsByThread(ctx, &runnersv1.ListWorkloadsByThreadRequest{ThreadId: threadID.String()})
+	if err != nil {
+		t.Fatalf("ListWorkloadsByThread failed: %v", err)
+	}
+	if len(resp.GetWorkloads()) != 1 {
+		t.Fatalf("expected 1 workload, got %d", len(resp.GetWorkloads()))
+	}
+	if resp.GetWorkloads()[0].GetOrganizationId() != organizationID.String() {
+		t.Fatalf("expected organization id %q, got %q", organizationID.String(), resp.GetWorkloads()[0].GetOrganizationId())
+	}
+	if len(gotCheckReqs) != 1 {
+		t.Fatalf("expected 1 authorization check, got %d", len(gotCheckReqs))
+	}
+	if gotCheckReqs[0].GetTupleKey().GetRelation() != organizationViewWorkloads {
+		t.Fatalf("expected view workloads relation, got %s", gotCheckReqs[0].GetTupleKey().GetRelation())
+	}
+	if gotCheckReqs[0].GetTupleKey().GetObject() != organizationObject(organizationID) {
+		t.Fatalf("expected organization object %q, got %q", organizationObject(organizationID), gotCheckReqs[0].GetTupleKey().GetObject())
+	}
+
+	if err := mockPool.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
 func TestListWorkloadsByThreadPagination(t *testing.T) {
 	mockPool, err := pgxmock.NewPool()
 	if err != nil {
