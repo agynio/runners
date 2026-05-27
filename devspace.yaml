@@ -191,6 +191,10 @@ functions:
       echo "  still waiting... (${ELAPSED}s)"
     done
 
+    echo "Runners service diagnostics before connection checks:"
+    kubectl get service runners -n ${RUNNERS_NAMESPACE} -o wide
+    kubectl get endpoints runners -n ${RUNNERS_NAMESPACE} -o wide
+
     echo "Waiting for runners TCP endpoint on port 50051..."
     ELAPSED=0
     PORT_FORWARD_LOG="/tmp/runners-port-forward.log"
@@ -200,7 +204,7 @@ functions:
       PORT_FORWARD_PID=$!
       READY="false"
       for _ in 1 2 3 4 5 6 7 8 9 10; do
-        if nc -z 127.0.0.1 15051 >/dev/null 2>&1; then
+        if nc -zv -w 2 127.0.0.1 15051 >/tmp/runners-nc.log 2>&1; then
           READY="true"
           break
         fi
@@ -216,6 +220,8 @@ functions:
       ELAPSED=$((ELAPSED + 10))
       if [ "$ELAPSED" -ge 300 ]; then
         echo "ERROR: runners TCP endpoint was not accepting connections within 300s" >&2
+        echo "Diagnostic netcat log:" >&2
+        cat /tmp/runners-nc.log >&2 || true
         echo "Diagnostic port-forward log:" >&2
         cat "${PORT_FORWARD_LOG}" >&2 || true
         echo "Diagnostic endpoints:" >&2
@@ -238,7 +244,7 @@ functions:
       PORT_FORWARD_PID=$!
       READY="false"
       for _ in 1 2 3 4 5 6 7 8 9 10; do
-        if grpc_health_probe -addr=127.0.0.1:15051 -connect-timeout=2s -rpc-timeout=2s >/dev/null 2>&1; then
+        if grpc_health_probe -addr=127.0.0.1:15051 -connect-timeout=2s -rpc-timeout=2s >/tmp/runners-grpc-health.log 2>&1; then
           READY="true"
           break
         fi
@@ -254,6 +260,8 @@ functions:
       ELAPSED=$((ELAPSED + 10))
       if [ "$ELAPSED" -ge 300 ]; then
         echo "ERROR: runners gRPC health endpoint was not serving within 300s" >&2
+        echo "Diagnostic grpc_health_probe log:" >&2
+        cat /tmp/runners-grpc-health.log >&2 || true
         echo "Diagnostic port-forward log:" >&2
         cat "${PORT_FORWARD_LOG}" >&2 || true
         echo "Diagnostic endpoints:" >&2
