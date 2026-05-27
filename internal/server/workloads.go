@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	authorizationv1 "github.com/agynio/runners/.gen/go/agynio/api/authorization/v1"
 	notificationsv1 "github.com/agynio/runners/.gen/go/agynio/api/notifications/v1"
 	runnersv1 "github.com/agynio/runners/.gen/go/agynio/api/runners/v1"
 	"github.com/google/uuid"
@@ -183,6 +184,9 @@ func (s *Server) CreateWorkload(ctx context.Context, req *runnersv1.CreateWorklo
 	})
 	if err != nil {
 		return nil, toStatusError(err)
+	}
+	if err := s.writeWorkloadAuthorization(ctx, id, organizationID, agentID); err != nil {
+		return nil, err
 	}
 
 	protoWorkload, err := toProtoWorkload(workload)
@@ -451,7 +455,7 @@ func (s *Server) GetWorkload(ctx context.Context, req *runnersv1.GetWorkloadRequ
 	if err != nil {
 		return nil, toStatusError(err)
 	}
-	if err := s.requireRelation(ctx, callerID, organizationViewWorkloads, organizationObject(workload.OrganizationID)); err != nil {
+	if err := s.requireRelation(ctx, callerID, workloadCanViewRelation, workloadObject(workload.Meta.ID)); err != nil {
 		return nil, err
 	}
 	workloads, err := s.buildWorkloadProtos(ctx, []workloadRecord{workload})
@@ -632,6 +636,30 @@ func (s *Server) BatchUpdateWorkloadSampledAt(ctx context.Context, req *runnersv
 		return nil, status.Errorf(codes.Internal, "batch update workloads: %v", err)
 	}
 	return &runnersv1.BatchUpdateWorkloadSampledAtResponse{}, nil
+}
+
+func (s *Server) writeWorkloadAuthorization(ctx context.Context, workloadID, organizationID, agentID uuid.UUID) error {
+	tuples := workloadAuthorizationTuples(workloadID, organizationID, agentID)
+	if _, err := s.authorizationClient.Write(ctx, &authorizationv1.WriteRequest{Writes: tuples}); err != nil {
+		return status.Errorf(codes.Internal, "authorization write: %v", err)
+	}
+	return nil
+}
+
+func workloadAuthorizationTuples(workloadID, organizationID, agentID uuid.UUID) []*authorizationv1.TupleKey {
+	object := workloadObject(workloadID)
+	return []*authorizationv1.TupleKey{
+		{
+			User:     organizationObject(organizationID),
+			Relation: workloadOrgRelation,
+			Object:   object,
+		},
+		{
+			User:     identityObject(agentID),
+			Relation: workloadOwnerAgentRelation,
+			Object:   object,
+		},
+	}
 }
 
 func (s *Server) insertWorkload(ctx context.Context, input workloadInsertInput) (workloadRecord, error) {

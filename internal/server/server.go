@@ -26,8 +26,12 @@ const (
 	organizationOwnerRelation  = "owner"
 	organizationViewWorkloads  = "can_view_workloads"
 	organizationViewVolumes    = "can_view_volumes"
+	workloadOrgRelation        = "org"
+	workloadOwnerAgentRelation = "owner_agent"
+	workloadCanViewRelation    = "can_view"
 	identityObjectPrefix       = "identity:"
 	organizationObjectPrefix   = "organization:"
+	workloadObjectPrefix       = "workload:"
 	identityMetadata           = "x-identity-id"
 )
 
@@ -131,4 +135,8 @@ func identityObject(id uuid.UUID) string {
 
 func organizationObject(id uuid.UUID) string {
 	return organizationObjectPrefix + id.String()
+}
+
+func workloadObject(id uuid.UUID) string {
+	return workloadObjectPrefix + id.String()
 }
