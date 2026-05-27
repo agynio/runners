@@ -23,6 +23,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/health"
+	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
 
 func main() {
@@ -103,6 +105,9 @@ func run() error {
 		ZitiDialer:           zitiManager,
 	})
 	runnersv1.RegisterRunnersServiceServer(grpcServer, srv)
+	healthServer := health.NewServer()
+	healthpb.RegisterHealthServer(grpcServer, healthServer)
+	healthServer.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
 	go srv.RunWorkloadActivitySweep(ctx, cfg.WorkloadActivitySweepInterval, cfg.WorkloadKeepaliveGrace)
 
 	listener, err := net.Listen("tcp", cfg.GRPCAddr)

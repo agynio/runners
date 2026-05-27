@@ -26,6 +26,16 @@ jobs:
       - name: Setup DevSpace
         uses: agynio/e2e/.github/actions/setup-devspace@main
 
+      - name: Install gRPC health probe
+        run: |
+          set -euo pipefail
+          version="v0.4.38"
+          curl -fsSL --retry 3 --retry-delay 5 \
+            -o /tmp/grpc_health_probe \
+            "https://github.com/grpc-ecosystem/grpc-health-probe/releases/download/${version}/grpc_health_probe-linux-amd64"
+          sudo install -c -m 0755 /tmp/grpc_health_probe /usr/local/bin/grpc_health_probe
+          grpc_health_probe -version
+
       - name: Deploy runners from source
         run: |
           set -euo pipefail
