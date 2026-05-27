@@ -451,8 +451,10 @@ func (s *Server) GetWorkload(ctx context.Context, req *runnersv1.GetWorkloadRequ
 	if err != nil {
 		return nil, toStatusError(err)
 	}
-	if err := s.requireRelation(ctx, callerID, organizationViewWorkloads, organizationObject(workload.OrganizationID)); err != nil {
-		return nil, err
+	if callerID != workload.AgentID {
+		if err := s.requireRelation(ctx, callerID, organizationViewWorkloads, organizationObject(workload.OrganizationID)); err != nil {
+			return nil, err
+		}
 	}
 	workloads, err := s.buildWorkloadProtos(ctx, []workloadRecord{workload})
 	if err != nil {
