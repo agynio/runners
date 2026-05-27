@@ -193,7 +193,6 @@ functions:
         sleep 1
       done
       kill "${PORT_FORWARD_PID}" >/dev/null 2>&1 || true
-      wait "${PORT_FORWARD_PID}" >/dev/null 2>&1 || true
       if [ "${READY}" = "true" ]; then
         break
       fi

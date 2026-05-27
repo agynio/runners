@@ -54,6 +54,6 @@ jobs:
           set +e
           if [ -f /tmp/runners-devspace.pid ]; then
             kill "$(cat /tmp/runners-devspace.pid)"
-            wait "$(cat /tmp/runners-devspace.pid)"
+            wait "$(cat /tmp/runners-devspace.pid)" || true
           fi
           devspace run-pipeline restore-argocd
