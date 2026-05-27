@@ -33,15 +33,26 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
 
+          variables_old = "\n".join([
+              'variable "authorization_chart_version" {',
+              '  type        = string',
+              '  description = "Version of the authorization Helm chart published to GHCR"',
+              '  default     = "0.5.3"',
+              '}',
+          ])
+          variables_new = "\n".join([
+              'variable "authorization_chart_version" {',
+              '  type        = string',
+              '  description = "Version of the authorization Helm chart published to GHCR"',
+              '  default     = "0.5.4"',
+              '}',
+          ])
           replacements = {
               Path("main.tf"): (
                   "github.com/agynio/authorization//terraform?ref=v0.5.3",
                   "github.com/agynio/authorization//terraform?ref=v0.5.4",
               ),
-              Path("variables.tf"): (
-                  'default = "0.5.3"',
-                  'default = "0.5.4"',
-              ),
+              Path("variables.tf"): (variables_old, variables_new),
           }
           for path, (old, new) in replacements.items():
               content = path.read_text()
