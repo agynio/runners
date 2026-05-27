@@ -169,21 +169,88 @@ func TestCreateWorkloadReturnsInternalWhenAuthorizationWriteFails(t *testing.T) 
 		t.Fatalf("failed to create mock pool: %v", err)
 	}
 
+	workloadID := uuid.New()
+	runnerID := uuid.New()
+	threadID := uuid.New()
+	agentID := uuid.New()
+	organizationID := uuid.New()
+	now := time.Now().UTC()
+	containersJSON := []byte("[]")
+	input := workloadInsertInput{
+		ID:             workloadID,
+		RunnerID:       runnerID,
+		ThreadID:       threadID,
+		AgentID:        agentID,
+		OrganizationID: organizationID,
+		Status:         workloadStatusRunning,
+		ContainersJSON: containersJSON,
+	}
+	expectWorkloadInsert(t, mockPool, input, defaultWorkloadRecord(workloadID, runnerID, threadID, agentID, organizationID, now))
+
 	authorizationClient := fakeAuthorizationClient{write: func(ctx context.Context, req *authorizationv1.WriteRequest) (*authorizationv1.WriteResponse, error) {
 		return nil, status.Error(codes.Unavailable, "authorization unavailable")
 	}}
 
 	srv := New(Options{Pool: mockPool, AuthorizationClient: authorizationClient})
 	_, err = srv.CreateWorkload(context.Background(), &runnersv1.CreateWorkloadRequest{
-		Id:             uuid.NewString(),
-		RunnerId:       uuid.NewString(),
-		ThreadId:       uuid.NewString(),
-		AgentId:        uuid.NewString(),
-		OrganizationId: uuid.NewString(),
+		Id:             workloadID.String(),
+		RunnerId:       runnerID.String(),
+		ThreadId:       threadID.String(),
+		AgentId:        agentID.String(),
+		OrganizationId: organizationID.String(),
 		Status:         runnersv1.WorkloadStatus_WORKLOAD_STATUS_RUNNING,
 	})
 	if status.Code(err) != codes.Internal {
 		t.Fatalf("expected Internal error, got %v", err)
+	}
+
+	if err := mockPool.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestCreateWorkloadDoesNotWriteAuthorizationWhenInsertFails(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("failed to create mock pool: %v", err)
+	}
+
+	workloadID := uuid.New()
+	runnerID := uuid.New()
+	threadID := uuid.New()
+	agentID := uuid.New()
+	organizationID := uuid.New()
+	containersJSON := []byte("[]")
+	input := workloadInsertInput{
+		ID:             workloadID,
+		RunnerID:       runnerID,
+		ThreadID:       threadID,
+		AgentID:        agentID,
+		OrganizationID: organizationID,
+		Status:         workloadStatusRunning,
+		ContainersJSON: containersJSON,
+	}
+	matcher := regexp.QuoteMeta(fmt.Sprintf("INSERT INTO workloads (id, runner_id, thread_id, agent_id, organization_id, status, containers, ziti_identity_id, allocated_cpu_millicores, allocated_ram_bytes, last_activity_at, created_at, updated_at)\n\t    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW(), NOW())\n\t    RETURNING %s", workloadColumns))
+	mockPool.ExpectQuery(matcher).
+		WithArgs(input.ID, input.RunnerID, input.ThreadID, input.AgentID, input.OrganizationID, input.Status, input.ContainersJSON, input.ZitiIdentityID, input.AllocatedCPUMillicores, input.AllocatedRAMBytes).
+		WillReturnError(AlreadyExists("workload"))
+
+	authorizationClient := fakeAuthorizationClient{write: func(ctx context.Context, req *authorizationv1.WriteRequest) (*authorizationv1.WriteResponse, error) {
+		t.Fatal("authorization Write must not be called when workload insert fails")
+		return &authorizationv1.WriteResponse{}, nil
+	}}
+
+	srv := New(Options{Pool: mockPool, AuthorizationClient: authorizationClient})
+	_, err = srv.CreateWorkload(context.Background(), &runnersv1.CreateWorkloadRequest{
+		Id:             workloadID.String(),
+		RunnerId:       runnerID.String(),
+		ThreadId:       threadID.String(),
+		AgentId:        agentID.String(),
+		OrganizationId: organizationID.String(),
+		Status:         runnersv1.WorkloadStatus_WORKLOAD_STATUS_RUNNING,
+	})
+	if status.Code(err) != codes.AlreadyExists {
+		t.Fatalf("expected AlreadyExists error, got %v", err)
 	}
 
 	if err := mockPool.ExpectationsWereMet(); err != nil {

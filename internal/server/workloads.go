@@ -170,10 +170,6 @@ func (s *Server) CreateWorkload(ctx context.Context, req *runnersv1.CreateWorklo
 		return nil, status.Errorf(codes.Internal, "marshal containers: %v", err)
 	}
 
-	if err := s.writeWorkloadAuthorization(ctx, id, organizationID, agentID); err != nil {
-		return nil, err
-	}
-
 	workload, err := s.insertWorkload(ctx, workloadInsertInput{
 		ID:                     id,
 		RunnerID:               runnerID,
@@ -187,8 +183,10 @@ func (s *Server) CreateWorkload(ctx context.Context, req *runnersv1.CreateWorklo
 		AllocatedRAMBytes:      req.GetAllocatedRamBytes(),
 	})
 	if err != nil {
-		s.cleanupWorkloadAuthorization(ctx, id, organizationID, agentID)
 		return nil, toStatusError(err)
+	}
+	if err := s.writeWorkloadAuthorization(ctx, id, organizationID, agentID); err != nil {
+		return nil, err
 	}
 
 	protoWorkload, err := toProtoWorkload(workload)
@@ -646,11 +644,6 @@ func (s *Server) writeWorkloadAuthorization(ctx context.Context, workloadID, org
 		return status.Errorf(codes.Internal, "authorization write: %v", err)
 	}
 	return nil
-}
-
-func (s *Server) cleanupWorkloadAuthorization(ctx context.Context, workloadID, organizationID, agentID uuid.UUID) {
-	tuples := workloadAuthorizationTuples(workloadID, organizationID, agentID)
-	_, _ = s.authorizationClient.Write(ctx, &authorizationv1.WriteRequest{Deletes: tuples})
 }
 
 func workloadAuthorizationTuples(workloadID, organizationID, agentID uuid.UUID) []*authorizationv1.TupleKey {
