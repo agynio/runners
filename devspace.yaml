@@ -215,6 +215,8 @@ functions:
       done
       kill "${PORT_FORWARD_PID}" >/dev/null 2>&1 || true
       if [ "${READY}" = "true" ]; then
+        echo "Runners TCP endpoint accepted connections:"
+        cat /tmp/runners-nc.log || true
         break
       fi
       ELAPSED=$((ELAPSED + 10))
@@ -255,6 +257,8 @@ functions:
       done
       kill "${PORT_FORWARD_PID}" >/dev/null 2>&1 || true
       if [ "${READY}" = "true" ]; then
+        echo "Runners gRPC health probe succeeded:"
+        cat /tmp/runners-grpc-health.log || true
         break
       fi
       ELAPSED=$((ELAPSED + 10))
