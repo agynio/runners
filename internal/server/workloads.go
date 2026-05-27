@@ -491,10 +491,10 @@ func (s *Server) ListWorkloadsByThread(ctx context.Context, req *runnersv1.ListW
 		return nil, status.Errorf(codes.Internal, "list workloads: %v", err)
 	}
 	if callerID != nil {
-		memberCache := map[uuid.UUID]bool{}
+		viewWorkloadsCache := map[uuid.UUID]bool{}
 		filtered := make([]workloadRecord, 0, len(workloads))
 		for _, workload := range workloads {
-			allowed, err := s.memberAllowed(ctx, *callerID, workload.OrganizationID, memberCache)
+			allowed, err := s.orgRelationAllowedCached(ctx, *callerID, workload.OrganizationID, organizationViewWorkloads, viewWorkloadsCache)
 			if err != nil {
 				return nil, err
 			}

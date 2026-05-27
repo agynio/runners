@@ -94,3 +94,15 @@ func (s *Server) memberAllowed(ctx context.Context, identityID uuid.UUID, organi
 	cache[organizationID] = allowed
 	return allowed, nil
 }
+
+func (s *Server) orgRelationAllowedCached(ctx context.Context, identityID uuid.UUID, organizationID uuid.UUID, relation string, cache map[uuid.UUID]bool) (bool, error) {
+	if allowed, ok := cache[organizationID]; ok {
+		return allowed, nil
+	}
+	allowed, err := s.orgRelationAllowed(ctx, identityID, organizationID, relation)
+	if err != nil {
+		return false, err
+	}
+	cache[organizationID] = allowed
+	return allowed, nil
+}
