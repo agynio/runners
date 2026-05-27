@@ -23,6 +23,20 @@ jobs:
       - name: Provision cluster
         uses: agynio/bootstrap/.github/actions/provision@main
 
+      - name: Upgrade authorization model
+        working-directory: bootstrap/stacks/platform
+        run: |
+          set -euo pipefail
+          terraform init \
+            -upgrade \
+            -target=module.openfga_authorization \
+            -from-module=github.com/agynio/authorization//terraform?ref=v0.5.4
+          terraform apply \
+            -auto-approve \
+            -target=module.openfga_authorization \
+            -target=openfga_relationship_tuple.cluster_admin \
+            -target=argocd_application.authorization
+
       - name: Setup DevSpace
         uses: agynio/e2e/.github/actions/setup-devspace@main
 
