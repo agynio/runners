@@ -113,7 +113,11 @@ func run() error {
 
 	errCh := make(chan error, 1)
 	go func() {
-		log.Print("runners: ready")
+		readyMessage := "runners: ready"
+		if sourceDeployID := os.Getenv("RUNNERS_SOURCE_DEPLOY_ID"); sourceDeployID != "" {
+			readyMessage = fmt.Sprintf("%s source_deploy_id=%s", readyMessage, sourceDeployID)
+		}
+		log.Print(readyMessage)
 		if err := grpcServer.Serve(listener); err != nil {
 			errCh <- err
 		}
