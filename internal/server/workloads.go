@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	identityv1 "github.com/agynio/runners/.gen/go/agynio/api/identity/v1"
 	notificationsv1 "github.com/agynio/runners/.gen/go/agynio/api/notifications/v1"
 	runnersv1 "github.com/agynio/runners/.gen/go/agynio/api/runners/v1"
 	"github.com/google/uuid"
@@ -451,7 +452,15 @@ func (s *Server) GetWorkload(ctx context.Context, req *runnersv1.GetWorkloadRequ
 	if err != nil {
 		return nil, toStatusError(err)
 	}
-	if callerID != workload.AgentID {
+	allowAgentSelfAccess := false
+	if callerID == workload.AgentID {
+		identityTypeResp, err := s.identityClient.GetIdentityType(ctx, &identityv1.GetIdentityTypeRequest{IdentityId: callerID.String()})
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "identity type: %v", err)
+		}
+		allowAgentSelfAccess = identityTypeResp.GetIdentityType() == identityv1.IdentityType_IDENTITY_TYPE_AGENT
+	}
+	if !allowAgentSelfAccess {
 		if err := s.requireRelation(ctx, callerID, organizationViewWorkloads, organizationObject(workload.OrganizationID)); err != nil {
 			return nil, err
 		}

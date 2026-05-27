@@ -107,6 +107,7 @@ func (f fakeZitiManagementClient) DeleteDeviceIdentity(ctx context.Context, req 
 
 type fakeIdentityClient struct {
 	registerIdentity func(ctx context.Context, req *identityv1.RegisterIdentityRequest) (*identityv1.RegisterIdentityResponse, error)
+	getIdentityType  func(ctx context.Context, req *identityv1.GetIdentityTypeRequest) (*identityv1.GetIdentityTypeResponse, error)
 }
 
 func (f fakeIdentityClient) RegisterIdentity(ctx context.Context, req *identityv1.RegisterIdentityRequest, opts ...grpc.CallOption) (*identityv1.RegisterIdentityResponse, error) {
@@ -117,7 +118,10 @@ func (f fakeIdentityClient) RegisterIdentity(ctx context.Context, req *identityv
 }
 
 func (f fakeIdentityClient) GetIdentityType(ctx context.Context, req *identityv1.GetIdentityTypeRequest, opts ...grpc.CallOption) (*identityv1.GetIdentityTypeResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "not implemented")
+	if f.getIdentityType == nil {
+		return nil, status.Error(codes.Unimplemented, "not implemented")
+	}
+	return f.getIdentityType(ctx, req)
 }
 
 func (f fakeIdentityClient) BatchGetIdentityTypes(ctx context.Context, req *identityv1.BatchGetIdentityTypesRequest, opts ...grpc.CallOption) (*identityv1.BatchGetIdentityTypesResponse, error) {

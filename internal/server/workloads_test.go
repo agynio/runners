@@ -12,6 +12,7 @@ import (
 
 	agentsv1 "github.com/agynio/runners/.gen/go/agynio/api/agents/v1"
 	authorizationv1 "github.com/agynio/runners/.gen/go/agynio/api/authorization/v1"
+	identityv1 "github.com/agynio/runners/.gen/go/agynio/api/identity/v1"
 	notificationsv1 "github.com/agynio/runners/.gen/go/agynio/api/notifications/v1"
 	runnersv1 "github.com/agynio/runners/.gen/go/agynio/api/runners/v1"
 	"github.com/google/uuid"
@@ -970,8 +971,14 @@ func TestGetWorkloadAllowsOwningAgent(t *testing.T) {
 		checkCalls++
 		return &authorizationv1.CheckResponse{Allowed: false}, nil
 	}}
+	identityClient := fakeIdentityClient{getIdentityType: func(ctx context.Context, req *identityv1.GetIdentityTypeRequest) (*identityv1.GetIdentityTypeResponse, error) {
+		if req.GetIdentityId() != agentID.String() {
+			t.Fatalf("expected identity id %q, got %q", agentID.String(), req.GetIdentityId())
+		}
+		return &identityv1.GetIdentityTypeResponse{IdentityType: identityv1.IdentityType_IDENTITY_TYPE_AGENT}, nil
+	}}
 
-	srv := New(Options{Pool: mockPool, AuthorizationClient: authorizationClient, AgentsClient: agentsClient})
+	srv := New(Options{Pool: mockPool, IdentityClient: identityClient, AuthorizationClient: authorizationClient, AgentsClient: agentsClient})
 	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(identityMetadata, agentID.String()))
 	resp, err := srv.GetWorkload(ctx, &runnersv1.GetWorkloadRequest{Id: workloadID.String()})
 	if err != nil {
@@ -985,6 +992,65 @@ func TestGetWorkloadAllowsOwningAgent(t *testing.T) {
 	}
 	if checkCalls != 0 {
 		t.Fatalf("expected no authorization checks, got %d", checkCalls)
+	}
+
+	if err := mockPool.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestGetWorkloadDoesNotAllowNonAgentSelfAccess(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("failed to create mock pool: %v", err)
+	}
+
+	workloadID := uuid.New()
+	runnerID := uuid.New()
+	threadID := uuid.New()
+	agentID := uuid.New()
+	organizationID := uuid.New()
+	now := time.Now().UTC()
+	containersJSON := []byte("[]")
+
+	rows := pgxmock.NewRows(workloadRowColumns).
+		AddRow(workloadID, runnerID, threadID, agentID, organizationID, workloadStatusRunning, workloadAgentStateProcessing, nil, nil, containersJSON, "ziti-id", int32(0), int64(0), nil, now, nil, nil, now, now)
+
+	query := fmt.Sprintf("SELECT %s FROM workloads WHERE id = $1", workloadColumns)
+	mockPool.ExpectQuery(regexp.QuoteMeta(query)).WithArgs(workloadID).WillReturnRows(rows)
+
+	identityTypeCalls := 0
+	identityClient := fakeIdentityClient{getIdentityType: func(ctx context.Context, req *identityv1.GetIdentityTypeRequest) (*identityv1.GetIdentityTypeResponse, error) {
+		identityTypeCalls++
+		if req.GetIdentityId() != agentID.String() {
+			t.Fatalf("expected identity id %q, got %q", agentID.String(), req.GetIdentityId())
+		}
+		return &identityv1.GetIdentityTypeResponse{IdentityType: identityv1.IdentityType_IDENTITY_TYPE_USER}, nil
+	}}
+
+	var gotCheckReq *authorizationv1.CheckRequest
+	authorizationClient := fakeAuthorizationClient{check: func(ctx context.Context, req *authorizationv1.CheckRequest) (*authorizationv1.CheckResponse, error) {
+		gotCheckReq = req
+		return &authorizationv1.CheckResponse{Allowed: false}, nil
+	}}
+
+	srv := New(Options{Pool: mockPool, IdentityClient: identityClient, AuthorizationClient: authorizationClient})
+	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(identityMetadata, agentID.String()))
+	_, err = srv.GetWorkload(ctx, &runnersv1.GetWorkloadRequest{Id: workloadID.String()})
+	if status.Code(err) != codes.PermissionDenied {
+		t.Fatalf("expected PermissionDenied error, got %v", err)
+	}
+	if identityTypeCalls != 1 {
+		t.Fatalf("expected 1 identity type lookup, got %d", identityTypeCalls)
+	}
+	if gotCheckReq == nil {
+		t.Fatal("expected authorization Check to be called")
+	}
+	if gotCheckReq.GetTupleKey().GetRelation() != organizationViewWorkloads {
+		t.Fatalf("expected view workloads relation, got %s", gotCheckReq.GetTupleKey().GetRelation())
+	}
+	if gotCheckReq.GetTupleKey().GetObject() != organizationObject(organizationID) {
+		t.Fatalf("expected organization object %q, got %q", organizationObject(organizationID), gotCheckReq.GetTupleKey().GetObject())
 	}
 
 	if err := mockPool.ExpectationsWereMet(); err != nil {
