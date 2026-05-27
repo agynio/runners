@@ -65,7 +65,8 @@ functions:
                     || [ ! -f /opt/app/data/go.sum ] \
                     || [ ! -f /opt/app/data/buf.gen.yaml ] \
                     || [ ! -f /opt/app/data/buf.yaml ] \
-                    || [ ! -f /opt/app/data/cmd/runners/main.go ]; do
+                    || [ ! -f /opt/app/data/cmd/runners/main.go ] \
+                    || [ ! -f /opt/app/data/internal/zitimanager/manager.go ]; do
                     sleep 1
                     elapsed=$(( $(date +%s) - start ))
                     [ "$elapsed" -ge 300 ] && { echo "ERROR: sync timeout waiting for source files" >&2; exit 1; }
