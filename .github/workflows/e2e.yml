@@ -22,50 +22,11 @@ jobs:
 
       - name: Provision cluster
         uses: agynio/bootstrap/.github/actions/provision@main
+        with:
+          ref: de8f5b68db4c17a5e41152aa6f8dde8b38de4812
 
       - name: Setup DevSpace
         uses: agynio/e2e/.github/actions/setup-devspace@main
-
-      - name: Upgrade authorization model
-        working-directory: bootstrap/stacks/platform
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          from pathlib import Path
-
-          variables_old = "\n".join([
-              'variable "authorization_chart_version" {',
-              '  type        = string',
-              '  description = "Version of the authorization Helm chart published to GHCR"',
-              '  default     = "0.5.3"',
-              '}',
-          ])
-          variables_new = "\n".join([
-              'variable "authorization_chart_version" {',
-              '  type        = string',
-              '  description = "Version of the authorization Helm chart published to GHCR"',
-              '  default     = "0.5.4"',
-              '}',
-          ])
-          replacements = {
-              Path("main.tf"): (
-                  "github.com/agynio/authorization//terraform?ref=v0.5.3",
-                  "github.com/agynio/authorization//terraform?ref=v0.5.4",
-              ),
-              Path("variables.tf"): (variables_old, variables_new),
-          }
-          for path, (old, new) in replacements.items():
-              content = path.read_text()
-              if old not in content:
-                  raise SystemExit(f"expected authorization v0.5.3 reference in {path}")
-              path.write_text(content.replace(old, new, 1))
-          PY
-          terraform init -upgrade
-          terraform apply \
-            -auto-approve \
-            -target=module.openfga_authorization \
-            -target=openfga_relationship_tuple.cluster_admin \
-            -target=argocd_application.authorization
 
       - name: Install gRPC health probe
         run: |
