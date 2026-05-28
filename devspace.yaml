@@ -66,6 +66,9 @@ functions:
                     || [ ! -f /opt/app/data/buf.gen.yaml ] \
                     || [ ! -f /opt/app/data/buf.yaml ] \
                     || [ ! -f /opt/app/data/cmd/runners/main.go ] \
+                    || [ ! -f /opt/app/data/internal/config/config.go ] \
+                    || [ ! -f /opt/app/data/internal/db/migrate.go ] \
+                    || [ ! -f /opt/app/data/internal/server/server.go ] \
                     || [ ! -f /opt/app/data/internal/zitimanager/manager.go ]; do
                     sleep 1
                     elapsed=$(( $(date +%s) - start ))
@@ -82,6 +85,8 @@ functions:
                     --path agynio/api/authorization/v1 \
                     --path agynio/api/ziti_management/v1 \
                     --path agynio/api/notifications/v1
+                  echo "buf generate complete, verifying runners package..."
+                  go list ./cmd/runners
                   echo "buf generate complete, starting go run..."
                   exec go run ./cmd/runners
               volumeMounts:
