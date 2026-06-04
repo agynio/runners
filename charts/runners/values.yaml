@@ -1,5 +1,5 @@
 nameOverride: ""
-fullnameOverride: ""
+fullnameOverride: "runners"
 
 global:
   imageRegistry: ""
@@ -88,7 +88,10 @@ env:
   - name: GRPC_ADDR
     value: ":50051"
   - name: DATABASE_URL
-    value: ""
+    valueFrom:
+      secretKeyRef:
+        name: agyn-platform-database-urls
+        key: runners
   - name: IDENTITY_ADDRESS
     value: "identity:50051"
   - name: AUTHORIZATION_ADDRESS
