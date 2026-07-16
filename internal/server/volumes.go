@@ -1557,6 +1557,7 @@ func scanVolume(row pgx.Row) (volumeRecord, error) {
 		agentID        nullableUUIDScanner
 		removedAt      pgtype.Timestamptz
 		lastMeteringAt pgtype.Timestamptz
+		ownerID        nullableUUIDScanner
 	)
 	if err := row.Scan(
 		&volume.Meta.ID,
@@ -1571,12 +1572,16 @@ func scanVolume(row pgx.Row) (volumeRecord, error) {
 		&removedAt,
 		&lastMeteringAt,
 		&volume.OwnerKind,
-		&volume.OwnerID,
+		&ownerID,
 		&volume.Meta.CreatedAt,
 		&volume.Meta.UpdatedAt,
 	); err != nil {
 		return volumeRecord{}, err
 	}
+	if !ownerID.Valid {
+		return volumeRecord{}, fmt.Errorf("owner_id missing")
+	}
+	volume.OwnerID = ownerID.UUID
 	if volumeID.Valid {
 		volume.VolumeID = volumeID.UUID
 	}

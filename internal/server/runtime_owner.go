@@ -41,7 +41,16 @@ func (s *nullableUUIDScanner) Scan(value any) error {
 		}
 		s.UUID = parsed
 		return nil
+	case [16]byte:
+		s.UUID = uuid.UUID(typed)
+		return nil
 	case []byte:
+		if len(typed) == 16 {
+			var raw [16]byte
+			copy(raw[:], typed)
+			s.UUID = uuid.UUID(raw)
+			return nil
+		}
 		parsed, err := uuid.ParseBytes(typed)
 		if err != nil {
 			return err
