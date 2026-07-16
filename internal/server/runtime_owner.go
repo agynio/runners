@@ -114,14 +114,6 @@ func pgUUIDValue(id uuid.UUID) pgtype.UUID {
 	return pgtype.UUID{Bytes: id, Valid: true}
 }
 
-func uuidFromPgtype(value pgtype.UUID) *uuid.UUID {
-	if !value.Valid {
-		return nil
-	}
-	id := uuid.UUID(value.Bytes)
-	return &id
-}
-
 func scanNullableUUID(value any) (*uuid.UUID, error) {
 	var scanner nullableUUIDScanner
 	if err := scanner.Scan(value); err != nil {
@@ -131,11 +123,4 @@ func scanNullableUUID(value any) (*uuid.UUID, error) {
 		return nil, nil
 	}
 	return &scanner.UUID, nil
-}
-
-func uuidString(id *uuid.UUID) string {
-	if id == nil {
-		return ""
-	}
-	return id.String()
 }

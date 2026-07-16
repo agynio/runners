@@ -161,7 +161,7 @@ func (s *Server) CreateVolume(ctx context.Context, req *runnersv1.CreateVolumeRe
 		return nil, status.Errorf(codes.InvalidArgument, "owner_id: %v", err)
 	}
 	if ownerID == nil && ownerKind == runtimeOwnerKindAgentInstance {
-		ownerID = &id
+		ownerID = threadID
 	}
 	if ownerID == nil {
 		return nil, status.Error(codes.InvalidArgument, "owner_id: value is empty")
@@ -532,16 +532,7 @@ func (s *Server) listVolumesByName(ctx context.Context, filter volumeListFilter,
 		return nil, "", err
 	}
 	if len(volumeIDs) == 0 {
-		if pageToken != "" {
-			cursor, _, err := decodeListCursor(pageToken)
-			if err != nil {
-				return nil, "", InvalidPageToken(err)
-			}
-			if _, err := volumeCursorPrimary(sort.Field, cursor); err != nil {
-				return nil, "", InvalidPageToken(err)
-			}
-		}
-		return []volumeListItem{}, "", nil
+		return s.listVolumesPaged(ctx, filter, sort, pageSize, pageToken, cache)
 	}
 	if err := s.ensureVolumeNames(ctx, cache, volumeIDs); err != nil {
 		return nil, "", err
@@ -576,16 +567,15 @@ func (s *Server) listVolumesByName(ctx context.Context, filter volumeListFilter,
 			return nil, "", err
 		}
 		for _, item := range items {
-			if item.record.VolumeID == uuid.Nil {
-				return nil, "", fmt.Errorf("volume definition id missing for %s", item.record.Meta.ID)
-			}
 			if nameFilter != "" && !strings.Contains(strings.ToLower(item.volumeName), nameFilter) {
 				continue
 			}
-			if err := s.ensureVolumeAttachments(ctx, cache, []uuid.UUID{item.record.VolumeID}); err != nil {
-				return nil, "", err
+			if item.record.VolumeID != uuid.Nil {
+				if err := s.ensureVolumeAttachments(ctx, cache, []uuid.UUID{item.record.VolumeID}); err != nil {
+					return nil, "", err
+				}
+				item.attachments = cache.attachments[item.record.VolumeID]
 			}
-			item.attachments = cache.attachments[item.record.VolumeID]
 			if len(kindFilter) > 0 && !matchesVolumeAttachmentKinds(item.attachments, kindFilter) {
 				continue
 			}
@@ -641,13 +631,12 @@ func (s *Server) listVolumesPaged(ctx context.Context, filter volumeListFilter, 
 		}
 		items = filterVolumeItemsByName(items, filter.VolumeNameContains)
 		for _, item := range items {
-			if item.record.VolumeID == uuid.Nil {
-				return nil, "", fmt.Errorf("volume definition id missing for %s", item.record.Meta.ID)
+			if item.record.VolumeID != uuid.Nil {
+				if err := s.ensureVolumeAttachments(ctx, cache, []uuid.UUID{item.record.VolumeID}); err != nil {
+					return nil, "", err
+				}
+				item.attachments = cache.attachments[item.record.VolumeID]
 			}
-			if err := s.ensureVolumeAttachments(ctx, cache, []uuid.UUID{item.record.VolumeID}); err != nil {
-				return nil, "", err
-			}
-			item.attachments = cache.attachments[item.record.VolumeID]
 			if len(kindFilter) > 0 && !matchesVolumeAttachmentKinds(item.attachments, kindFilter) {
 				continue
 			}
@@ -858,6 +847,8 @@ func parseVolumeSort(sort *runnersv1.ListVolumesSort) (volumeListSort, error) {
 
 func volumeSortColumn(field volumeSortField) (string, error) {
 	switch field {
+	case volumeSortName:
+		return "COALESCE(volumes.volume_id::text, '')", nil
 	case volumeSortSize:
 		return "volumes.size_gb::numeric", nil
 	case volumeSortStatus:
@@ -878,7 +869,7 @@ func volumeCursorCast(field volumeSortField) string {
 
 func buildVolumeNameSortExpr(volumeNames map[uuid.UUID]string, startIndex int) (string, []any, error) {
 	if len(volumeNames) == 0 {
-		return "", nil, errors.New("volume names empty")
+		return "COALESCE(volumes.volume_id::text, '')", nil, nil
 	}
 	ids := make([]uuid.UUID, 0, len(volumeNames))
 	for id := range volumeNames {
@@ -897,7 +888,7 @@ func buildVolumeNameSortExpr(volumeNames map[uuid.UUID]string, startIndex int) (
 		args = append(args, id, name)
 		idx += 2
 	}
-	return fmt.Sprintf("CASE volumes.volume_id %s END", strings.Join(parts, " ")), args, nil
+	return fmt.Sprintf("COALESCE(CASE volumes.volume_id %s END, '')", strings.Join(parts, " ")), args, nil
 }
 
 func parseVolumeSize(value string) (*big.Rat, error) {
@@ -915,11 +906,7 @@ func parseVolumeSize(value string) (*big.Rat, error) {
 func volumeCursorPrimary(field volumeSortField, cursor listCursor) (any, error) {
 	switch field {
 	case volumeSortName:
-		primary := strings.TrimSpace(cursor.Primary)
-		if primary == "" {
-			return nil, errors.New("cursor primary is empty")
-		}
-		return strings.ToLower(primary), nil
+		return strings.ToLower(strings.TrimSpace(cursor.Primary)), nil
 	case volumeSortSize:
 		primary := strings.TrimSpace(cursor.Primary)
 		if primary == "" {
@@ -1216,12 +1203,13 @@ func (s *Server) listVolumesByNamePage(ctx context.Context, filter volumeListFil
 
 	nextToken := ""
 	if hasMore {
-		if lastRecord.VolumeID == uuid.Nil {
-			return nil, "", fmt.Errorf("volume definition id missing for %s", lastRecord.Meta.ID)
-		}
-		name, ok := volumeNames[lastRecord.VolumeID]
-		if !ok {
-			return nil, "", fmt.Errorf("volume name missing for %s", lastRecord.VolumeID)
+		name := ""
+		if lastRecord.VolumeID != uuid.Nil {
+			resolvedName, ok := volumeNames[lastRecord.VolumeID]
+			if !ok {
+				return nil, "", fmt.Errorf("volume name missing for %s", lastRecord.VolumeID)
+			}
+			name = resolvedName
 		}
 		primary, err := volumePrimaryValue(volumeListItem{record: lastRecord, volumeName: name}, sort.Field)
 		if err != nil {
@@ -1457,17 +1445,16 @@ func (s *Server) buildVolumeItems(ctx context.Context, records []volumeRecord, c
 	}
 	volumeIDs := make([]uuid.UUID, 0, len(records))
 	for _, record := range records {
-		if record.VolumeID == uuid.Nil {
-			return nil, fmt.Errorf("volume definition id missing for %s", record.Meta.ID)
+		if record.VolumeID != uuid.Nil {
+			volumeIDs = append(volumeIDs, record.VolumeID)
 		}
-		volumeIDs = append(volumeIDs, record.VolumeID)
 	}
 	if len(volumeIDs) > 0 {
 		if err := s.ensureVolumeNames(ctx, cache, volumeIDs); err != nil {
 			return nil, err
 		}
 	}
-	if includeAttachments {
+	if includeAttachments && len(volumeIDs) > 0 {
 		if err := s.ensureVolumeAttachments(ctx, cache, volumeIDs); err != nil {
 			return nil, err
 		}
@@ -1475,16 +1462,17 @@ func (s *Server) buildVolumeItems(ctx context.Context, records []volumeRecord, c
 
 	items := make([]volumeListItem, 0, len(records))
 	for _, record := range records {
-		if record.VolumeID == uuid.Nil {
-			return nil, fmt.Errorf("volume definition id missing for %s", record.Meta.ID)
-		}
-		name, ok := cache.volumeNames[record.VolumeID]
-		if !ok {
-			return nil, fmt.Errorf("volume name missing for %s", record.VolumeID)
-		}
+		name := ""
 		attachments := []*runnersv1.Attachment{}
-		if includeAttachments {
-			attachments = cache.attachments[record.VolumeID]
+		if record.VolumeID != uuid.Nil {
+			resolvedName, ok := cache.volumeNames[record.VolumeID]
+			if !ok {
+				return nil, fmt.Errorf("volume name missing for %s", record.VolumeID)
+			}
+			name = resolvedName
+			if includeAttachments {
+				attachments = cache.attachments[record.VolumeID]
+			}
 		}
 		items = append(items, volumeListItem{record: record, volumeName: name, attachments: attachments})
 	}
@@ -1588,10 +1576,6 @@ func scanVolume(row pgx.Row) (volumeRecord, error) {
 		&volume.Meta.UpdatedAt,
 	); err != nil {
 		return volumeRecord{}, err
-	}
-	if volume.OwnerKind == "" {
-		volume.OwnerKind = runtimeOwnerKindAgentInstance
-		volume.OwnerID = volume.Meta.ID
 	}
 	if volumeID.Valid {
 		volume.VolumeID = volumeID.UUID

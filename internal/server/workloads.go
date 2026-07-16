@@ -175,7 +175,7 @@ func (s *Server) CreateWorkload(ctx context.Context, req *runnersv1.CreateWorklo
 		return nil, status.Errorf(codes.InvalidArgument, "owner_id: %v", err)
 	}
 	if ownerID == nil && ownerKind == runtimeOwnerKindAgentInstance {
-		ownerID = &id
+		ownerID = threadID
 	}
 	if ownerID == nil {
 		return nil, status.Error(codes.InvalidArgument, "owner_id: value is empty")
@@ -447,7 +447,7 @@ func (s *Server) UpdateWorkloadStatus(ctx context.Context, req *runnersv1.Update
 }
 
 func (s *Server) TouchWorkload(ctx context.Context, req *runnersv1.TouchWorkloadRequest) (*runnersv1.TouchWorkloadResponse, error) {
-	callerID, err := identityFromMetadata(ctx)
+	callerID, err := identityFromMetadataOptional(ctx)
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, "unauthenticated: %v", err)
 	}
@@ -455,7 +455,7 @@ func (s *Server) TouchWorkload(ctx context.Context, req *runnersv1.TouchWorkload
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "id: %v", err)
 	}
-	workload, err := s.touchWorkloadForAgent(ctx, id, callerID)
+	workload, err := s.touchWorkloadForOwner(ctx, id, callerID)
 	if err != nil {
 		return nil, toStatusError(err)
 	}
@@ -838,9 +838,30 @@ func (s *Server) softDeleteWorkload(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-func (s *Server) touchWorkloadForAgent(ctx context.Context, id uuid.UUID, agentID uuid.UUID) (*workloadRecord, error) {
-	query := fmt.Sprintf("UPDATE workloads SET agent_state = $1, last_activity_at = NOW(), updated_at = NOW() WHERE id = $2 AND agent_id = $3 AND agent_state = $4 RETURNING %s", workloadColumns)
-	row := s.pool.QueryRow(ctx, query, workloadAgentStateProcessing, id, agentID, workloadAgentStateIdle)
+func (s *Server) touchWorkloadForOwner(ctx context.Context, id uuid.UUID, callerID *uuid.UUID) (*workloadRecord, error) {
+	workload, err := s.getWorkloadByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	switch workload.OwnerKind {
+	case runtimeOwnerKindAgentInstance:
+		if callerID == nil || *callerID != workload.OwnerID {
+			return nil, PermissionDenied()
+		}
+		return s.touchAgentInstanceWorkload(ctx, workload.Meta.ID, workload.OwnerID)
+	case runtimeOwnerKindSandbox:
+		if callerID != nil {
+			return nil, PermissionDenied()
+		}
+		return nil, s.touchSandboxWorkload(ctx, workload.Meta.ID, workload.OwnerID)
+	default:
+		return nil, fmt.Errorf("unknown runtime owner kind %q", workload.OwnerKind)
+	}
+}
+
+func (s *Server) touchAgentInstanceWorkload(ctx context.Context, id uuid.UUID, ownerID uuid.UUID) (*workloadRecord, error) {
+	query := fmt.Sprintf("UPDATE workloads SET agent_state = $1, last_activity_at = NOW(), updated_at = NOW() WHERE id = $2 AND owner_kind = $3 AND owner_id = $4 AND agent_state = $5 RETURNING %s", workloadColumns)
+	row := s.pool.QueryRow(ctx, query, workloadAgentStateProcessing, id, runtimeOwnerKindAgentInstance, ownerID, workloadAgentStateIdle)
 	workload, err := scanWorkload(row)
 	if err == nil {
 		return &workload, nil
@@ -848,18 +869,22 @@ func (s *Server) touchWorkloadForAgent(ctx context.Context, id uuid.UUID, agentI
 	if !errors.Is(err, pgx.ErrNoRows) {
 		return nil, err
 	}
-	result, err := s.pool.Exec(ctx, `UPDATE workloads SET last_activity_at = NOW(), updated_at = NOW() WHERE id = $1 AND agent_id = $2`, id, agentID)
+	return nil, s.touchRuntimeOwnerWorkload(ctx, id, runtimeOwnerKindAgentInstance, ownerID)
+}
+
+func (s *Server) touchSandboxWorkload(ctx context.Context, id uuid.UUID, ownerID uuid.UUID) error {
+	return s.touchRuntimeOwnerWorkload(ctx, id, runtimeOwnerKindSandbox, ownerID)
+}
+
+func (s *Server) touchRuntimeOwnerWorkload(ctx context.Context, id uuid.UUID, ownerKind string, ownerID uuid.UUID) error {
+	result, err := s.pool.Exec(ctx, `UPDATE workloads SET last_activity_at = NOW(), updated_at = NOW() WHERE id = $1 AND owner_kind = $2 AND owner_id = $3`, id, ownerKind, ownerID)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if result.RowsAffected() == 0 {
-		_, err := s.getWorkloadByID(ctx, id)
-		if err != nil {
-			return nil, err
-		}
-		return nil, PermissionDenied()
+		return NotFound("workload")
 	}
-	return nil, nil
+	return nil
 }
 
 func (s *Server) listWorkloadsByThread(ctx context.Context, threadID uuid.UUID, agentID *uuid.UUID, statuses []string, pageSize int32, pageToken string) ([]workloadRecord, string, error) {
@@ -1338,6 +1363,8 @@ func scanWorkload(row pgx.Row) (workloadRecord, error) {
 		instanceID     pgtype.Text
 		removedAt      pgtype.Timestamptz
 		lastMeteringAt pgtype.Timestamptz
+		ownerKindRaw   any
+		ownerIDRaw     any
 	)
 	if err := row.Scan(
 		&workload.Meta.ID,
@@ -1357,17 +1384,26 @@ func scanWorkload(row pgx.Row) (workloadRecord, error) {
 		&workload.LastActivityAt,
 		&lastMeteringAt,
 		&removedAt,
-		&workload.OwnerKind,
-		&workload.OwnerID,
+		&ownerKindRaw,
+		&ownerIDRaw,
 		&workload.Meta.CreatedAt,
 		&workload.Meta.UpdatedAt,
 	); err != nil {
 		return workloadRecord{}, err
 	}
-	if workload.OwnerKind == "" {
-		workload.OwnerKind = runtimeOwnerKindAgentInstance
-		workload.OwnerID = workload.Meta.ID
+	ownerKind, ok := ownerKindRaw.(string)
+	if !ok || ownerKind == "" {
+		return workloadRecord{}, fmt.Errorf("owner_kind missing")
 	}
+	ownerID, err := scanNullableUUID(ownerIDRaw)
+	if err != nil {
+		return workloadRecord{}, err
+	}
+	if ownerID == nil {
+		return workloadRecord{}, fmt.Errorf("owner_id missing")
+	}
+	workload.OwnerKind = ownerKind
+	workload.OwnerID = *ownerID
 	if threadID.Valid {
 		workload.ThreadID = threadID.UUID
 	}

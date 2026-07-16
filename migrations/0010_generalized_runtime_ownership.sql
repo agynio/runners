@@ -3,7 +3,7 @@ ALTER TABLE workloads
     ADD COLUMN IF NOT EXISTS owner_id UUID;
 
 UPDATE workloads
-SET owner_id = id
+SET owner_id = thread_id
 WHERE owner_id IS NULL;
 
 ALTER TABLE workloads
@@ -45,7 +45,7 @@ ALTER TABLE volumes
     ADD COLUMN IF NOT EXISTS owner_id UUID;
 
 UPDATE volumes
-SET owner_id = id
+SET owner_id = thread_id
 WHERE owner_id IS NULL;
 
 ALTER TABLE volumes
