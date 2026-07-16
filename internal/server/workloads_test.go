@@ -1425,6 +1425,47 @@ func TestTouchWorkload(t *testing.T) {
 	}
 }
 
+func TestTouchWorkloadAllowsLegacyAgentIdentity(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("failed to create mock pool: %v", err)
+	}
+
+	workloadID := uuid.New()
+	runnerID := uuid.New()
+	threadID := uuid.New()
+	agentID := uuid.New()
+	organizationID := uuid.New()
+	now := time.Now().UTC()
+	containersJSON := []byte("[]")
+
+	getQuery := fmt.Sprintf(`SELECT %s FROM workloads WHERE id = $1`, workloadColumns)
+	rows := pgxmock.NewRows(workloadRowColumns).
+		AddRow(workloadID, runnerID, threadID, agentID, organizationID, workloadStatusRunning, workloadAgentStateProcessing, nil, nil, containersJSON, "ziti-id", int32(0), int64(0), nil, now, nil, nil, runtimeOwnerKindAgentInstance, threadID, now, now)
+	mockPool.ExpectQuery(regexp.QuoteMeta(getQuery)).WithArgs(workloadID).WillReturnRows(rows)
+
+	updateQuery := fmt.Sprintf("UPDATE workloads SET agent_state = $1, last_activity_at = NOW(), updated_at = NOW() WHERE id = $2 AND owner_kind = $3 AND owner_id = $4 AND agent_state = $5 RETURNING %s", workloadColumns)
+	mockPool.ExpectQuery(regexp.QuoteMeta(updateQuery)).
+		WithArgs(workloadAgentStateProcessing, workloadID, runtimeOwnerKindAgentInstance, threadID, workloadAgentStateIdle).
+		WillReturnRows(pgxmock.NewRows(workloadRowColumns))
+
+	touchQuery := "UPDATE workloads SET last_activity_at = NOW(), updated_at = NOW() WHERE id = $1 AND owner_kind = $2 AND owner_id = $3"
+	mockPool.ExpectExec(regexp.QuoteMeta(touchQuery)).
+		WithArgs(workloadID, runtimeOwnerKindAgentInstance, threadID).
+		WillReturnResult(pgxmock.NewResult("UPDATE", 1))
+
+	srv := New(Options{Pool: mockPool})
+	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(identityMetadata, agentID.String()))
+	_, err = srv.TouchWorkload(ctx, &runnersv1.TouchWorkloadRequest{Id: workloadID.String()})
+	if err != nil {
+		t.Fatalf("TouchWorkload failed: %v", err)
+	}
+
+	if err := mockPool.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
 func TestTouchWorkloadNoPublishWhenProcessing(t *testing.T) {
 	mockPool, err := pgxmock.NewPool()
 	if err != nil {

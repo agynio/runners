@@ -845,7 +845,10 @@ func (s *Server) touchWorkloadForOwner(ctx context.Context, id uuid.UUID, caller
 	}
 	switch workload.OwnerKind {
 	case runtimeOwnerKindAgentInstance:
-		if callerID == nil || *callerID != workload.OwnerID {
+		if callerID == nil {
+			return nil, PermissionDenied()
+		}
+		if *callerID != workload.OwnerID && *callerID != workload.AgentID {
 			return nil, PermissionDenied()
 		}
 		return s.touchAgentInstanceWorkload(ctx, workload.Meta.ID, workload.OwnerID)
