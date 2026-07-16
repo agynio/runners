@@ -35,6 +35,8 @@ var volumeRowColumns = []string{
 	"status",
 	"removed_at",
 	"last_metering_sampled_at",
+	"owner_kind",
+	"owner_id",
 	"created_at",
 	"updated_at",
 }
@@ -55,7 +57,7 @@ func TestListVolumesFiltersOrganization(t *testing.T) {
 	now := time.Now().UTC()
 
 	rows := pgxmock.NewRows(volumeRowColumns).
-		AddRow(volumeID, nil, volumeResourceID, threadID, runnerID, agentID, organizationID, "10", volumeStatusActive, nil, nil, now, now)
+		AddRow(volumeID, nil, volumeResourceID, threadID, runnerID, agentID, organizationID, "10", volumeStatusActive, nil, nil, runtimeOwnerKindAgentInstance, volumeID, now, now)
 	volumeIDRows := pgxmock.NewRows([]string{"volume_id"}).AddRow(volumeResourceID)
 	volumeIDQuery := "SELECT DISTINCT volume_id FROM volumes WHERE volumes.organization_id = $1"
 	mockPool.ExpectQuery(regexp.QuoteMeta(volumeIDQuery)).
@@ -134,7 +136,7 @@ func TestListVolumesInternalNoIdentity(t *testing.T) {
 	now := time.Now().UTC()
 
 	rows := pgxmock.NewRows(volumeRowColumns).
-		AddRow(volumeID, nil, volumeResourceID, threadID, runnerID, agentID, organizationID, "10", volumeStatusActive, nil, nil, now, now)
+		AddRow(volumeID, nil, volumeResourceID, threadID, runnerID, agentID, organizationID, "10", volumeStatusActive, nil, nil, runtimeOwnerKindAgentInstance, volumeID, now, now)
 	volumeIDRows := pgxmock.NewRows([]string{"volume_id"}).AddRow(volumeResourceID)
 	volumeIDQuery := "SELECT DISTINCT volume_id FROM volumes"
 	mockPool.ExpectQuery(regexp.QuoteMeta(volumeIDQuery)).
@@ -204,7 +206,7 @@ func TestListVolumesFiltersRunner(t *testing.T) {
 	now := time.Now().UTC()
 
 	rows := pgxmock.NewRows(volumeRowColumns).
-		AddRow(volumeID, nil, volumeResourceID, threadID, runnerID, agentID, organizationID, "10", volumeStatusActive, nil, nil, now, now)
+		AddRow(volumeID, nil, volumeResourceID, threadID, runnerID, agentID, organizationID, "10", volumeStatusActive, nil, nil, runtimeOwnerKindAgentInstance, volumeID, now, now)
 	volumeIDRows := pgxmock.NewRows([]string{"volume_id"}).AddRow(volumeResourceID)
 	volumeIDQuery := "SELECT DISTINCT volume_id FROM volumes WHERE volumes.organization_id = $1 AND volumes.runner_id = ANY($2)"
 	mockPool.ExpectQuery(regexp.QuoteMeta(volumeIDQuery)).
@@ -278,7 +280,7 @@ func TestListVolumesPendingSample(t *testing.T) {
 	now := time.Now().UTC()
 
 	rows := pgxmock.NewRows(volumeRowColumns).
-		AddRow(volumeID, nil, volumeResourceID, threadID, runnerID, agentID, organizationID, "10", volumeStatusActive, nil, nil, now, now)
+		AddRow(volumeID, nil, volumeResourceID, threadID, runnerID, agentID, organizationID, "10", volumeStatusActive, nil, nil, runtimeOwnerKindAgentInstance, volumeID, now, now)
 	volumeIDRows := pgxmock.NewRows([]string{"volume_id"}).AddRow(volumeResourceID)
 	volumeIDQuery := fmt.Sprintf("SELECT DISTINCT volume_id FROM volumes WHERE volumes.organization_id = $1 AND %s", pendingSampleClause)
 	mockPool.ExpectQuery(regexp.QuoteMeta(volumeIDQuery)).
@@ -348,8 +350,8 @@ func TestListVolumesFiltersAttachments(t *testing.T) {
 	now := time.Now().UTC()
 
 	rows := pgxmock.NewRows(volumeRowColumns).
-		AddRow(volumeID, nil, volumeResourceID, threadID, runnerID, agentID, organizationID, "10", volumeStatusActive, nil, nil, now, now).
-		AddRow(otherVolumeID, nil, otherResourceID, threadID, runnerID, agentID, organizationID, "20", volumeStatusActive, nil, nil, now, now)
+		AddRow(volumeID, nil, volumeResourceID, threadID, runnerID, agentID, organizationID, "10", volumeStatusActive, nil, nil, runtimeOwnerKindAgentInstance, volumeID, now, now).
+		AddRow(otherVolumeID, nil, otherResourceID, threadID, runnerID, agentID, organizationID, "20", volumeStatusActive, nil, nil, runtimeOwnerKindAgentInstance, otherVolumeID, now, now)
 	volumeIDRows := pgxmock.NewRows([]string{"volume_id"}).AddRow(volumeResourceID).AddRow(otherResourceID)
 	volumeIDQuery := "SELECT DISTINCT volume_id FROM volumes WHERE volumes.organization_id = $1"
 	mockPool.ExpectQuery(regexp.QuoteMeta(volumeIDQuery)).
@@ -464,8 +466,8 @@ func TestListVolumesPaginationByName(t *testing.T) {
 	now := time.Now().UTC()
 
 	rows := pgxmock.NewRows(volumeRowColumns).
-		AddRow(volumeID, nil, volumeResourceID, threadID, runnerID, agentID, organizationID, "10", volumeStatusActive, nil, nil, now, now).
-		AddRow(otherVolumeID, nil, otherResourceID, threadID, runnerID, agentID, organizationID, "20", volumeStatusActive, nil, nil, now, now)
+		AddRow(volumeID, nil, volumeResourceID, threadID, runnerID, agentID, organizationID, "10", volumeStatusActive, nil, nil, runtimeOwnerKindAgentInstance, volumeID, now, now).
+		AddRow(otherVolumeID, nil, otherResourceID, threadID, runnerID, agentID, organizationID, "20", volumeStatusActive, nil, nil, runtimeOwnerKindAgentInstance, otherVolumeID, now, now)
 	volumeIDRows := pgxmock.NewRows([]string{"volume_id"}).AddRow(volumeResourceID).AddRow(otherResourceID)
 	volumeIDQuery := "SELECT DISTINCT volume_id FROM volumes WHERE volumes.organization_id = $1"
 	mockPool.ExpectQuery(regexp.QuoteMeta(volumeIDQuery)).WithArgs(organizationID).WillReturnRows(volumeIDRows)
@@ -497,13 +499,13 @@ func TestListVolumesPaginationByName(t *testing.T) {
 	queryWithCursor := fmt.Sprintf("SELECT %s FROM volumes WHERE volumes.organization_id = $1 AND (%s > $%d OR (%s = $%d AND volumes.id > $%d)) ORDER BY %s ASC, volumes.id ASC LIMIT $%d", volumeColumns, sortExpr, cursorIndex, sortExpr, cursorIndex, cursorIDIndex, sortExpr, limitIndex)
 	argsWithCursor := append(args, strings.ToLower(volumeName), volumeID, int(limit)+1)
 	rowsSecond := pgxmock.NewRows(volumeRowColumns).
-		AddRow(otherVolumeID, nil, otherResourceID, threadID, runnerID, agentID, organizationID, "20", volumeStatusActive, nil, nil, now, now)
+		AddRow(otherVolumeID, nil, otherResourceID, threadID, runnerID, agentID, organizationID, "20", volumeStatusActive, nil, nil, runtimeOwnerKindAgentInstance, otherVolumeID, now, now)
 	mockPool.ExpectQuery(regexp.QuoteMeta(queryWithCursor)).WithArgs(argsWithCursor...).WillReturnRows(rowsSecond)
 
 	volumeIDRowsSecond := pgxmock.NewRows([]string{"volume_id"}).AddRow(volumeResourceID).AddRow(otherResourceID)
 	mockPool.ExpectQuery(regexp.QuoteMeta(volumeIDQuery)).WithArgs(organizationID).WillReturnRows(volumeIDRowsSecond)
 	rowsThird := pgxmock.NewRows(volumeRowColumns).
-		AddRow(otherVolumeID, nil, otherResourceID, threadID, runnerID, agentID, organizationID, "20", volumeStatusActive, nil, nil, now, now)
+		AddRow(otherVolumeID, nil, otherResourceID, threadID, runnerID, agentID, organizationID, "20", volumeStatusActive, nil, nil, runtimeOwnerKindAgentInstance, otherVolumeID, now, now)
 	mockPool.ExpectQuery(regexp.QuoteMeta(queryWithCursor)).WithArgs(argsWithCursor...).WillReturnRows(rowsThird)
 	agentsClient := fakeAgentsClient{
 		getVolume: func(ctx context.Context, req *agentsv1.GetVolumeRequest) (*agentsv1.GetVolumeResponse, error) {
@@ -706,7 +708,7 @@ func TestListVolumesByThreadInternalNoIdentity(t *testing.T) {
 	limit := normalizePageSize(0)
 
 	rows := pgxmock.NewRows(volumeRowColumns).
-		AddRow(volumeID, nil, volumeResourceID, threadID, runnerID, agentID, organizationID, "10", volumeStatusActive, nil, nil, now, now)
+		AddRow(volumeID, nil, volumeResourceID, threadID, runnerID, agentID, organizationID, "10", volumeStatusActive, nil, nil, runtimeOwnerKindAgentInstance, volumeID, now, now)
 
 	query := fmt.Sprintf("SELECT %s FROM volumes WHERE thread_id = $1 ORDER BY id ASC LIMIT $2", volumeColumns)
 	mockPool.ExpectQuery(regexp.QuoteMeta(query)).
@@ -757,7 +759,7 @@ func TestGetVolumeRequiresViewVolumes(t *testing.T) {
 	now := time.Now().UTC()
 
 	rows := pgxmock.NewRows(volumeRowColumns).
-		AddRow(volumeID, nil, volumeResourceID, threadID, runnerID, agentID, organizationID, "10", volumeStatusActive, nil, nil, now, now)
+		AddRow(volumeID, nil, volumeResourceID, threadID, runnerID, agentID, organizationID, "10", volumeStatusActive, nil, nil, runtimeOwnerKindAgentInstance, volumeID, now, now)
 
 	query := fmt.Sprintf("SELECT %s FROM volumes WHERE id = $1", volumeColumns)
 	mockPool.ExpectQuery(regexp.QuoteMeta(query)).WithArgs(volumeID).WillReturnRows(rows)
@@ -804,7 +806,7 @@ func TestUpdateVolume(t *testing.T) {
 	now := time.Now().UTC()
 
 	rows := pgxmock.NewRows(volumeRowColumns).
-		AddRow(volumeID, instanceID, volumeResourceID, threadID, runnerID, agentID, organizationID, "10", volumeStatusActive, nil, nil, now, now)
+		AddRow(volumeID, instanceID, volumeResourceID, threadID, runnerID, agentID, organizationID, "10", volumeStatusActive, nil, nil, runtimeOwnerKindAgentInstance, volumeID, now, now)
 
 	query := fmt.Sprintf("UPDATE volumes SET status = $1, instance_id = $2, updated_at = NOW() WHERE id = $3 RETURNING %s", volumeColumns)
 	mockPool.ExpectQuery(regexp.QuoteMeta(query)).
@@ -844,14 +846,14 @@ func TestUpdateVolumePublishesNotification(t *testing.T) {
 	now := time.Now().UTC()
 
 	selectRows := pgxmock.NewRows(volumeRowColumns).
-		AddRow(volumeID, nil, volumeResourceID, threadID, runnerID, agentID, organizationID, "10", volumeStatusProvisioning, nil, nil, now, now)
+		AddRow(volumeID, nil, volumeResourceID, threadID, runnerID, agentID, organizationID, "10", volumeStatusProvisioning, nil, nil, runtimeOwnerKindAgentInstance, volumeID, now, now)
 	selectQuery := fmt.Sprintf("SELECT %s FROM volumes WHERE id = $1", volumeColumns)
 	mockPool.ExpectQuery(regexp.QuoteMeta(selectQuery)).
 		WithArgs(volumeID).
 		WillReturnRows(selectRows)
 
 	updateRows := pgxmock.NewRows(volumeRowColumns).
-		AddRow(volumeID, nil, volumeResourceID, threadID, runnerID, agentID, organizationID, "10", volumeStatusActive, nil, nil, now, now)
+		AddRow(volumeID, nil, volumeResourceID, threadID, runnerID, agentID, organizationID, "10", volumeStatusActive, nil, nil, runtimeOwnerKindAgentInstance, volumeID, now, now)
 	updateQuery := fmt.Sprintf("UPDATE volumes SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING %s", volumeColumns)
 	mockPool.ExpectQuery(regexp.QuoteMeta(updateQuery)).
 		WithArgs(volumeStatusActive, volumeID).
@@ -949,5 +951,51 @@ func TestBatchUpdateVolumeSampledAtInvalid(t *testing.T) {
 	})
 	if status.Code(err) != codes.InvalidArgument {
 		t.Fatalf("expected InvalidArgument error, got %v", err)
+	}
+}
+
+func TestCreateVolumeSandboxRuntimeOnly(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("failed to create mock pool: %v", err)
+	}
+
+	volumeID := uuid.New()
+	runnerID := uuid.New()
+	organizationID := uuid.New()
+	sandboxID := uuid.New()
+	now := time.Now().UTC()
+	query := fmt.Sprintf("INSERT INTO volumes (id, volume_id, thread_id, runner_id, agent_id, organization_id, size_gb, status, owner_kind, owner_id)\n\t    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)\n\t    RETURNING %s", volumeColumns)
+	rows := pgxmock.NewRows(volumeRowColumns).
+		AddRow(volumeID, nil, nil, nil, runnerID, nil, organizationID, "10", volumeStatusActive, nil, nil, runtimeOwnerKindSandbox, sandboxID, now, now)
+	mockPool.ExpectQuery(regexp.QuoteMeta(query)).
+		WithArgs(volumeID, nil, nil, runnerID, nil, organizationID, "10", volumeStatusActive, runtimeOwnerKindSandbox, sandboxID).
+		WillReturnRows(rows)
+
+	srv := New(Options{Pool: mockPool})
+	resp, err := srv.CreateVolume(context.Background(), &runnersv1.CreateVolumeRequest{
+		Id:             volumeID.String(),
+		RunnerId:       runnerID.String(),
+		OrganizationId: organizationID.String(),
+		SizeGb:         "10",
+		Status:         runnersv1.VolumeStatus_VOLUME_STATUS_ACTIVE,
+		OwnerKind:      runnersv1.RuntimeOwnerKind_RUNTIME_OWNER_KIND_SANDBOX,
+		OwnerId:        sandboxID.String(),
+	})
+	if err != nil {
+		t.Fatalf("CreateVolume failed: %v", err)
+	}
+	if resp.GetVolume().GetOwnerKind() != runnersv1.RuntimeOwnerKind_RUNTIME_OWNER_KIND_SANDBOX {
+		t.Fatalf("expected sandbox owner kind, got %s", resp.GetVolume().GetOwnerKind())
+	}
+	if resp.GetVolume().GetOwnerId() != sandboxID.String() {
+		t.Fatalf("expected owner id %s, got %s", sandboxID, resp.GetVolume().GetOwnerId())
+	}
+	if resp.GetVolume().GetVolumeId() != "" || resp.GetVolume().GetAgentId() != "" || resp.GetVolume().GetThreadId() != "" {
+		t.Fatalf("expected runtime-only sandbox volume without definition/agent/thread ids")
+	}
+
+	if err := mockPool.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
 	}
 }

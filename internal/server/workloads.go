@@ -48,7 +48,7 @@ const (
 	containerStatusTerminated = "terminated"
 	containerStatusWaiting    = "waiting"
 
-	workloadColumns = `id, runner_id, thread_id, agent_id, organization_id, status, agent_state, failure_reason, failure_message, containers, ziti_identity_id, allocated_cpu_millicores, allocated_ram_bytes, instance_id, last_activity_at, last_metering_sampled_at, removed_at, created_at, updated_at`
+	workloadColumns = `id, runner_id, thread_id, agent_id, organization_id, status, agent_state, failure_reason, failure_message, containers, ziti_identity_id, allocated_cpu_millicores, allocated_ram_bytes, instance_id, last_activity_at, last_metering_sampled_at, removed_at, owner_kind, owner_id, created_at, updated_at`
 )
 
 type workloadRecord struct {
@@ -69,19 +69,23 @@ type workloadRecord struct {
 	LastActivityAt         time.Time
 	RemovedAt              *time.Time
 	LastMeteringAt         *time.Time
+	OwnerKind              string
+	OwnerID                uuid.UUID
 }
 
 type workloadInsertInput struct {
 	ID                     uuid.UUID
 	RunnerID               uuid.UUID
-	ThreadID               uuid.UUID
-	AgentID                uuid.UUID
+	ThreadID               *uuid.UUID
+	AgentID                *uuid.UUID
 	OrganizationID         uuid.UUID
 	Status                 string
 	ContainersJSON         []byte
 	ZitiIdentityID         string
 	AllocatedCPUMillicores int32
 	AllocatedRAMBytes      int64
+	OwnerKind              string
+	OwnerID                uuid.UUID
 }
 
 type workloadUpdateInput struct {
@@ -100,6 +104,8 @@ type workloadListFilter struct {
 	OrganizationID *uuid.UUID
 	AgentIDs       []uuid.UUID
 	RunnerIDs      []uuid.UUID
+	OwnerKinds     []string
+	OwnerIDs       []uuid.UUID
 	Statuses       []string
 	StartedAfter   *time.Time
 	StartedBefore  *time.Time
@@ -144,17 +150,43 @@ func (s *Server) CreateWorkload(ctx context.Context, req *runnersv1.CreateWorklo
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "runner_id: %v", err)
 	}
-	threadID, err := parseUUID(req.GetThreadId())
+	threadID, err := parseOptionalUUID(req.GetThreadId())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "thread_id: %v", err)
 	}
-	agentID, err := parseUUID(req.GetAgentId())
+	agentValue := req.GetAgentId()
+	if req.AgentClassId != nil {
+		agentValue = req.GetAgentClassId()
+	}
+	agentID, err := parseOptionalUUID(agentValue)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "agent_id: %v", err)
+		return nil, status.Errorf(codes.InvalidArgument, "agent_class_id: %v", err)
 	}
 	organizationID, err := parseUUID(req.GetOrganizationId())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "organization_id: %v", err)
+	}
+	ownerKind, err := runtimeOwnerKindToString(req.GetOwnerKind())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "owner_kind: %v", err)
+	}
+	ownerID, err := parseOptionalUUID(req.GetOwnerId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "owner_id: %v", err)
+	}
+	if ownerID == nil && ownerKind == runtimeOwnerKindAgentInstance {
+		ownerID = &id
+	}
+	if ownerID == nil {
+		return nil, status.Error(codes.InvalidArgument, "owner_id: value is empty")
+	}
+	if ownerKind == runtimeOwnerKindAgentInstance {
+		if threadID == nil {
+			return nil, status.Error(codes.InvalidArgument, "thread_id: value is empty")
+		}
+		if agentID == nil {
+			return nil, status.Error(codes.InvalidArgument, "agent_class_id: value is empty")
+		}
 	}
 
 	statusValue, err := workloadStatusToString(req.GetStatus())
@@ -181,6 +213,8 @@ func (s *Server) CreateWorkload(ctx context.Context, req *runnersv1.CreateWorklo
 		ZitiIdentityID:         strings.TrimSpace(req.GetZitiIdentityId()),
 		AllocatedCPUMillicores: req.GetAllocatedCpuMillicores(),
 		AllocatedRAMBytes:      req.GetAllocatedRamBytes(),
+		OwnerKind:              ownerKind,
+		OwnerID:                *ownerID,
 	})
 	if err != nil {
 		return nil, toStatusError(err)
@@ -579,6 +613,25 @@ func (s *Server) ListWorkloads(ctx context.Context, req *runnersv1.ListWorkloads
 			filter.PendingSample = req.Filter.GetPendingSample()
 			pendingSampleSet = true
 		}
+		filter.OwnerKinds = make([]string, 0, len(req.Filter.OwnerKindIn))
+		for _, kind := range req.Filter.OwnerKindIn {
+			value, err := runtimeOwnerKindToString(kind)
+			if err != nil {
+				return nil, status.Errorf(codes.InvalidArgument, "filter.owner_kind_in: %v", err)
+			}
+			if kind == runnersv1.RuntimeOwnerKind_RUNTIME_OWNER_KIND_UNSPECIFIED {
+				return nil, status.Error(codes.InvalidArgument, "filter.owner_kind_in: unspecified kind")
+			}
+			filter.OwnerKinds = append(filter.OwnerKinds, value)
+		}
+		filter.OwnerIDs = make([]uuid.UUID, 0, len(req.Filter.OwnerIdIn))
+		for _, ownerValue := range req.Filter.OwnerIdIn {
+			parsed, err := parseUUID(ownerValue)
+			if err != nil {
+				return nil, status.Errorf(codes.InvalidArgument, "filter.owner_id_in: %v", err)
+			}
+			filter.OwnerIDs = append(filter.OwnerIDs, parsed)
+		}
 	}
 
 	if req.RunnerId != nil {
@@ -638,28 +691,34 @@ func (s *Server) BatchUpdateWorkloadSampledAt(ctx context.Context, req *runnersv
 	return &runnersv1.BatchUpdateWorkloadSampledAtResponse{}, nil
 }
 
-func (s *Server) writeWorkloadAuthorization(ctx context.Context, workloadID, organizationID, agentID uuid.UUID) error {
+func (s *Server) writeWorkloadAuthorization(ctx context.Context, workloadID, organizationID uuid.UUID, agentID *uuid.UUID) error {
 	tuples := workloadAuthorizationTuples(workloadID, organizationID, agentID)
+	if len(tuples) == 0 {
+		return nil
+	}
 	if _, err := s.authorizationClient.Write(ctx, &authorizationv1.WriteRequest{Writes: tuples}); err != nil {
 		return status.Errorf(codes.Internal, "authorization write: %v", err)
 	}
 	return nil
 }
 
-func workloadAuthorizationTuples(workloadID, organizationID, agentID uuid.UUID) []*authorizationv1.TupleKey {
+func workloadAuthorizationTuples(workloadID, organizationID uuid.UUID, agentID *uuid.UUID) []*authorizationv1.TupleKey {
 	object := workloadObject(workloadID)
-	return []*authorizationv1.TupleKey{
+	tuples := []*authorizationv1.TupleKey{
 		{
 			User:     organizationObject(organizationID),
 			Relation: workloadOrgRelation,
 			Object:   object,
 		},
-		{
-			User:     identityObject(agentID),
+	}
+	if agentID != nil {
+		tuples = append(tuples, &authorizationv1.TupleKey{
+			User:     identityObject(*agentID),
 			Relation: workloadOwnerAgentRelation,
 			Object:   object,
-		},
+		})
 	}
+	return tuples
 }
 
 func (s *Server) insertWorkload(ctx context.Context, input workloadInsertInput) (workloadRecord, error) {
@@ -668,19 +727,21 @@ func (s *Server) insertWorkload(ctx context.Context, input workloadInsertInput) 
 		containersJSON = []byte("[]")
 	}
 	row := s.pool.QueryRow(ctx,
-		fmt.Sprintf(`INSERT INTO workloads (id, runner_id, thread_id, agent_id, organization_id, status, containers, ziti_identity_id, allocated_cpu_millicores, allocated_ram_bytes, last_activity_at, created_at, updated_at)
-	    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW(), NOW())
+		fmt.Sprintf(`INSERT INTO workloads (id, runner_id, thread_id, agent_id, organization_id, status, containers, ziti_identity_id, allocated_cpu_millicores, allocated_ram_bytes, owner_kind, owner_id, last_activity_at, created_at, updated_at)
+	    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW(), NOW())
 	    RETURNING %s`, workloadColumns),
 		input.ID,
 		input.RunnerID,
-		input.ThreadID,
-		input.AgentID,
+		nullableUUIDValue(input.ThreadID),
+		nullableUUIDValue(input.AgentID),
 		input.OrganizationID,
 		input.Status,
 		containersJSON,
 		input.ZitiIdentityID,
 		input.AllocatedCPUMillicores,
 		input.AllocatedRAMBytes,
+		input.OwnerKind,
+		input.OwnerID,
 	)
 	workload, err := scanWorkload(row)
 	if err != nil {
@@ -695,6 +756,8 @@ func (s *Server) insertWorkload(ctx context.Context, input workloadInsertInput) 
 		}
 		return workloadRecord{}, err
 	}
+	workload.OwnerKind = input.OwnerKind
+	workload.OwnerID = input.OwnerID
 	return workload, nil
 }
 
@@ -972,6 +1035,9 @@ func workloadCursorPrimary(field workloadSortField, cursor listCursor) (any, err
 func workloadPrimaryValue(record workloadRecord, field workloadSortField, agentNames map[uuid.UUID]string, runnerNames map[uuid.UUID]string) (string, error) {
 	switch field {
 	case workloadSortAgent:
+		if record.AgentID == uuid.Nil {
+			return "", fmt.Errorf("agent id missing for %s", record.Meta.ID)
+		}
 		name, ok := agentNames[record.AgentID]
 		if !ok {
 			return "", fmt.Errorf("agent name missing for %s", record.AgentID)
@@ -1069,6 +1135,14 @@ func (s *Server) listWorkloads(ctx context.Context, filter workloadListFilter, s
 	if len(filter.RunnerIDs) > 0 {
 		clauses = append(clauses, fmt.Sprintf("workloads.runner_id = ANY($%d)", len(args)+1))
 		args = append(args, pgtype.FlatArray[uuid.UUID](filter.RunnerIDs))
+	}
+	if len(filter.OwnerKinds) > 0 {
+		clauses = append(clauses, fmt.Sprintf("workloads.owner_kind = ANY($%d)", len(args)+1))
+		args = append(args, pgtype.FlatArray[string](filter.OwnerKinds))
+	}
+	if len(filter.OwnerIDs) > 0 {
+		clauses = append(clauses, fmt.Sprintf("workloads.owner_id = ANY($%d)", len(args)+1))
+		args = append(args, pgtype.FlatArray[uuid.UUID](filter.OwnerIDs))
 	}
 	if len(filter.Statuses) > 0 {
 		clauses = append(clauses, fmt.Sprintf("workloads.status = ANY($%d)", len(args)+1))
@@ -1205,7 +1279,9 @@ func (s *Server) buildWorkloadProtos(ctx context.Context, records []workloadReco
 	agentIDs := make([]uuid.UUID, 0, len(records))
 	runnerIDs := make([]uuid.UUID, 0, len(records))
 	for _, record := range records {
-		agentIDs = append(agentIDs, record.AgentID)
+		if record.AgentID != uuid.Nil {
+			agentIDs = append(agentIDs, record.AgentID)
+		}
 		runnerIDs = append(runnerIDs, record.RunnerID)
 	}
 	uniqueAgents := uniqueUUIDs(agentIDs)
@@ -1222,9 +1298,13 @@ func (s *Server) buildWorkloadProtos(ctx context.Context, records []workloadReco
 
 	workloads := make([]*runnersv1.Workload, 0, len(records))
 	for _, record := range records {
-		agentName, ok := agentNames[record.AgentID]
-		if !ok {
-			return nil, fmt.Errorf("agent name missing for %s", record.AgentID)
+		agentName := ""
+		if record.AgentID != uuid.Nil {
+			name, ok := agentNames[record.AgentID]
+			if !ok {
+				return nil, fmt.Errorf("agent name missing for %s", record.AgentID)
+			}
+			agentName = name
 		}
 		runnerName, ok := runnerNames[record.RunnerID]
 		if !ok {
@@ -1251,6 +1331,8 @@ func scanWorkload(row pgx.Row) (workloadRecord, error) {
 	var (
 		workload       workloadRecord
 		containersData []byte
+		threadID       nullableUUIDScanner
+		agentID        nullableUUIDScanner
 		failureReason  pgtype.Text
 		failureMessage pgtype.Text
 		instanceID     pgtype.Text
@@ -1260,8 +1342,8 @@ func scanWorkload(row pgx.Row) (workloadRecord, error) {
 	if err := row.Scan(
 		&workload.Meta.ID,
 		&workload.RunnerID,
-		&workload.ThreadID,
-		&workload.AgentID,
+		&threadID,
+		&agentID,
 		&workload.OrganizationID,
 		&workload.Status,
 		&workload.AgentState,
@@ -1275,10 +1357,22 @@ func scanWorkload(row pgx.Row) (workloadRecord, error) {
 		&workload.LastActivityAt,
 		&lastMeteringAt,
 		&removedAt,
+		&workload.OwnerKind,
+		&workload.OwnerID,
 		&workload.Meta.CreatedAt,
 		&workload.Meta.UpdatedAt,
 	); err != nil {
 		return workloadRecord{}, err
+	}
+	if workload.OwnerKind == "" {
+		workload.OwnerKind = runtimeOwnerKindAgentInstance
+		workload.OwnerID = workload.Meta.ID
+	}
+	if threadID.Valid {
+		workload.ThreadID = threadID.UUID
+	}
+	if agentID.Valid {
+		workload.AgentID = agentID.UUID
 	}
 	if len(containersData) == 0 {
 		containersData = []byte("[]")
@@ -1325,8 +1419,6 @@ func toProtoWorkload(record workloadRecord) (*runnersv1.Workload, error) {
 	protoWorkload := &runnersv1.Workload{
 		Meta:                   toProtoEntityMeta(record.Meta),
 		RunnerId:               record.RunnerID.String(),
-		ThreadId:               record.ThreadID.String(),
-		AgentId:                record.AgentID.String(),
 		OrganizationId:         record.OrganizationID.String(),
 		Status:                 statusValue,
 		AgentState:             agentStateValue,
@@ -1335,6 +1427,20 @@ func toProtoWorkload(record workloadRecord) (*runnersv1.Workload, error) {
 		LastActivityAt:         timestamppb.New(record.LastActivityAt),
 		AllocatedCpuMillicores: record.AllocatedCPUMillicores,
 		AllocatedRamBytes:      record.AllocatedRAMBytes,
+		OwnerId:                record.OwnerID.String(),
+	}
+	ownerKind, err := runtimeOwnerKindFromString(record.OwnerKind)
+	if err != nil {
+		return nil, err
+	}
+	protoWorkload.OwnerKind = ownerKind
+	if record.ThreadID != uuid.Nil {
+		protoWorkload.ThreadId = record.ThreadID.String()
+	}
+	if record.AgentID != uuid.Nil {
+		agentID := record.AgentID.String()
+		protoWorkload.AgentId = agentID
+		protoWorkload.AgentClassId = &agentID
 	}
 	if record.InstanceID != nil {
 		protoWorkload.InstanceId = record.InstanceID
