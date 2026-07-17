@@ -1298,6 +1298,66 @@ func TestListWorkloadsByAgentInstanceFiltersOwner(t *testing.T) {
 	}
 }
 
+func TestListWorkloadsByAgentInstanceUsesMemberRelation(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("failed to create mock pool: %v", err)
+	}
+
+	workloadID := uuid.New()
+	runnerID := uuid.New()
+	threadID := uuid.New()
+	agentID := uuid.New()
+	agentInstanceID := uuid.New()
+	organizationID := uuid.New()
+	callerID := uuid.New()
+	now := time.Now().UTC()
+	limit := normalizePageSize(0)
+	workload := defaultWorkloadRecord(workloadID, runnerID, threadID, agentID, organizationID, now)
+	workload.OwnerID = agentInstanceID
+
+	query := fmt.Sprintf("SELECT %s FROM workloads WHERE owner_kind = $1 AND owner_id = $2 ORDER BY created_at DESC, id DESC LIMIT $3", workloadColumns)
+	mockPool.ExpectQuery(regexp.QuoteMeta(query)).
+		WithArgs(runtimeOwnerKindAgentInstance, agentInstanceID, int(limit)+1).
+		WillReturnRows(workloadRows(t, workload))
+
+	var gotCheckReqs []*authorizationv1.CheckRequest
+	authorizationClient := fakeAuthorizationClient{
+		check: func(ctx context.Context, req *authorizationv1.CheckRequest) (*authorizationv1.CheckResponse, error) {
+			gotCheckReqs = append(gotCheckReqs, req)
+			allowed := req.GetTupleKey().GetRelation() == organizationMemberRelation
+			return &authorizationv1.CheckResponse{Allowed: allowed}, nil
+		},
+	}
+
+	srv := New(Options{Pool: mockPool, AuthorizationClient: authorizationClient})
+	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(identityMetadata, callerID.String()))
+	resp, err := srv.ListWorkloadsByAgentInstance(ctx, &runnersv1.ListWorkloadsByAgentInstanceRequest{AgentInstanceId: agentInstanceID.String()})
+	if err != nil {
+		t.Fatalf("ListWorkloadsByAgentInstance failed: %v", err)
+	}
+	if len(resp.GetWorkloads()) != 1 {
+		t.Fatalf("expected 1 workload, got %d", len(resp.GetWorkloads()))
+	}
+	if len(gotCheckReqs) != 1 {
+		t.Fatalf("expected 1 authorization check, got %d", len(gotCheckReqs))
+	}
+	gotCheckReq := gotCheckReqs[0]
+	if gotCheckReq.GetTupleKey().GetRelation() != organizationMemberRelation {
+		t.Fatalf("expected member relation, got %s", gotCheckReq.GetTupleKey().GetRelation())
+	}
+	if gotCheckReq.GetTupleKey().GetObject() != organizationObject(organizationID) {
+		t.Fatalf("expected organization object %q, got %q", organizationObject(organizationID), gotCheckReq.GetTupleKey().GetObject())
+	}
+	if gotCheckReq.GetTupleKey().GetUser() != identityObject(callerID) {
+		t.Fatalf("expected identity user %q, got %q", identityObject(callerID), gotCheckReq.GetTupleKey().GetUser())
+	}
+
+	if err := mockPool.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
 func TestGetWorkloadRequiresCanViewWorkload(t *testing.T) {
 	mockPool, err := pgxmock.NewPool()
 	if err != nil {
