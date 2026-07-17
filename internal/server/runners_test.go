@@ -47,6 +47,14 @@ func (f fakeZitiManagementClient) CreateService(ctx context.Context, req *zitima
 	return f.createService(ctx, req)
 }
 
+func (f fakeZitiManagementClient) GetService(ctx context.Context, req *zitimanagementv1.GetServiceRequest, opts ...grpc.CallOption) (*zitimanagementv1.GetServiceResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "not implemented")
+}
+
+func (f fakeZitiManagementClient) ListServices(ctx context.Context, req *zitimanagementv1.ListServicesRequest, opts ...grpc.CallOption) (*zitimanagementv1.ListServicesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "not implemented")
+}
+
 func (f fakeZitiManagementClient) DeleteIdentity(ctx context.Context, req *zitimanagementv1.DeleteIdentityRequest, opts ...grpc.CallOption) (*zitimanagementv1.DeleteIdentityResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "not implemented")
 }
@@ -89,6 +97,14 @@ func (f fakeZitiManagementClient) CreateServicePolicy(ctx context.Context, req *
 	return nil, status.Error(codes.Unimplemented, "not implemented")
 }
 
+func (f fakeZitiManagementClient) GetServicePolicy(ctx context.Context, req *zitimanagementv1.GetServicePolicyRequest, opts ...grpc.CallOption) (*zitimanagementv1.GetServicePolicyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "not implemented")
+}
+
+func (f fakeZitiManagementClient) ListServicePolicies(ctx context.Context, req *zitimanagementv1.ListServicePoliciesRequest, opts ...grpc.CallOption) (*zitimanagementv1.ListServicePoliciesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "not implemented")
+}
+
 func (f fakeZitiManagementClient) DeleteServicePolicy(ctx context.Context, req *zitimanagementv1.DeleteServicePolicyRequest, opts ...grpc.CallOption) (*zitimanagementv1.DeleteServicePolicyResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "not implemented")
 }
@@ -102,6 +118,38 @@ func (f fakeZitiManagementClient) CreateDeviceIdentity(ctx context.Context, req 
 }
 
 func (f fakeZitiManagementClient) DeleteDeviceIdentity(ctx context.Context, req *zitimanagementv1.DeleteDeviceIdentityRequest, opts ...grpc.CallOption) (*zitimanagementv1.DeleteDeviceIdentityResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "not implemented")
+}
+
+func (f fakeZitiManagementClient) CreateTunnelIdentity(ctx context.Context, req *zitimanagementv1.CreateTunnelIdentityRequest, opts ...grpc.CallOption) (*zitimanagementv1.CreateTunnelIdentityResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "not implemented")
+}
+
+func (f fakeZitiManagementClient) DeleteTunnelIdentity(ctx context.Context, req *zitimanagementv1.DeleteTunnelIdentityRequest, opts ...grpc.CallOption) (*zitimanagementv1.DeleteTunnelIdentityResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "not implemented")
+}
+
+func (f fakeZitiManagementClient) PatchIdentityRoleAttributes(ctx context.Context, req *zitimanagementv1.PatchIdentityRoleAttributesRequest, opts ...grpc.CallOption) (*zitimanagementv1.PatchIdentityRoleAttributesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "not implemented")
+}
+
+func (f fakeZitiManagementClient) GetIdentityLiveness(ctx context.Context, req *zitimanagementv1.GetIdentityLivenessRequest, opts ...grpc.CallOption) (*zitimanagementv1.GetIdentityLivenessResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "not implemented")
+}
+
+func (f fakeZitiManagementClient) ListServicesByTag(ctx context.Context, req *zitimanagementv1.ListServicesByTagRequest, opts ...grpc.CallOption) (*zitimanagementv1.ListServicesByTagResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "not implemented")
+}
+
+func (f fakeZitiManagementClient) ListIdentitiesByTag(ctx context.Context, req *zitimanagementv1.ListIdentitiesByTagRequest, opts ...grpc.CallOption) (*zitimanagementv1.ListIdentitiesByTagResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "not implemented")
+}
+
+func (f fakeZitiManagementClient) ListServicePoliciesByTag(ctx context.Context, req *zitimanagementv1.ListServicePoliciesByTagRequest, opts ...grpc.CallOption) (*zitimanagementv1.ListServicePoliciesByTagResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "not implemented")
+}
+
+func (f fakeZitiManagementClient) UpdateService(ctx context.Context, req *zitimanagementv1.UpdateServiceRequest, opts ...grpc.CallOption) (*zitimanagementv1.UpdateServiceResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "not implemented")
 }
 

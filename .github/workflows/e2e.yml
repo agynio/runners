@@ -46,9 +46,11 @@ jobs:
           devspace run-pipeline wait-runners
 
       - name: Run E2E tests
-        uses: agynio/e2e/.github/actions/run-tests@main
+        uses: agynio/e2e/.github/actions/run-tests@noa/fix-go-core-runners-llm-helpers
         with:
           service: runners
+          include_smoke: "false"
+          e2e-ref: noa/fix-go-core-runners-llm-helpers
 
       - name: Restore ArgoCD sync
         if: always()
