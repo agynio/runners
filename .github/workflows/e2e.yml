@@ -50,6 +50,7 @@ jobs:
         with:
           service: runners
           include_smoke: "false"
+          e2e-ref: noa/fix-go-core-runners-llm-helpers
 
       - name: Restore ArgoCD sync
         if: always()
