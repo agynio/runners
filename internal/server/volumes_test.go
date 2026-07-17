@@ -743,6 +743,68 @@ func TestListVolumesByThreadInternalNoIdentity(t *testing.T) {
 	}
 }
 
+func TestListVolumesByAgentInstanceFiltersOwner(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("failed to create mock pool: %v", err)
+	}
+
+	volumeID := uuid.New()
+	volumeResourceID := uuid.New()
+	threadID := uuid.New()
+	runnerID := uuid.New()
+	agentID := uuid.New()
+	agentInstanceID := uuid.New()
+	organizationID := uuid.New()
+	now := time.Now().UTC()
+	limit := normalizePageSize(0)
+
+	rows := pgxmock.NewRows(volumeRowColumns).
+		AddRow(volumeID, "runner-volume-instance", volumeResourceID, threadID, runnerID, agentID, organizationID, "10", volumeStatusActive, nil, nil, runtimeOwnerKindAgentInstance, agentInstanceID, now, now)
+
+	query := fmt.Sprintf("SELECT %s FROM volumes WHERE owner_kind = $1 AND owner_id = $2 AND status = ANY($3) ORDER BY id ASC LIMIT $4", volumeColumns)
+	mockPool.ExpectQuery(regexp.QuoteMeta(query)).
+		WithArgs(runtimeOwnerKindAgentInstance, agentInstanceID, pgtype.FlatArray[string]{volumeStatusActive}, int(limit)+1).
+		WillReturnRows(rows)
+
+	checkCalls := 0
+	authorizationClient := fakeAuthorizationClient{
+		check: func(ctx context.Context, req *authorizationv1.CheckRequest) (*authorizationv1.CheckResponse, error) {
+			checkCalls++
+			return &authorizationv1.CheckResponse{Allowed: false}, nil
+		},
+	}
+
+	srv := New(Options{Pool: mockPool, AuthorizationClient: authorizationClient})
+	resp, err := srv.ListVolumesByAgentInstance(context.Background(), &runnersv1.ListVolumesByAgentInstanceRequest{
+		AgentInstanceId: agentInstanceID.String(),
+		Statuses:        []runnersv1.VolumeStatus{runnersv1.VolumeStatus_VOLUME_STATUS_ACTIVE},
+	})
+	if err != nil {
+		t.Fatalf("ListVolumesByAgentInstance failed: %v", err)
+	}
+	if len(resp.GetVolumes()) != 1 {
+		t.Fatalf("expected 1 volume, got %d", len(resp.GetVolumes()))
+	}
+	volume := resp.GetVolumes()[0]
+	if volume.GetAgentInstanceId() != agentInstanceID.String() {
+		t.Fatalf("expected agent instance id %s, got %s", agentInstanceID, volume.GetAgentInstanceId())
+	}
+	if volume.GetOwnerId() != agentInstanceID.String() {
+		t.Fatalf("expected owner id %s, got %s", agentInstanceID, volume.GetOwnerId())
+	}
+	if volume.GetInstanceId() != "runner-volume-instance" {
+		t.Fatalf("expected runner-local volume instance id, got %q", volume.GetInstanceId())
+	}
+	if checkCalls != 0 {
+		t.Fatalf("expected no authorization checks, got %d", checkCalls)
+	}
+
+	if err := mockPool.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
 func TestGetVolumeRequiresViewVolumes(t *testing.T) {
 	mockPool, err := pgxmock.NewPool()
 	if err != nil {
@@ -993,6 +1055,58 @@ func TestCreateVolumeSandboxRuntimeOnly(t *testing.T) {
 	}
 	if resp.GetVolume().GetVolumeId() != "" || resp.GetVolume().GetAgentId() != "" || resp.GetVolume().GetThreadId() != "" {
 		t.Fatalf("expected runtime-only sandbox volume without definition/agent/thread ids")
+	}
+
+	if err := mockPool.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestCreateVolumeMapsAgentInstanceIDToOwnerID(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("failed to create mock pool: %v", err)
+	}
+
+	volumeID := uuid.New()
+	volumeResourceID := uuid.New()
+	threadID := uuid.New()
+	runnerID := uuid.New()
+	agentID := uuid.New()
+	agentInstanceID := uuid.New()
+	organizationID := uuid.New()
+	now := time.Now().UTC()
+	query := fmt.Sprintf("INSERT INTO volumes (id, volume_id, thread_id, runner_id, agent_id, organization_id, size_gb, status, owner_kind, owner_id)\n\t    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)\n\t    RETURNING %s", volumeColumns)
+	rows := pgxmock.NewRows(volumeRowColumns).
+		AddRow(volumeID, nil, volumeResourceID, threadID, runnerID, agentID, organizationID, "10", volumeStatusActive, nil, nil, runtimeOwnerKindAgentInstance, agentInstanceID, now, now)
+	mockPool.ExpectQuery(regexp.QuoteMeta(query)).
+		WithArgs(volumeID, volumeResourceID, threadID, runnerID, agentID, organizationID, "10", volumeStatusActive, runtimeOwnerKindAgentInstance, agentInstanceID).
+		WillReturnRows(rows)
+
+	srv := New(Options{Pool: mockPool})
+	resp, err := srv.CreateVolume(context.Background(), &runnersv1.CreateVolumeRequest{
+		Id:                 volumeID.String(),
+		VolumeDefinitionId: ptr(volumeResourceID.String()),
+		ThreadId:           threadID.String(),
+		RunnerId:           runnerID.String(),
+		AgentClassId:       ptr(agentID.String()),
+		OrganizationId:     organizationID.String(),
+		SizeGb:             "10",
+		Status:             runnersv1.VolumeStatus_VOLUME_STATUS_ACTIVE,
+		OwnerKind:          runnersv1.RuntimeOwnerKind_RUNTIME_OWNER_KIND_AGENT_INSTANCE,
+		AgentInstanceId:    ptr(agentInstanceID.String()),
+	})
+	if err != nil {
+		t.Fatalf("CreateVolume failed: %v", err)
+	}
+	if resp.GetVolume().GetOwnerId() != agentInstanceID.String() {
+		t.Fatalf("expected owner id %s, got %s", agentInstanceID, resp.GetVolume().GetOwnerId())
+	}
+	if resp.GetVolume().GetAgentInstanceId() != agentInstanceID.String() {
+		t.Fatalf("expected agent instance id %s, got %s", agentInstanceID, resp.GetVolume().GetAgentInstanceId())
+	}
+	if resp.GetVolume().GetInstanceId() != "" {
+		t.Fatalf("expected runner-local instance id to stay empty, got %q", resp.GetVolume().GetInstanceId())
 	}
 
 	if err := mockPool.ExpectationsWereMet(); err != nil {

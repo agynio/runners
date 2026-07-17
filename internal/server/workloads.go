@@ -170,15 +170,9 @@ func (s *Server) CreateWorkload(ctx context.Context, req *runnersv1.CreateWorklo
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "owner_kind: %v", err)
 	}
-	ownerID, err := parseOptionalUUID(req.GetOwnerId())
+	ownerID, err := runtimeOwnerIDFromRequest(req.GetOwnerId(), req.AgentInstanceId, ownerKind)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "owner_id: %v", err)
-	}
-	if ownerID == nil && ownerKind == runtimeOwnerKindAgentInstance {
-		ownerID = threadID
-	}
-	if ownerID == nil {
-		return nil, status.Error(codes.InvalidArgument, "owner_id: value is empty")
 	}
 	if ownerKind == runtimeOwnerKindAgentInstance {
 		if threadID == nil {
@@ -549,6 +543,48 @@ func (s *Server) ListWorkloadsByThread(ctx context.Context, req *runnersv1.ListW
 	return &runnersv1.ListWorkloadsByThreadResponse{Workloads: protoWorkloads, NextPageToken: nextToken}, nil
 }
 
+func (s *Server) ListWorkloadsByAgentInstance(ctx context.Context, req *runnersv1.ListWorkloadsByAgentInstanceRequest) (*runnersv1.ListWorkloadsByAgentInstanceResponse, error) {
+	callerID, err := identityFromMetadataOptional(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, "unauthenticated: %v", err)
+	}
+	agentInstanceID, err := parseUUID(req.GetAgentInstanceId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "agent_instance_id: %v", err)
+	}
+	statuses, err := workloadStatusesToStrings(req.GetStatuses())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "statuses: %v", err)
+	}
+	workloads, nextToken, err := s.listWorkloadsByAgentInstance(ctx, agentInstanceID, statuses, req.GetPageSize(), req.GetPageToken())
+	if err != nil {
+		var invalidToken *InvalidPageTokenError
+		if errors.As(err, &invalidToken) {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid page_token: %v", invalidToken.Err)
+		}
+		return nil, status.Errorf(codes.Internal, "list workloads: %v", err)
+	}
+	if callerID != nil {
+		viewWorkloadsCache := map[uuid.UUID]bool{}
+		filtered := make([]workloadRecord, 0, len(workloads))
+		for _, workload := range workloads {
+			allowed, err := s.orgRelationAllowedCached(ctx, *callerID, workload.OrganizationID, organizationViewWorkloads, viewWorkloadsCache)
+			if err != nil {
+				return nil, err
+			}
+			if allowed {
+				filtered = append(filtered, workload)
+			}
+		}
+		workloads = filtered
+	}
+	protoWorkloads, err := toProtoWorkloadList(workloads)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "convert workloads: %v", err)
+	}
+	return &runnersv1.ListWorkloadsByAgentInstanceResponse{Workloads: protoWorkloads, NextPageToken: nextToken}, nil
+}
+
 func (s *Server) ListWorkloads(ctx context.Context, req *runnersv1.ListWorkloadsRequest) (*runnersv1.ListWorkloadsResponse, error) {
 	callerID, err := identityFromMetadataOptional(ctx)
 	if err != nil {
@@ -891,7 +927,6 @@ func (s *Server) touchRuntimeOwnerWorkload(ctx context.Context, id uuid.UUID, ow
 }
 
 func (s *Server) listWorkloadsByThread(ctx context.Context, threadID uuid.UUID, agentID *uuid.UUID, statuses []string, pageSize int32, pageToken string) ([]workloadRecord, string, error) {
-	limit := normalizePageSize(pageSize)
 	clauses := []string{"thread_id = $1"}
 	args := []any{threadID}
 
@@ -899,6 +934,17 @@ func (s *Server) listWorkloadsByThread(ctx context.Context, threadID uuid.UUID, 
 		clauses = append(clauses, fmt.Sprintf("agent_id = $%d", len(args)+1))
 		args = append(args, *agentID)
 	}
+	return s.listWorkloadsByClauses(ctx, clauses, args, statuses, pageSize, pageToken)
+}
+
+func (s *Server) listWorkloadsByAgentInstance(ctx context.Context, agentInstanceID uuid.UUID, statuses []string, pageSize int32, pageToken string) ([]workloadRecord, string, error) {
+	clauses := []string{"owner_kind = $1", "owner_id = $2"}
+	args := []any{runtimeOwnerKindAgentInstance, agentInstanceID}
+	return s.listWorkloadsByClauses(ctx, clauses, args, statuses, pageSize, pageToken)
+}
+
+func (s *Server) listWorkloadsByClauses(ctx context.Context, clauses []string, args []any, statuses []string, pageSize int32, pageToken string) ([]workloadRecord, string, error) {
+	limit := normalizePageSize(pageSize)
 	if len(statuses) > 0 {
 		clauses = append(clauses, fmt.Sprintf("status = ANY($%d)", len(args)+1))
 		args = append(args, pgtype.FlatArray[string](statuses))
@@ -1473,6 +1519,10 @@ func toProtoWorkload(record workloadRecord) (*runnersv1.Workload, error) {
 		return nil, err
 	}
 	protoWorkload.OwnerKind = ownerKind
+	if record.OwnerKind == runtimeOwnerKindAgentInstance {
+		agentInstanceID := record.OwnerID.String()
+		protoWorkload.AgentInstanceId = &agentInstanceID
+	}
 	if record.ThreadID != uuid.Nil {
 		protoWorkload.ThreadId = record.ThreadID.String()
 	}

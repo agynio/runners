@@ -169,6 +169,8 @@ func TestCreateWorkloadWritesAuthorizationTuples(t *testing.T) {
 		AgentId:                agentID.String(),
 		OrganizationId:         organizationID.String(),
 		Status:                 runnersv1.WorkloadStatus_WORKLOAD_STATUS_RUNNING,
+		OwnerKind:              runnersv1.RuntimeOwnerKind_RUNTIME_OWNER_KIND_AGENT_INSTANCE,
+		OwnerId:                threadID.String(),
 		ZitiIdentityId:         "ziti-id",
 		AllocatedCpuMillicores: 250,
 		AllocatedRamBytes:      512,
@@ -227,6 +229,8 @@ func TestCreateWorkloadReturnsInternalWhenAuthorizationWriteFails(t *testing.T) 
 		AgentId:        agentID.String(),
 		OrganizationId: organizationID.String(),
 		Status:         runnersv1.WorkloadStatus_WORKLOAD_STATUS_RUNNING,
+		OwnerKind:      runnersv1.RuntimeOwnerKind_RUNTIME_OWNER_KIND_AGENT_INSTANCE,
+		OwnerId:        threadID.String(),
 	})
 	if status.Code(err) != codes.Internal {
 		t.Fatalf("expected Internal error, got %v", err)
@@ -278,6 +282,8 @@ func TestCreateWorkloadDoesNotWriteAuthorizationWhenInsertFails(t *testing.T) {
 		AgentId:        agentID.String(),
 		OrganizationId: organizationID.String(),
 		Status:         runnersv1.WorkloadStatus_WORKLOAD_STATUS_RUNNING,
+		OwnerKind:      runnersv1.RuntimeOwnerKind_RUNTIME_OWNER_KIND_AGENT_INSTANCE,
+		OwnerId:        threadID.String(),
 	})
 	if status.Code(err) != codes.AlreadyExists {
 		t.Fatalf("expected AlreadyExists error, got %v", err)
@@ -285,6 +291,95 @@ func TestCreateWorkloadDoesNotWriteAuthorizationWhenInsertFails(t *testing.T) {
 
 	if err := mockPool.ExpectationsWereMet(); err != nil {
 		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestCreateWorkloadMapsAgentInstanceIDToOwnerID(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("failed to create mock pool: %v", err)
+	}
+
+	workloadID := uuid.New()
+	runnerID := uuid.New()
+	threadID := uuid.New()
+	agentID := uuid.New()
+	agentInstanceID := uuid.New()
+	organizationID := uuid.New()
+	now := time.Now().UTC()
+	containersJSON := []byte("[]")
+	input := workloadInsertInput{
+		ID:             workloadID,
+		RunnerID:       runnerID,
+		ThreadID:       &threadID,
+		AgentID:        &agentID,
+		OwnerKind:      runtimeOwnerKindAgentInstance,
+		OwnerID:        agentInstanceID,
+		OrganizationID: organizationID,
+		Status:         workloadStatusRunning,
+		ContainersJSON: containersJSON,
+	}
+	workload := defaultWorkloadRecord(workloadID, runnerID, threadID, agentID, organizationID, now)
+	workload.OwnerID = agentInstanceID
+	expectWorkloadInsert(t, mockPool, input, workload)
+
+	var gotWriteReq *authorizationv1.WriteRequest
+	authorizationClient := fakeAuthorizationClient{write: func(ctx context.Context, req *authorizationv1.WriteRequest) (*authorizationv1.WriteResponse, error) {
+		gotWriteReq = req
+		return &authorizationv1.WriteResponse{}, nil
+	}}
+
+	srv := New(Options{Pool: mockPool, AuthorizationClient: authorizationClient})
+	resp, err := srv.CreateWorkload(context.Background(), &runnersv1.CreateWorkloadRequest{
+		Id:              workloadID.String(),
+		RunnerId:        runnerID.String(),
+		ThreadId:        threadID.String(),
+		AgentClassId:    ptr(agentID.String()),
+		OrganizationId:  organizationID.String(),
+		Status:          runnersv1.WorkloadStatus_WORKLOAD_STATUS_RUNNING,
+		OwnerKind:       runnersv1.RuntimeOwnerKind_RUNTIME_OWNER_KIND_AGENT_INSTANCE,
+		AgentInstanceId: ptr(agentInstanceID.String()),
+	})
+	if err != nil {
+		t.Fatalf("CreateWorkload failed: %v", err)
+	}
+	if resp.GetWorkload().GetOwnerId() != agentInstanceID.String() {
+		t.Fatalf("expected owner id %s, got %s", agentInstanceID, resp.GetWorkload().GetOwnerId())
+	}
+	if resp.GetWorkload().GetAgentInstanceId() != agentInstanceID.String() {
+		t.Fatalf("expected agent instance id %s, got %s", agentInstanceID, resp.GetWorkload().GetAgentInstanceId())
+	}
+	if resp.GetWorkload().GetInstanceId() != "" {
+		t.Fatalf("expected runner-local instance id to stay empty, got %q", resp.GetWorkload().GetInstanceId())
+	}
+	if gotWriteReq == nil {
+		t.Fatal("expected authorization Write to be called")
+	}
+	assertWorkloadAuthorizationWrites(t, gotWriteReq, workloadID, organizationID, agentID)
+
+	if err := mockPool.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestCreateWorkloadRejectsMismatchedAgentInstanceID(t *testing.T) {
+	srv := New(Options{})
+	agentInstanceID := uuid.New()
+	ownerID := uuid.New()
+
+	_, err := srv.CreateWorkload(context.Background(), &runnersv1.CreateWorkloadRequest{
+		Id:              uuid.New().String(),
+		RunnerId:        uuid.New().String(),
+		ThreadId:        uuid.New().String(),
+		AgentClassId:    ptr(uuid.New().String()),
+		OrganizationId:  uuid.New().String(),
+		Status:          runnersv1.WorkloadStatus_WORKLOAD_STATUS_RUNNING,
+		OwnerKind:       runnersv1.RuntimeOwnerKind_RUNTIME_OWNER_KIND_AGENT_INSTANCE,
+		OwnerId:         ownerID.String(),
+		AgentInstanceId: ptr(agentInstanceID.String()),
+	})
+	if status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("expected InvalidArgument error, got %v", err)
 	}
 }
 
@@ -1139,6 +1234,67 @@ func TestListWorkloadsByThreadInvalidPageToken(t *testing.T) {
 	_, err := srv.ListWorkloadsByThread(ctx, &runnersv1.ListWorkloadsByThreadRequest{ThreadId: threadID.String(), PageToken: "not-a-token"})
 	if status.Code(err) != codes.InvalidArgument {
 		t.Fatalf("expected InvalidArgument error, got %v", err)
+	}
+}
+
+func TestListWorkloadsByAgentInstanceFiltersOwner(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("failed to create mock pool: %v", err)
+	}
+
+	workloadID := uuid.New()
+	runnerID := uuid.New()
+	threadID := uuid.New()
+	agentID := uuid.New()
+	agentInstanceID := uuid.New()
+	organizationID := uuid.New()
+	now := time.Now().UTC()
+	limit := normalizePageSize(0)
+	workload := defaultWorkloadRecord(workloadID, runnerID, threadID, agentID, organizationID, now)
+	workload.OwnerID = agentInstanceID
+	workload.InstanceID = ptr("runner-local-instance")
+
+	query := fmt.Sprintf("SELECT %s FROM workloads WHERE owner_kind = $1 AND owner_id = $2 AND status = ANY($3) ORDER BY created_at DESC, id DESC LIMIT $4", workloadColumns)
+	mockPool.ExpectQuery(regexp.QuoteMeta(query)).
+		WithArgs(runtimeOwnerKindAgentInstance, agentInstanceID, pgtype.FlatArray[string]{workloadStatusRunning}, int(limit)+1).
+		WillReturnRows(workloadRows(t, workload))
+
+	checkCalls := 0
+	authorizationClient := fakeAuthorizationClient{
+		check: func(ctx context.Context, req *authorizationv1.CheckRequest) (*authorizationv1.CheckResponse, error) {
+			checkCalls++
+			return &authorizationv1.CheckResponse{Allowed: false}, nil
+		},
+	}
+
+	srv := New(Options{Pool: mockPool, AuthorizationClient: authorizationClient})
+	resp, err := srv.ListWorkloadsByAgentInstance(context.Background(), &runnersv1.ListWorkloadsByAgentInstanceRequest{
+		AgentInstanceId: agentInstanceID.String(),
+		Statuses:        []runnersv1.WorkloadStatus{runnersv1.WorkloadStatus_WORKLOAD_STATUS_RUNNING},
+	})
+	if err != nil {
+		t.Fatalf("ListWorkloadsByAgentInstance failed: %v", err)
+	}
+	if len(resp.GetWorkloads()) != 1 {
+		t.Fatalf("expected 1 workload, got %d", len(resp.GetWorkloads()))
+	}
+	gotWorkload := resp.GetWorkloads()[0]
+	if gotWorkload.GetAgentInstanceId() != agentInstanceID.String() {
+		t.Fatalf("expected agent instance id %s, got %s", agentInstanceID, gotWorkload.GetAgentInstanceId())
+	}
+	if gotWorkload.GetOwnerId() != agentInstanceID.String() {
+		t.Fatalf("expected owner id %s, got %s", agentInstanceID, gotWorkload.GetOwnerId())
+	}
+	if gotWorkload.GetInstanceId() != "runner-local-instance" {
+		t.Fatalf("expected runner-local instance id, got %q", gotWorkload.GetInstanceId())
+	}
+	if checkCalls != 0 {
+		t.Fatalf("expected no authorization checks, got %d", checkCalls)
+	}
+
+	if err := mockPool.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
 	}
 }
 

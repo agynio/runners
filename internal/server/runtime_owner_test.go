@@ -6,6 +6,10 @@ import (
 	"github.com/google/uuid"
 )
 
+func ptr[T any](value T) *T {
+	return &value
+}
+
 func TestNullableUUIDScannerScansRawByteArray(t *testing.T) {
 	id := uuid.New()
 	var raw [16]byte

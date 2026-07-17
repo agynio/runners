@@ -109,6 +109,33 @@ func parseOptionalUUID(value string) (*uuid.UUID, error) {
 	return &id, nil
 }
 
+func runtimeOwnerIDFromRequest(ownerIDValue string, agentInstanceIDValue *string, ownerKind string) (*uuid.UUID, error) {
+	ownerID, err := parseOptionalUUID(ownerIDValue)
+	if err != nil {
+		return nil, err
+	}
+	if agentInstanceIDValue == nil {
+		if ownerID == nil {
+			return nil, fmt.Errorf("value is empty")
+		}
+		return ownerID, nil
+	}
+	agentInstanceID, err := parseOptionalUUID(*agentInstanceIDValue)
+	if err != nil {
+		return nil, fmt.Errorf("agent_instance_id: %w", err)
+	}
+	if agentInstanceID == nil {
+		return nil, fmt.Errorf("agent_instance_id: value is empty")
+	}
+	if ownerKind != runtimeOwnerKindAgentInstance {
+		return nil, fmt.Errorf("agent_instance_id requires owner_kind agent_instance")
+	}
+	if ownerID != nil && *ownerID != *agentInstanceID {
+		return nil, fmt.Errorf("agent_instance_id must match owner_id")
+	}
+	return agentInstanceID, nil
+}
+
 func nullableUUIDValue(id *uuid.UUID) any {
 	if id == nil {
 		return nil

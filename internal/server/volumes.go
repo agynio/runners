@@ -156,15 +156,9 @@ func (s *Server) CreateVolume(ctx context.Context, req *runnersv1.CreateVolumeRe
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "owner_kind: %v", err)
 	}
-	ownerID, err := parseOptionalUUID(req.GetOwnerId())
+	ownerID, err := runtimeOwnerIDFromRequest(req.GetOwnerId(), req.AgentInstanceId, ownerKind)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "owner_id: %v", err)
-	}
-	if ownerID == nil && ownerKind == runtimeOwnerKindAgentInstance {
-		ownerID = threadID
-	}
-	if ownerID == nil {
-		return nil, status.Error(codes.InvalidArgument, "owner_id: value is empty")
 	}
 	if ownerKind == runtimeOwnerKindAgentInstance {
 		if volumeID == nil {
@@ -388,6 +382,48 @@ func (s *Server) ListVolumesByThread(ctx context.Context, req *runnersv1.ListVol
 		return nil, status.Errorf(codes.Internal, "convert volumes: %v", err)
 	}
 	return &runnersv1.ListVolumesByThreadResponse{Volumes: protoVolumes, NextPageToken: nextToken}, nil
+}
+
+func (s *Server) ListVolumesByAgentInstance(ctx context.Context, req *runnersv1.ListVolumesByAgentInstanceRequest) (*runnersv1.ListVolumesByAgentInstanceResponse, error) {
+	callerID, err := identityFromMetadataOptional(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, "unauthenticated: %v", err)
+	}
+	agentInstanceID, err := parseUUID(req.GetAgentInstanceId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "agent_instance_id: %v", err)
+	}
+	statuses, err := volumeStatusesToStrings(req.GetStatuses())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "statuses: %v", err)
+	}
+	volumes, nextToken, err := s.listVolumesByAgentInstance(ctx, agentInstanceID, statuses, req.GetPageSize(), req.GetPageToken())
+	if err != nil {
+		var invalidToken *InvalidPageTokenError
+		if errors.As(err, &invalidToken) {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid page_token: %v", invalidToken.Err)
+		}
+		return nil, status.Errorf(codes.Internal, "list volumes: %v", err)
+	}
+	if callerID != nil {
+		memberCache := map[uuid.UUID]bool{}
+		filtered := make([]volumeRecord, 0, len(volumes))
+		for _, volume := range volumes {
+			allowed, err := s.memberAllowed(ctx, *callerID, volume.OrganizationID, memberCache)
+			if err != nil {
+				return nil, err
+			}
+			if allowed {
+				filtered = append(filtered, volume)
+			}
+		}
+		volumes = filtered
+	}
+	protoVolumes, err := toProtoVolumeList(volumes)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "convert volumes: %v", err)
+	}
+	return &runnersv1.ListVolumesByAgentInstanceResponse{Volumes: protoVolumes, NextPageToken: nextToken}, nil
 }
 
 func (s *Server) ListVolumes(ctx context.Context, req *runnersv1.ListVolumesRequest) (*runnersv1.ListVolumesResponse, error) {
@@ -762,9 +798,23 @@ func (s *Server) getVolumeByID(ctx context.Context, id uuid.UUID) (volumeRecord,
 }
 
 func (s *Server) listVolumesByThread(ctx context.Context, threadID uuid.UUID, pageSize int32, pageToken string) ([]volumeRecord, string, error) {
-	limit := normalizePageSize(pageSize)
 	clauses := []string{"thread_id = $1"}
 	args := []any{threadID}
+	return s.listVolumesByClauses(ctx, clauses, args, nil, pageSize, pageToken)
+}
+
+func (s *Server) listVolumesByAgentInstance(ctx context.Context, agentInstanceID uuid.UUID, statuses []string, pageSize int32, pageToken string) ([]volumeRecord, string, error) {
+	clauses := []string{"owner_kind = $1", "owner_id = $2"}
+	args := []any{runtimeOwnerKindAgentInstance, agentInstanceID}
+	return s.listVolumesByClauses(ctx, clauses, args, statuses, pageSize, pageToken)
+}
+
+func (s *Server) listVolumesByClauses(ctx context.Context, clauses []string, args []any, statuses []string, pageSize int32, pageToken string) ([]volumeRecord, string, error) {
+	limit := normalizePageSize(pageSize)
+	if len(statuses) > 0 {
+		clauses = append(clauses, fmt.Sprintf("status = ANY($%d)", len(args)+1))
+		args = append(args, pgtype.FlatArray[string](statuses))
+	}
 
 	if pageToken != "" {
 		afterID, err := decodePageToken(pageToken)
@@ -1624,6 +1674,10 @@ func toProtoVolume(record volumeRecord) (*runnersv1.Volume, error) {
 		return nil, err
 	}
 	protoVolume.OwnerKind = ownerKind
+	if record.OwnerKind == runtimeOwnerKindAgentInstance {
+		agentInstanceID := record.OwnerID.String()
+		protoVolume.AgentInstanceId = &agentInstanceID
+	}
 	if record.VolumeID != uuid.Nil {
 		volumeID := record.VolumeID.String()
 		protoVolume.VolumeId = volumeID
