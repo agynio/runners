@@ -42,6 +42,36 @@ func (s *Server) resolveAgentNames(ctx context.Context, agentIDs []uuid.UUID) (m
 	return resolved, nil
 }
 
+// resolveSandboxNames resolves display names for sandbox runtime owners. The
+// Agents service exposes no batch sandbox lookup, so this mirrors
+// resolveAgentNames and fetches one sandbox per id.
+func (s *Server) resolveSandboxNames(ctx context.Context, sandboxIDs []uuid.UUID) (map[uuid.UUID]string, error) {
+	if len(sandboxIDs) == 0 {
+		return map[uuid.UUID]string{}, nil
+	}
+	if s.agentsClient == nil {
+		return nil, errors.New("agents client not configured")
+	}
+	sandboxCtx := outgoingContext(ctx)
+	resolved := make(map[uuid.UUID]string, len(sandboxIDs))
+	for _, sandboxID := range sandboxIDs {
+		resp, err := s.agentsClient.GetSandbox(sandboxCtx, &agentsv1.GetSandboxRequest{Ref: &agentsv1.GetSandboxRequest_Id{Id: sandboxID.String()}})
+		if err != nil {
+			if isNotFoundGrpcError(err) {
+				resolved[sandboxID] = missingNamePlaceholder
+				continue
+			}
+			return nil, fmt.Errorf("get sandbox %s: %w", sandboxID, err)
+		}
+		sandbox := resp.GetSandbox()
+		if sandbox == nil {
+			return nil, fmt.Errorf("sandbox %s not found", sandboxID)
+		}
+		resolved[sandboxID] = sandbox.GetName()
+	}
+	return resolved, nil
+}
+
 func (s *Server) resolveRunnerNames(ctx context.Context, runnerIDs []uuid.UUID) (map[uuid.UUID]string, error) {
 	if len(runnerIDs) == 0 {
 		return map[uuid.UUID]string{}, nil

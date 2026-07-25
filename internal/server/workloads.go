@@ -1356,20 +1356,29 @@ func (s *Server) buildWorkloadProtos(ctx context.Context, records []workloadReco
 	}
 	agentIDs := make([]uuid.UUID, 0, len(records))
 	runnerIDs := make([]uuid.UUID, 0, len(records))
+	sandboxIDs := make([]uuid.UUID, 0, len(records))
 	for _, record := range records {
 		if record.AgentID != uuid.Nil {
 			agentIDs = append(agentIDs, record.AgentID)
+		}
+		if record.OwnerKind == runtimeOwnerKindSandbox {
+			sandboxIDs = append(sandboxIDs, record.OwnerID)
 		}
 		runnerIDs = append(runnerIDs, record.RunnerID)
 	}
 	uniqueAgents := uniqueUUIDs(agentIDs)
 	uniqueRunners := uniqueUUIDs(runnerIDs)
+	uniqueSandboxes := uniqueUUIDs(sandboxIDs)
 
 	agentNames, err := s.resolveAgentNames(ctx, uniqueAgents)
 	if err != nil {
 		return nil, err
 	}
 	runnerNames, err := s.resolveRunnerNames(ctx, uniqueRunners)
+	if err != nil {
+		return nil, err
+	}
+	sandboxNames, err := s.resolveSandboxNames(ctx, uniqueSandboxes)
 	if err != nil {
 		return nil, err
 	}
@@ -1384,11 +1393,19 @@ func (s *Server) buildWorkloadProtos(ctx context.Context, records []workloadReco
 			}
 			agentName = name
 		}
+		ownerName := ""
+		if record.OwnerKind == runtimeOwnerKindSandbox {
+			name, ok := sandboxNames[record.OwnerID]
+			if !ok {
+				return nil, fmt.Errorf("sandbox name missing for %s", record.OwnerID)
+			}
+			ownerName = name
+		}
 		runnerName, ok := runnerNames[record.RunnerID]
 		if !ok {
 			return nil, fmt.Errorf("runner name missing for %s", record.RunnerID)
 		}
-		workload, err := toProtoWorkloadWithNames(record, agentName, runnerName)
+		workload, err := toProtoWorkloadWithNames(record, agentName, ownerName, runnerName)
 		if err != nil {
 			return nil, err
 		}
@@ -1557,13 +1574,16 @@ func toProtoWorkload(record workloadRecord) (*runnersv1.Workload, error) {
 	return protoWorkload, nil
 }
 
-func toProtoWorkloadWithNames(record workloadRecord, agentName, runnerName string) (*runnersv1.Workload, error) {
+func toProtoWorkloadWithNames(record workloadRecord, agentName, ownerName, runnerName string) (*runnersv1.Workload, error) {
 	workload, err := toProtoWorkload(record)
 	if err != nil {
 		return nil, err
 	}
 	workload.AgentName = agentName
 	workload.RunnerName = runnerName
+	if ownerName != "" {
+		workload.OwnerName = &ownerName
+	}
 	return workload, nil
 }
 

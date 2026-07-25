@@ -98,24 +98,27 @@ type volumeListSort struct {
 type volumeListItem struct {
 	record      volumeRecord
 	volumeName  string
+	ownerName   string
 	attachments []*runnersv1.Attachment
 }
 
 type volumeEnrichmentCache struct {
-	volumeNames map[uuid.UUID]string
-	attachments map[uuid.UUID][]*runnersv1.Attachment
-	agentNames  map[uuid.UUID]string
-	mcpNames    map[uuid.UUID]string
-	hookNames   map[uuid.UUID]string
+	volumeNames  map[uuid.UUID]string
+	attachments  map[uuid.UUID][]*runnersv1.Attachment
+	agentNames   map[uuid.UUID]string
+	sandboxNames map[uuid.UUID]string
+	mcpNames     map[uuid.UUID]string
+	hookNames    map[uuid.UUID]string
 }
 
 func newVolumeEnrichmentCache() *volumeEnrichmentCache {
 	return &volumeEnrichmentCache{
-		volumeNames: map[uuid.UUID]string{},
-		attachments: map[uuid.UUID][]*runnersv1.Attachment{},
-		agentNames:  map[uuid.UUID]string{},
-		mcpNames:    map[uuid.UUID]string{},
-		hookNames:   map[uuid.UUID]string{},
+		volumeNames:  map[uuid.UUID]string{},
+		attachments:  map[uuid.UUID][]*runnersv1.Attachment{},
+		agentNames:   map[uuid.UUID]string{},
+		sandboxNames: map[uuid.UUID]string{},
+		mcpNames:     map[uuid.UUID]string{},
+		hookNames:    map[uuid.UUID]string{},
 	}
 }
 
@@ -339,7 +342,7 @@ func (s *Server) GetVolume(ctx context.Context, req *runnersv1.GetVolumeRequest)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "convert volume: %v", err)
 	}
-	protoVolume, err := toProtoVolumeWithEnrichment(items[0].record, items[0].volumeName, items[0].attachments)
+	protoVolume, err := toProtoVolumeWithEnrichment(items[0].record, items[0].volumeName, items[0].ownerName, items[0].attachments)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "convert volume: %v", err)
 	}
@@ -552,7 +555,7 @@ func (s *Server) ListVolumes(ctx context.Context, req *runnersv1.ListVolumesRequ
 	}
 	protoVolumes := make([]*runnersv1.Volume, 0, len(pageItems))
 	for _, item := range pageItems {
-		volume, err := toProtoVolumeWithEnrichment(item.record, item.volumeName, item.attachments)
+		volume, err := toProtoVolumeWithEnrichment(item.record, item.volumeName, item.ownerName, item.attachments)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "convert volume: %v", err)
 		}
@@ -1343,6 +1346,27 @@ func (s *Server) ensureAgentNames(ctx context.Context, cache *volumeEnrichmentCa
 	return nil
 }
 
+func (s *Server) ensureSandboxNames(ctx context.Context, cache *volumeEnrichmentCache, sandboxIDs []uuid.UUID) error {
+	missing := []uuid.UUID{}
+	for _, sandboxID := range uniqueUUIDs(sandboxIDs) {
+		if _, ok := cache.sandboxNames[sandboxID]; ok {
+			continue
+		}
+		missing = append(missing, sandboxID)
+	}
+	if len(missing) == 0 {
+		return nil
+	}
+	resolved, err := s.resolveSandboxNames(ctx, missing)
+	if err != nil {
+		return err
+	}
+	for id, name := range resolved {
+		cache.sandboxNames[id] = name
+	}
+	return nil
+}
+
 func (s *Server) ensureMcpNames(ctx context.Context, cache *volumeEnrichmentCache, mcpIDs []uuid.UUID) error {
 	for _, mcpID := range uniqueUUIDs(mcpIDs) {
 		if _, ok := cache.mcpNames[mcpID]; ok {
@@ -1494,9 +1518,13 @@ func (s *Server) buildVolumeItems(ctx context.Context, records []volumeRecord, c
 		return []volumeListItem{}, nil
 	}
 	volumeIDs := make([]uuid.UUID, 0, len(records))
+	sandboxIDs := make([]uuid.UUID, 0, len(records))
 	for _, record := range records {
 		if record.VolumeID != uuid.Nil {
 			volumeIDs = append(volumeIDs, record.VolumeID)
+		}
+		if record.OwnerKind == runtimeOwnerKindSandbox {
+			sandboxIDs = append(sandboxIDs, record.OwnerID)
 		}
 	}
 	if len(volumeIDs) > 0 {
@@ -1509,10 +1537,16 @@ func (s *Server) buildVolumeItems(ctx context.Context, records []volumeRecord, c
 			return nil, err
 		}
 	}
+	if len(sandboxIDs) > 0 {
+		if err := s.ensureSandboxNames(ctx, cache, sandboxIDs); err != nil {
+			return nil, err
+		}
+	}
 
 	items := make([]volumeListItem, 0, len(records))
 	for _, record := range records {
 		name := ""
+		ownerName := ""
 		attachments := []*runnersv1.Attachment{}
 		if record.VolumeID != uuid.Nil {
 			resolvedName, ok := cache.volumeNames[record.VolumeID]
@@ -1524,7 +1558,14 @@ func (s *Server) buildVolumeItems(ctx context.Context, records []volumeRecord, c
 				attachments = cache.attachments[record.VolumeID]
 			}
 		}
-		items = append(items, volumeListItem{record: record, volumeName: name, attachments: attachments})
+		if record.OwnerKind == runtimeOwnerKindSandbox {
+			resolvedOwner, ok := cache.sandboxNames[record.OwnerID]
+			if !ok {
+				return nil, fmt.Errorf("sandbox name missing for %s", record.OwnerID)
+			}
+			ownerName = resolvedOwner
+		}
+		items = append(items, volumeListItem{record: record, volumeName: name, ownerName: ownerName, attachments: attachments})
 	}
 	return items, nil
 }
@@ -1703,13 +1744,16 @@ func toProtoVolume(record volumeRecord) (*runnersv1.Volume, error) {
 	return protoVolume, nil
 }
 
-func toProtoVolumeWithEnrichment(record volumeRecord, volumeName string, attachments []*runnersv1.Attachment) (*runnersv1.Volume, error) {
+func toProtoVolumeWithEnrichment(record volumeRecord, volumeName, ownerName string, attachments []*runnersv1.Attachment) (*runnersv1.Volume, error) {
 	volume, err := toProtoVolume(record)
 	if err != nil {
 		return nil, err
 	}
 	volume.VolumeName = volumeName
 	volume.Attachments = attachments
+	if ownerName != "" {
+		volume.OwnerName = &ownerName
+	}
 	return volume, nil
 }
 

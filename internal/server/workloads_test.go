@@ -1667,6 +1667,9 @@ func TestGetWorkloadReturnsAgentState(t *testing.T) {
 	if resp.GetWorkload().GetRunnerName() != runnerName {
 		t.Fatalf("expected runner name %q, got %q", runnerName, resp.GetWorkload().GetRunnerName())
 	}
+	if resp.GetWorkload().OwnerName != nil {
+		t.Fatalf("expected owner name to stay unset for agent instance owners, got %q", resp.GetWorkload().GetOwnerName())
+	}
 
 	if err := mockPool.ExpectationsWereMet(); err != nil {
 		t.Fatalf("unmet expectations: %v", err)
@@ -1704,7 +1707,15 @@ func TestGetWorkloadInternalNoIdentity(t *testing.T) {
 		return &authorizationv1.CheckResponse{Allowed: true}, nil
 	}}
 
-	srv := New(Options{Pool: mockPool, AuthorizationClient: authorizationClient})
+	sandboxName := "sandbox-name"
+	agentsClient := fakeAgentsClient{getSandbox: func(ctx context.Context, req *agentsv1.GetSandboxRequest) (*agentsv1.GetSandboxResponse, error) {
+		if req.GetId() != sandboxID.String() {
+			t.Fatalf("expected sandbox id %s, got %s", sandboxID, req.GetId())
+		}
+		return &agentsv1.GetSandboxResponse{Sandbox: &agentsv1.Sandbox{Name: sandboxName}}, nil
+	}}
+
+	srv := New(Options{Pool: mockPool, AuthorizationClient: authorizationClient, AgentsClient: agentsClient})
 	resp, err := srv.GetWorkload(context.Background(), &runnersv1.GetWorkloadRequest{Id: workloadID.String()})
 	if err != nil {
 		t.Fatalf("GetWorkload failed: %v", err)
@@ -1714,6 +1725,12 @@ func TestGetWorkloadInternalNoIdentity(t *testing.T) {
 	}
 	if resp.GetWorkload().GetOwnerKind() != runnersv1.RuntimeOwnerKind_RUNTIME_OWNER_KIND_SANDBOX {
 		t.Fatalf("expected sandbox owner kind, got %v", resp.GetWorkload().GetOwnerKind())
+	}
+	if resp.GetWorkload().GetOwnerName() != sandboxName {
+		t.Fatalf("expected owner name %q, got %q", sandboxName, resp.GetWorkload().GetOwnerName())
+	}
+	if resp.GetWorkload().GetAgentName() != "" {
+		t.Fatalf("expected empty agent name, got %q", resp.GetWorkload().GetAgentName())
 	}
 	if checkCalls != 0 {
 		t.Fatalf("expected no authorization checks, got %d", checkCalls)
