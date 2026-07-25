@@ -471,7 +471,7 @@ func (s *Server) DeleteWorkload(ctx context.Context, req *runnersv1.DeleteWorklo
 }
 
 func (s *Server) GetWorkload(ctx context.Context, req *runnersv1.GetWorkloadRequest) (*runnersv1.GetWorkloadResponse, error) {
-	callerID, err := identityFromMetadata(ctx)
+	callerID, err := identityFromMetadataOptional(ctx)
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, "unauthenticated: %v", err)
 	}
@@ -483,8 +483,12 @@ func (s *Server) GetWorkload(ctx context.Context, req *runnersv1.GetWorkloadRequ
 	if err != nil {
 		return nil, toStatusError(err)
 	}
-	if err := s.requireRelation(ctx, callerID, workloadCanViewRelation, workloadObject(workload.Meta.ID)); err != nil {
-		return nil, err
+	// Internal callers (Terminal Proxy resolving runner_id after validating its
+	// own ticket) forward no identity; the mesh AuthorizationPolicy gates them.
+	if callerID != nil {
+		if err := s.requireRelation(ctx, *callerID, workloadCanViewRelation, workloadObject(workload.Meta.ID)); err != nil {
+			return nil, err
+		}
 	}
 	workloads, err := s.buildWorkloadProtos(ctx, []workloadRecord{workload})
 	if err != nil {
