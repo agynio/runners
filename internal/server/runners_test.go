@@ -40,6 +40,10 @@ func (f fakeZitiManagementClient) CreateAppIdentity(ctx context.Context, req *zi
 	return nil, status.Error(codes.Unimplemented, "not implemented")
 }
 
+func (f fakeZitiManagementClient) CreateSandboxIdentity(ctx context.Context, req *zitimanagementv1.CreateSandboxIdentityRequest, opts ...grpc.CallOption) (*zitimanagementv1.CreateSandboxIdentityResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "not implemented")
+}
+
 func (f fakeZitiManagementClient) CreateService(ctx context.Context, req *zitimanagementv1.CreateServiceRequest, opts ...grpc.CallOption) (*zitimanagementv1.CreateServiceResponse, error) {
 	if f.createService == nil {
 		return nil, status.Error(codes.Unimplemented, "not implemented")
