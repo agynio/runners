@@ -1088,7 +1088,11 @@ func workloadSortColumn(field workloadSortField) string {
 
 func workloadCursorPrimary(field workloadSortField, cursor listCursor) (any, error) {
 	switch field {
-	case workloadSortAgent, workloadSortRunner:
+	case workloadSortAgent:
+		// An empty primary is legitimate here: it is the sort key of
+		// sandbox-owned workloads, which have no agent class.
+		return strings.ToLower(strings.TrimSpace(cursor.Primary)), nil
+	case workloadSortRunner:
 		primary := strings.TrimSpace(cursor.Primary)
 		if primary == "" {
 			return nil, errors.New("cursor primary is empty")
@@ -1114,7 +1118,7 @@ func workloadPrimaryValue(record workloadRecord, field workloadSortField, agentN
 	switch field {
 	case workloadSortAgent:
 		if record.AgentID == uuid.Nil {
-			return "", fmt.Errorf("agent id missing for %s", record.Meta.ID)
+			return workloadAgentSortKeyless, nil
 		}
 		name, ok := agentNames[record.AgentID]
 		if !ok {
@@ -1161,11 +1165,16 @@ func (s *Server) listWorkloadAgentIDs(ctx context.Context, clauses []string, arg
 
 	agentIDs := []uuid.UUID{}
 	for rows.Next() {
-		var agentID uuid.UUID
+		// Sandbox-owned workloads carry a NULL agent_id, so DISTINCT yields a
+		// NULL row whenever the scope contains one.
+		var agentID nullableUUIDScanner
 		if err := rows.Scan(&agentID); err != nil {
 			return nil, err
 		}
-		agentIDs = append(agentIDs, agentID)
+		if !agentID.Valid {
+			continue
+		}
+		agentIDs = append(agentIDs, agentID.UUID)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -1173,9 +1182,15 @@ func (s *Server) listWorkloadAgentIDs(ctx context.Context, clauses []string, arg
 	return agentIDs, nil
 }
 
-func buildWorkloadAgentSortExpr(agentNames map[uuid.UUID]string, startIndex int) (string, []any, error) {
+// workloadAgentSortKeyless is the agent sort key given to workloads with no
+// agent class (sandbox owners). It buckets them together deterministically —
+// before every named agent ascending, after every named agent descending — so
+// ordering and cursor pagination stay stable on mixed pages.
+const workloadAgentSortKeyless = ""
+
+func buildWorkloadAgentSortExpr(agentNames map[uuid.UUID]string, startIndex int) (string, []any) {
 	if len(agentNames) == 0 {
-		return "", nil, errors.New("agent names empty")
+		return "''::text", nil
 	}
 	ids := make([]uuid.UUID, 0, len(agentNames))
 	for id := range agentNames {
@@ -1194,7 +1209,7 @@ func buildWorkloadAgentSortExpr(agentNames map[uuid.UUID]string, startIndex int)
 		args = append(args, id, name)
 		idx += 2
 	}
-	return fmt.Sprintf("CASE workloads.agent_id %s END", strings.Join(parts, " ")), args, nil
+	return fmt.Sprintf("CASE workloads.agent_id %s ELSE ''::text END", strings.Join(parts, " ")), args
 }
 
 func (s *Server) listWorkloads(ctx context.Context, filter workloadListFilter, sort workloadListSort, pageSize int32, pageToken string) ([]workloadRecord, string, error) {
@@ -1253,26 +1268,11 @@ func (s *Server) listWorkloads(ctx context.Context, filter workloadListFilter, s
 		if err != nil {
 			return nil, "", err
 		}
-		if len(agentIDs) == 0 {
-			if pageToken != "" {
-				cursor, _, err := decodeListCursor(pageToken)
-				if err != nil {
-					return nil, "", InvalidPageToken(err)
-				}
-				if _, err := workloadCursorPrimary(sort.Field, cursor); err != nil {
-					return nil, "", InvalidPageToken(err)
-				}
-			}
-			return []workloadRecord{}, "", nil
-		}
 		agentNames, err = s.resolveAgentNames(ctx, uniqueUUIDs(agentIDs))
 		if err != nil {
 			return nil, "", err
 		}
-		sortExpr, sortArgs, err := buildWorkloadAgentSortExpr(agentNames, len(args)+1)
-		if err != nil {
-			return nil, "", err
-		}
+		sortExpr, sortArgs := buildWorkloadAgentSortExpr(agentNames, len(args)+1)
 		sortColumn = sortExpr
 		args = append(args, sortArgs...)
 	default:
