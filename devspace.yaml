@@ -133,7 +133,7 @@ functions:
     kubectl rollout status deployment/runners \
       -n ${RUNNERS_NAMESPACE} --timeout=600s
 
-    LABEL_SELECTOR="app.kubernetes.io/name=runners,app.kubernetes.io/instance=runners"
+    LABEL_SELECTOR="app.kubernetes.io/name=runners"
 
     echo "Waiting for runners pod readiness..."
     kubectl wait pod -n ${RUNNERS_NAMESPACE} -l "${LABEL_SELECTOR}" \
@@ -318,7 +318,6 @@ dev:
     namespace: ${RUNNERS_NAMESPACE}
     labelSelector:
       app.kubernetes.io/name: runners
-      app.kubernetes.io/instance: runners
     containers:
       runners:
         container: runners
