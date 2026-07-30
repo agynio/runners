@@ -57,6 +57,48 @@ func TestResolveAgentNamesNotFoundUsesPlaceholder(t *testing.T) {
 	}
 }
 
+func TestResolveSandboxNamesResolvesByID(t *testing.T) {
+	sandboxID := uuid.New()
+	sandboxName := "sandbox-name"
+	var gotID string
+	agentsClient := fakeAgentsClient{getSandbox: func(ctx context.Context, req *agentsv1.GetSandboxRequest) (*agentsv1.GetSandboxResponse, error) {
+		gotID = req.GetId()
+		return &agentsv1.GetSandboxResponse{Sandbox: &agentsv1.Sandbox{Name: sandboxName}}, nil
+	}}
+
+	srv := New(Options{AgentsClient: agentsClient})
+	resolved, err := srv.resolveSandboxNames(context.Background(), []uuid.UUID{sandboxID})
+	if err != nil {
+		t.Fatalf("resolveSandboxNames failed: %v", err)
+	}
+	if gotID != sandboxID.String() {
+		t.Fatalf("expected sandbox id %s, got %s", sandboxID, gotID)
+	}
+	if resolved[sandboxID] != sandboxName {
+		t.Fatalf("expected sandbox name %q, got %q", sandboxName, resolved[sandboxID])
+	}
+}
+
+func TestResolveSandboxNamesNotFoundUsesPlaceholder(t *testing.T) {
+	sandboxID := uuid.New()
+	agentsClient := fakeAgentsClient{getSandbox: func(ctx context.Context, req *agentsv1.GetSandboxRequest) (*agentsv1.GetSandboxResponse, error) {
+		return nil, status.Error(codes.NotFound, "sandbox not found")
+	}}
+
+	srv := New(Options{AgentsClient: agentsClient})
+	resolved, err := srv.resolveSandboxNames(context.Background(), []uuid.UUID{sandboxID})
+	if err != nil {
+		t.Fatalf("resolveSandboxNames failed: %v", err)
+	}
+	name, ok := resolved[sandboxID]
+	if !ok {
+		t.Fatalf("expected sandbox %s to be resolved", sandboxID)
+	}
+	if name != missingNamePlaceholder {
+		t.Fatalf("expected placeholder name %q, got %q", missingNamePlaceholder, name)
+	}
+}
+
 func TestResolveVolumeNamesNotFoundUsesPlaceholder(t *testing.T) {
 	volumeID := uuid.New()
 	agentsClient := fakeAgentsClient{getVolume: func(ctx context.Context, req *agentsv1.GetVolumeRequest) (*agentsv1.GetVolumeResponse, error) {

@@ -778,7 +778,7 @@ func TestListWorkloadsSortByAgentQuery(t *testing.T) {
 
 	pageSize := int32(1)
 	limit := normalizePageSize(pageSize)
-	sortExpr := "CASE workloads.agent_id WHEN $2 THEN $3 END"
+	sortExpr := "CASE workloads.agent_id WHEN $2 THEN $3 ELSE ''::text END"
 	query := fmt.Sprintf("SELECT %s FROM workloads WHERE workloads.organization_id = $1 AND (%s > $4 OR (%s = $4 AND workloads.id > $5)) ORDER BY %s ASC, workloads.id ASC LIMIT $6", workloadColumns, sortExpr, sortExpr, sortExpr)
 	rows := pgxmock.NewRows(workloadRowColumns).
 		AddRow(workloadID, runnerID, threadID, agentID, organizationID, workloadStatusRunning, workloadAgentStateProcessing, nil, nil, containersJSON, "ziti-id", int32(0), int64(0), nil, now, nil, nil, runtimeOwnerKindAgentInstance, threadID, now, now)
@@ -801,6 +801,211 @@ func TestListWorkloadsSortByAgentQuery(t *testing.T) {
 	}
 	if len(workloads) != 1 {
 		t.Fatalf("expected 1 workload, got %d", len(workloads))
+	}
+	if nextToken != "" {
+		t.Fatalf("expected empty next token, got %q", nextToken)
+	}
+
+	if err := mockPool.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestWorkloadAgentSortPrimaryValues(t *testing.T) {
+	agentID := uuid.New()
+	sandboxID := uuid.New()
+	agentNames := map[uuid.UUID]string{agentID: "  Agent Alpha  "}
+
+	cases := []struct {
+		name    string
+		record  workloadRecord
+		want    string
+		wantErr bool
+	}{
+		{
+			name:   "agent instance owner uses lowercased agent name",
+			record: workloadRecord{Meta: entityMeta{ID: uuid.New()}, AgentID: agentID, OwnerKind: runtimeOwnerKindAgentInstance, OwnerID: uuid.New()},
+			want:   "agent alpha",
+		},
+		{
+			name:   "sandbox owner falls into the keyless bucket",
+			record: workloadRecord{Meta: entityMeta{ID: uuid.New()}, OwnerKind: runtimeOwnerKindSandbox, OwnerID: sandboxID},
+			want:   workloadAgentSortKeyless,
+		},
+		{
+			name:    "unresolved agent name is an error",
+			record:  workloadRecord{Meta: entityMeta{ID: uuid.New()}, AgentID: uuid.New(), OwnerKind: runtimeOwnerKindAgentInstance, OwnerID: uuid.New()},
+			wantErr: true,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := workloadPrimaryValue(tc.record, workloadSortAgent, agentNames, nil)
+			if tc.wantErr {
+				if err == nil {
+					t.Fatalf("expected error, got %q", got)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("workloadPrimaryValue failed: %v", err)
+			}
+			if got != tc.want {
+				t.Fatalf("expected primary %q, got %q", tc.want, got)
+			}
+
+			token, err := encodeListCursor(got, tc.record.Meta.ID)
+			if err != nil {
+				t.Fatalf("encode cursor: %v", err)
+			}
+			cursor, cursorID, err := decodeListCursor(token)
+			if err != nil {
+				t.Fatalf("decode cursor: %v", err)
+			}
+			if cursorID != tc.record.Meta.ID {
+				t.Fatalf("expected cursor id %s, got %s", tc.record.Meta.ID, cursorID)
+			}
+			primary, err := workloadCursorPrimary(workloadSortAgent, cursor)
+			if err != nil {
+				t.Fatalf("workloadCursorPrimary failed: %v", err)
+			}
+			if primary != tc.want {
+				t.Fatalf("expected cursor primary %q, got %q", tc.want, primary)
+			}
+		})
+	}
+}
+
+func TestBuildWorkloadAgentSortExpr(t *testing.T) {
+	first := uuid.MustParse("11111111-1111-1111-1111-111111111111")
+	second := uuid.MustParse("22222222-2222-2222-2222-222222222222")
+
+	cases := []struct {
+		name       string
+		agentNames map[uuid.UUID]string
+		wantExpr   string
+		wantArgs   []any
+	}{
+		{
+			name:       "no agent classes in scope",
+			agentNames: map[uuid.UUID]string{},
+			wantExpr:   "''::text",
+		},
+		{
+			name:       "agent classes bucket sandbox rows into the ELSE branch",
+			agentNames: map[uuid.UUID]string{first: " Agent Alpha ", second: "Agent Beta"},
+			wantExpr:   "CASE workloads.agent_id WHEN $2 THEN $3 WHEN $4 THEN $5 ELSE ''::text END",
+			wantArgs:   []any{first, "agent alpha", second, "agent beta"},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			expr, args := buildWorkloadAgentSortExpr(tc.agentNames, 2)
+			if expr != tc.wantExpr {
+				t.Fatalf("expected expr %q, got %q", tc.wantExpr, expr)
+			}
+			if len(args) != len(tc.wantArgs) {
+				t.Fatalf("expected %d args, got %v", len(tc.wantArgs), args)
+			}
+			for i, want := range tc.wantArgs {
+				if args[i] != want {
+					t.Fatalf("expected arg %d to be %v, got %v", i, want, args[i])
+				}
+			}
+		})
+	}
+}
+
+func TestListWorkloadsSortByAgentMixedOwnerPage(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("failed to create mock pool: %v", err)
+	}
+
+	runnerID := uuid.New()
+	threadID := uuid.New()
+	agentID := uuid.New()
+	organizationID := uuid.New()
+	agentWorkloadID := uuid.MustParse("cccccccc-cccc-cccc-cccc-cccccccccccc")
+	firstSandboxWorkloadID := uuid.MustParse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
+	secondSandboxWorkloadID := uuid.MustParse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")
+	sandboxID := uuid.New()
+	now := time.Now().UTC()
+	containersJSON := []byte("[]")
+
+	agentName := "Agent Alpha"
+	agentPrimary := strings.ToLower(agentName)
+	sortExpr := "CASE workloads.agent_id WHEN $2 THEN $3 ELSE ''::text END"
+
+	// DISTINCT agent_id yields a NULL row for the sandbox-owned workloads.
+	agentRows := pgxmock.NewRows([]string{"agent_id"}).AddRow(nil).AddRow(agentID)
+	agentQuery := "SELECT DISTINCT agent_id FROM workloads WHERE workloads.organization_id = $1"
+	mockPool.ExpectQuery(regexp.QuoteMeta(agentQuery)).WithArgs(organizationID).WillReturnRows(agentRows)
+
+	pageSize := int32(2)
+	limit := normalizePageSize(pageSize)
+	firstQuery := fmt.Sprintf("SELECT %s FROM workloads WHERE workloads.organization_id = $1 ORDER BY %s ASC, workloads.id ASC LIMIT $4", workloadColumns, sortExpr)
+	firstRows := pgxmock.NewRows(workloadRowColumns).
+		AddRow(firstSandboxWorkloadID, runnerID, nil, nil, organizationID, workloadStatusRunning, workloadAgentStateProcessing, nil, nil, containersJSON, "ziti-id", int32(0), int64(0), nil, now, nil, nil, runtimeOwnerKindSandbox, sandboxID, now, now).
+		AddRow(secondSandboxWorkloadID, runnerID, nil, nil, organizationID, workloadStatusRunning, workloadAgentStateProcessing, nil, nil, containersJSON, "ziti-id", int32(0), int64(0), nil, now, nil, nil, runtimeOwnerKindSandbox, sandboxID, now, now).
+		AddRow(agentWorkloadID, runnerID, threadID, agentID, organizationID, workloadStatusRunning, workloadAgentStateProcessing, nil, nil, containersJSON, "ziti-id", int32(0), int64(0), nil, now, nil, nil, runtimeOwnerKindAgentInstance, threadID, now, now)
+	mockPool.ExpectQuery(regexp.QuoteMeta(firstQuery)).
+		WithArgs(organizationID, agentID, agentPrimary, int(limit)+1).
+		WillReturnRows(firstRows)
+
+	agentsClient := fakeAgentsClient{
+		getAgent: func(ctx context.Context, req *agentsv1.GetAgentRequest) (*agentsv1.GetAgentResponse, error) {
+			return &agentsv1.GetAgentResponse{Agent: &agentsv1.Agent{Name: agentName}}, nil
+		},
+	}
+
+	srv := New(Options{Pool: mockPool, AgentsClient: agentsClient})
+	filter := workloadListFilter{OrganizationID: &organizationID}
+	sort := workloadListSort{Field: workloadSortAgent, Direction: sortAsc}
+	workloads, nextToken, err := srv.listWorkloads(context.Background(), filter, sort, pageSize, "")
+	if err != nil {
+		t.Fatalf("listWorkloads failed: %v", err)
+	}
+	if len(workloads) != 2 {
+		t.Fatalf("expected 2 workloads, got %d", len(workloads))
+	}
+	if nextToken == "" {
+		t.Fatal("expected a next page token for a sandbox-owned last row")
+	}
+
+	cursor, cursorID, err := decodeListCursor(nextToken)
+	if err != nil {
+		t.Fatalf("decode next token: %v", err)
+	}
+	if cursorID != secondSandboxWorkloadID {
+		t.Fatalf("expected cursor id %s, got %s", secondSandboxWorkloadID, cursorID)
+	}
+	if cursor.Primary != workloadAgentSortKeyless {
+		t.Fatalf("expected keyless cursor primary, got %q", cursor.Primary)
+	}
+
+	// Round-trip: the token from the sandbox-owned row drives the next page.
+	mockPool.ExpectQuery(regexp.QuoteMeta(agentQuery)).WithArgs(organizationID).
+		WillReturnRows(pgxmock.NewRows([]string{"agent_id"}).AddRow(nil).AddRow(agentID))
+
+	secondQuery := fmt.Sprintf("SELECT %s FROM workloads WHERE workloads.organization_id = $1 AND (%s > $4 OR (%s = $4 AND workloads.id > $5)) ORDER BY %s ASC, workloads.id ASC LIMIT $6", workloadColumns, sortExpr, sortExpr, sortExpr)
+	secondRows := pgxmock.NewRows(workloadRowColumns).
+		AddRow(agentWorkloadID, runnerID, threadID, agentID, organizationID, workloadStatusRunning, workloadAgentStateProcessing, nil, nil, containersJSON, "ziti-id", int32(0), int64(0), nil, now, nil, nil, runtimeOwnerKindAgentInstance, threadID, now, now)
+	mockPool.ExpectQuery(regexp.QuoteMeta(secondQuery)).
+		WithArgs(organizationID, agentID, agentPrimary, workloadAgentSortKeyless, secondSandboxWorkloadID, int(limit)+1).
+		WillReturnRows(secondRows)
+
+	workloads, nextToken, err = srv.listWorkloads(context.Background(), filter, sort, pageSize, nextToken)
+	if err != nil {
+		t.Fatalf("listWorkloads second page failed: %v", err)
+	}
+	if len(workloads) != 1 {
+		t.Fatalf("expected 1 workload, got %d", len(workloads))
+	}
+	if workloads[0].Meta.ID != agentWorkloadID {
+		t.Fatalf("expected agent workload %s, got %s", agentWorkloadID, workloads[0].Meta.ID)
 	}
 	if nextToken != "" {
 		t.Fatalf("expected empty next token, got %q", nextToken)
@@ -1462,6 +1667,74 @@ func TestGetWorkloadReturnsAgentState(t *testing.T) {
 	if resp.GetWorkload().GetRunnerName() != runnerName {
 		t.Fatalf("expected runner name %q, got %q", runnerName, resp.GetWorkload().GetRunnerName())
 	}
+	if resp.GetWorkload().OwnerName != nil {
+		t.Fatalf("expected owner name to stay unset for agent instance owners, got %q", resp.GetWorkload().GetOwnerName())
+	}
+
+	if err := mockPool.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestGetWorkloadInternalNoIdentity(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("failed to create mock pool: %v", err)
+	}
+
+	workloadID := uuid.New()
+	runnerID := uuid.New()
+	sandboxID := uuid.New()
+	organizationID := uuid.New()
+	now := time.Now().UTC()
+	containersJSON := []byte("[]")
+
+	rows := pgxmock.NewRows(workloadRowColumns).
+		AddRow(workloadID, runnerID, nil, nil, organizationID, workloadStatusRunning, workloadAgentStateProcessing, nil, nil, containersJSON, "ziti-id", int32(0), int64(0), nil, now, nil, nil, runtimeOwnerKindSandbox, sandboxID, now, now)
+
+	query := fmt.Sprintf("SELECT %s FROM workloads WHERE id = $1", workloadColumns)
+	mockPool.ExpectQuery(regexp.QuoteMeta(query)).WithArgs(workloadID).WillReturnRows(rows)
+
+	runnerName := "runner-name"
+	runnerRows := pgxmock.NewRows([]string{"id", "name"}).AddRow(runnerID, runnerName)
+	mockPool.ExpectQuery(regexp.QuoteMeta("SELECT id, name FROM runners WHERE id = ANY($1)")).
+		WithArgs(pgtype.FlatArray[uuid.UUID]([]uuid.UUID{runnerID})).
+		WillReturnRows(runnerRows)
+
+	checkCalls := 0
+	authorizationClient := fakeAuthorizationClient{check: func(ctx context.Context, req *authorizationv1.CheckRequest) (*authorizationv1.CheckResponse, error) {
+		checkCalls++
+		return &authorizationv1.CheckResponse{Allowed: true}, nil
+	}}
+
+	sandboxName := "sandbox-name"
+	agentsClient := fakeAgentsClient{getSandbox: func(ctx context.Context, req *agentsv1.GetSandboxRequest) (*agentsv1.GetSandboxResponse, error) {
+		if req.GetId() != sandboxID.String() {
+			t.Fatalf("expected sandbox id %s, got %s", sandboxID, req.GetId())
+		}
+		return &agentsv1.GetSandboxResponse{Sandbox: &agentsv1.Sandbox{Name: sandboxName}}, nil
+	}}
+
+	srv := New(Options{Pool: mockPool, AuthorizationClient: authorizationClient, AgentsClient: agentsClient})
+	resp, err := srv.GetWorkload(context.Background(), &runnersv1.GetWorkloadRequest{Id: workloadID.String()})
+	if err != nil {
+		t.Fatalf("GetWorkload failed: %v", err)
+	}
+	if resp.GetWorkload().GetRunnerId() != runnerID.String() {
+		t.Fatalf("expected runner id %q, got %q", runnerID, resp.GetWorkload().GetRunnerId())
+	}
+	if resp.GetWorkload().GetOwnerKind() != runnersv1.RuntimeOwnerKind_RUNTIME_OWNER_KIND_SANDBOX {
+		t.Fatalf("expected sandbox owner kind, got %v", resp.GetWorkload().GetOwnerKind())
+	}
+	if resp.GetWorkload().GetOwnerName() != sandboxName {
+		t.Fatalf("expected owner name %q, got %q", sandboxName, resp.GetWorkload().GetOwnerName())
+	}
+	if resp.GetWorkload().GetAgentName() != "" {
+		t.Fatalf("expected empty agent name, got %q", resp.GetWorkload().GetAgentName())
+	}
+	if checkCalls != 0 {
+		t.Fatalf("expected no authorization checks, got %d", checkCalls)
+	}
 
 	if err := mockPool.ExpectationsWereMet(); err != nil {
 		t.Fatalf("unmet expectations: %v", err)
@@ -1906,12 +2179,12 @@ func TestSweepWorkloadActivityPublishesUpdates(t *testing.T) {
 	lastActivity := cutoff.Add(-2 * time.Second)
 	containersJSON := []byte("[]")
 
-	updateQuery := fmt.Sprintf("UPDATE workloads SET agent_state = $1, updated_at = NOW() WHERE status = $2 AND agent_state = $3 AND last_activity_at < $4 AND removed_at IS NULL RETURNING %s", workloadColumns)
+	updateQuery := fmt.Sprintf("UPDATE workloads SET agent_state = $1, updated_at = NOW() WHERE status = $2 AND agent_state = $3 AND owner_kind = $4 AND last_activity_at < $5 AND removed_at IS NULL RETURNING %s", workloadColumns)
 	rows := pgxmock.NewRows(workloadRowColumns).
 		AddRow(firstID, runnerID, threadID, agentID, organizationID, workloadStatusRunning, workloadAgentStateIdle, nil, nil, containersJSON, "ziti-id", int32(0), int64(0), nil, lastActivity, nil, nil, runtimeOwnerKindAgentInstance, firstID, now, now).
 		AddRow(secondID, runnerID, threadID, agentID, organizationID, workloadStatusRunning, workloadAgentStateIdle, nil, nil, containersJSON, "ziti-id", int32(0), int64(0), nil, lastActivity, nil, nil, runtimeOwnerKindAgentInstance, secondID, now, now)
 	mockPool.ExpectQuery(regexp.QuoteMeta(updateQuery)).
-		WithArgs(workloadAgentStateIdle, workloadStatusRunning, workloadAgentStateProcessing, cutoff).
+		WithArgs(workloadAgentStateIdle, workloadStatusRunning, workloadAgentStateProcessing, runtimeOwnerKindAgentInstance, cutoff).
 		WillReturnRows(rows)
 
 	published := []*notificationsv1.PublishRequest{}

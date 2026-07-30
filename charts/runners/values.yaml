@@ -39,6 +39,13 @@ authorizationPolicy:
       namespace: ""
     - name: chat
       namespace: ""
+  # Terminal Proxy calls GetWorkload and TouchWorkload internally with no
+  # forwarded identity, after validating its own terminal ticket. It is allowed
+  # on those two paths only; every other gateway path still requires an identity
+  # from it. Set name to "" to drop the exemption entirely.
+  terminalProxyServiceAccount:
+    name: terminal-proxy
+    namespace: ""
 
 rbac:
   create: false

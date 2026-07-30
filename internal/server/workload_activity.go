@@ -36,8 +36,10 @@ func (s *Server) sweepWorkloadActivity(ctx context.Context, now time.Time, keepa
 }
 
 func (s *Server) setIdleWorkloads(ctx context.Context, cutoff time.Time) ([]workloadRecord, error) {
-	query := fmt.Sprintf("UPDATE workloads SET agent_state = $1, updated_at = NOW() WHERE status = $2 AND agent_state = $3 AND last_activity_at < $4 AND removed_at IS NULL RETURNING %s", workloadColumns)
-	rows, err := s.pool.Query(ctx, query, workloadAgentStateIdle, workloadStatusRunning, workloadAgentStateProcessing, cutoff)
+	// agent_state is only an agent signal: sandbox workloads must never be swept
+	// into agent_state='idle' (and must not emit workload.updated for it).
+	query := fmt.Sprintf("UPDATE workloads SET agent_state = $1, updated_at = NOW() WHERE status = $2 AND agent_state = $3 AND owner_kind = $4 AND last_activity_at < $5 AND removed_at IS NULL RETURNING %s", workloadColumns)
+	rows, err := s.pool.Query(ctx, query, workloadAgentStateIdle, workloadStatusRunning, workloadAgentStateProcessing, runtimeOwnerKindAgentInstance, cutoff)
 	if err != nil {
 		return nil, err
 	}

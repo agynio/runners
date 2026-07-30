@@ -1141,7 +1141,15 @@ func TestGetVolumeSandboxRuntimeOnlySkipsDefinitionEnrichment(t *testing.T) {
 		},
 	}
 
-	srv := New(Options{Pool: mockPool, AuthorizationClient: authorizationClient})
+	sandboxName := "sandbox-name"
+	agentsClient := fakeAgentsClient{getSandbox: func(ctx context.Context, req *agentsv1.GetSandboxRequest) (*agentsv1.GetSandboxResponse, error) {
+		if req.GetId() != sandboxID.String() {
+			t.Fatalf("expected sandbox id %s, got %s", sandboxID, req.GetId())
+		}
+		return &agentsv1.GetSandboxResponse{Sandbox: &agentsv1.Sandbox{Name: sandboxName}}, nil
+	}}
+
+	srv := New(Options{Pool: mockPool, AuthorizationClient: authorizationClient, AgentsClient: agentsClient})
 	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(identityMetadata, callerID.String()))
 	resp, err := srv.GetVolume(ctx, &runnersv1.GetVolumeRequest{Id: volumeID.String()})
 	if err != nil {
@@ -1153,6 +1161,9 @@ func TestGetVolumeSandboxRuntimeOnlySkipsDefinitionEnrichment(t *testing.T) {
 	}
 	if volume.GetOwnerId() != sandboxID.String() {
 		t.Fatalf("expected owner id %s, got %s", sandboxID, volume.GetOwnerId())
+	}
+	if volume.GetOwnerName() != sandboxName {
+		t.Fatalf("expected owner name %q, got %q", sandboxName, volume.GetOwnerName())
 	}
 	if volume.GetVolumeId() != "" || volume.GetVolumeDefinitionId() != "" || volume.GetVolumeName() != "" {
 		t.Fatalf("expected empty definition fields, got id=%q definition_id=%q name=%q", volume.GetVolumeId(), volume.GetVolumeDefinitionId(), volume.GetVolumeName())
@@ -1199,7 +1210,12 @@ func TestListVolumesSandboxRuntimeOnlySkipsDefinitionEnrichment(t *testing.T) {
 		},
 	}
 
-	srv := New(Options{Pool: mockPool, AuthorizationClient: authorizationClient})
+	sandboxName := "sandbox-name"
+	agentsClient := fakeAgentsClient{getSandbox: func(ctx context.Context, req *agentsv1.GetSandboxRequest) (*agentsv1.GetSandboxResponse, error) {
+		return &agentsv1.GetSandboxResponse{Sandbox: &agentsv1.Sandbox{Name: sandboxName}}, nil
+	}}
+
+	srv := New(Options{Pool: mockPool, AuthorizationClient: authorizationClient, AgentsClient: agentsClient})
 	organizationIDValue := organizationID.String()
 	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(identityMetadata, callerID.String()))
 	resp, err := srv.ListVolumes(ctx, &runnersv1.ListVolumesRequest{
@@ -1221,6 +1237,9 @@ func TestListVolumesSandboxRuntimeOnlySkipsDefinitionEnrichment(t *testing.T) {
 	}
 	if volume.GetOwnerId() != sandboxID.String() {
 		t.Fatalf("expected owner id %s, got %s", sandboxID, volume.GetOwnerId())
+	}
+	if volume.GetOwnerName() != sandboxName {
+		t.Fatalf("expected owner name %q, got %q", sandboxName, volume.GetOwnerName())
 	}
 	if volume.GetVolumeId() != "" || volume.GetVolumeDefinitionId() != "" || volume.GetVolumeName() != "" {
 		t.Fatalf("expected empty definition fields, got id=%q definition_id=%q name=%q", volume.GetVolumeId(), volume.GetVolumeDefinitionId(), volume.GetVolumeName())

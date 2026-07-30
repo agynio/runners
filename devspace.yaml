@@ -96,9 +96,13 @@ functions:
               readinessProbe: null
               startupProbe: null
               resources:
+                # Requests are reservations held for the pod's whole life, but a
+                # dev container only needs its build peak briefly and then idles
+                # near 100Mi. Keeping them low lets several services run from
+                # source on one node; the limits still allow a full build.
                 requests:
-                  cpu: 500m
-                  memory: 1Gi
+                  cpu: 100m
+                  memory: 256Mi
                 limits:
                   cpu: "2"
                   memory: 4Gi
@@ -133,7 +137,7 @@ functions:
     kubectl rollout status deployment/runners \
       -n ${RUNNERS_NAMESPACE} --timeout=600s
 
-    LABEL_SELECTOR="app.kubernetes.io/name=runners,app.kubernetes.io/instance=runners"
+    LABEL_SELECTOR="app.kubernetes.io/name=runners"
 
     echo "Waiting for runners pod readiness..."
     kubectl wait pod -n ${RUNNERS_NAMESPACE} -l "${LABEL_SELECTOR}" \
@@ -318,7 +322,6 @@ dev:
     namespace: ${RUNNERS_NAMESPACE}
     labelSelector:
       app.kubernetes.io/name: runners
-      app.kubernetes.io/instance: runners
     containers:
       runners:
         container: runners

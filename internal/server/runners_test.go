@@ -40,6 +40,10 @@ func (f fakeZitiManagementClient) CreateAppIdentity(ctx context.Context, req *zi
 	return nil, status.Error(codes.Unimplemented, "not implemented")
 }
 
+func (f fakeZitiManagementClient) CreateSandboxIdentity(ctx context.Context, req *zitimanagementv1.CreateSandboxIdentityRequest, opts ...grpc.CallOption) (*zitimanagementv1.CreateSandboxIdentityResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "not implemented")
+}
+
 func (f fakeZitiManagementClient) CreateService(ctx context.Context, req *zitimanagementv1.CreateServiceRequest, opts ...grpc.CallOption) (*zitimanagementv1.CreateServiceResponse, error) {
 	if f.createService == nil {
 		return nil, status.Error(codes.Unimplemented, "not implemented")
@@ -190,6 +194,7 @@ func (f fakeIdentityClient) BatchGetNicknames(ctx context.Context, req *identity
 
 type fakeAgentsClient struct {
 	getAgent              func(ctx context.Context, req *agentsv1.GetAgentRequest) (*agentsv1.GetAgentResponse, error)
+	getSandbox            func(ctx context.Context, req *agentsv1.GetSandboxRequest) (*agentsv1.GetSandboxResponse, error)
 	getVolume             func(ctx context.Context, req *agentsv1.GetVolumeRequest) (*agentsv1.GetVolumeResponse, error)
 	listVolumes           func(ctx context.Context, req *agentsv1.ListVolumesRequest) (*agentsv1.ListVolumesResponse, error)
 	listVolumeAttachments func(ctx context.Context, req *agentsv1.ListVolumeAttachmentsRequest) (*agentsv1.ListVolumeAttachmentsResponse, error)
@@ -202,6 +207,13 @@ func (f fakeAgentsClient) GetAgent(ctx context.Context, req *agentsv1.GetAgentRe
 		return nil, status.Error(codes.Unimplemented, "not implemented")
 	}
 	return f.getAgent(ctx, req)
+}
+
+func (f fakeAgentsClient) GetSandbox(ctx context.Context, req *agentsv1.GetSandboxRequest, opts ...grpc.CallOption) (*agentsv1.GetSandboxResponse, error) {
+	if f.getSandbox == nil {
+		return nil, status.Error(codes.Unimplemented, "not implemented")
+	}
+	return f.getSandbox(ctx, req)
 }
 
 func (f fakeAgentsClient) GetVolume(ctx context.Context, req *agentsv1.GetVolumeRequest, opts ...grpc.CallOption) (*agentsv1.GetVolumeResponse, error) {
