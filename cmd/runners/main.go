@@ -86,6 +86,14 @@ func run() error {
 		return fmt.Errorf("initialize ziti manager: %w", err)
 	}
 	defer zitiManager.Close()
+	// The identity is ephemeral and garbage-collected once its lease lapses.
+	// Losing it is unrecoverable in-process, so terminate and let the restart
+	// enroll a fresh one.
+	go func() {
+		if err := <-zitiManager.IdentityLost(); err != nil {
+			log.Fatalf("terminating: %v", err)
+		}
+	}()
 	go zitiManager.RunLeaseRenewal(ctx)
 
 	notificationsConn, err := grpc.DialContext(ctx, cfg.NotificationsAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
