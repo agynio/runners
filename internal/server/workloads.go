@@ -48,7 +48,7 @@ const (
 	containerStatusTerminated = "terminated"
 	containerStatusWaiting    = "waiting"
 
-	workloadColumns = `id, runner_id, thread_id, agent_id, organization_id, status, agent_state, failure_reason, failure_message, containers, ziti_identity_id, allocated_cpu_millicores, allocated_ram_bytes, instance_id, last_activity_at, last_metering_sampled_at, removed_at, owner_kind, owner_id, created_at, updated_at`
+	workloadColumns = `id, runner_id, thread_id, agent_id, organization_id, status, agent_state, failure_reason, failure_message, containers, ziti_identity_id, allocated_cpu_millicores, allocated_ram_bytes, flavor, instance_id, last_activity_at, last_metering_sampled_at, removed_at, owner_kind, owner_id, created_at, updated_at`
 )
 
 type workloadRecord struct {
@@ -65,6 +65,7 @@ type workloadRecord struct {
 	ZitiIdentityID         string
 	AllocatedCPUMillicores int32
 	AllocatedRAMBytes      int64
+	Flavor                 string
 	InstanceID             *string
 	LastActivityAt         time.Time
 	RemovedAt              *time.Time
@@ -84,6 +85,7 @@ type workloadInsertInput struct {
 	ZitiIdentityID         string
 	AllocatedCPUMillicores int32
 	AllocatedRAMBytes      int64
+	Flavor                 string
 	OwnerKind              string
 	OwnerID                uuid.UUID
 }
@@ -207,6 +209,7 @@ func (s *Server) CreateWorkload(ctx context.Context, req *runnersv1.CreateWorklo
 		ZitiIdentityID:         strings.TrimSpace(req.GetZitiIdentityId()),
 		AllocatedCPUMillicores: req.GetAllocatedCpuMillicores(),
 		AllocatedRAMBytes:      req.GetAllocatedRamBytes(),
+		Flavor:                 req.GetFlavor(),
 		OwnerKind:              ownerKind,
 		OwnerID:                *ownerID,
 	})
@@ -767,8 +770,8 @@ func (s *Server) insertWorkload(ctx context.Context, input workloadInsertInput) 
 		containersJSON = []byte("[]")
 	}
 	row := s.pool.QueryRow(ctx,
-		fmt.Sprintf(`INSERT INTO workloads (id, runner_id, thread_id, agent_id, organization_id, status, containers, ziti_identity_id, allocated_cpu_millicores, allocated_ram_bytes, owner_kind, owner_id, last_activity_at, created_at, updated_at)
-	    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW(), NOW())
+		fmt.Sprintf(`INSERT INTO workloads (id, runner_id, thread_id, agent_id, organization_id, status, containers, ziti_identity_id, allocated_cpu_millicores, allocated_ram_bytes, flavor, owner_kind, owner_id, last_activity_at, created_at, updated_at)
+	    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW(), NOW())
 	    RETURNING %s`, workloadColumns),
 		input.ID,
 		input.RunnerID,
@@ -780,6 +783,7 @@ func (s *Server) insertWorkload(ctx context.Context, input workloadInsertInput) 
 		input.ZitiIdentityID,
 		input.AllocatedCPUMillicores,
 		input.AllocatedRAMBytes,
+		input.Flavor,
 		input.OwnerKind,
 		input.OwnerID,
 	)
@@ -1450,6 +1454,7 @@ func scanWorkload(row pgx.Row) (workloadRecord, error) {
 		&workload.ZitiIdentityID,
 		&workload.AllocatedCPUMillicores,
 		&workload.AllocatedRAMBytes,
+		&workload.Flavor,
 		&instanceID,
 		&workload.LastActivityAt,
 		&lastMeteringAt,
@@ -1533,6 +1538,7 @@ func toProtoWorkload(record workloadRecord) (*runnersv1.Workload, error) {
 		LastActivityAt:         timestamppb.New(record.LastActivityAt),
 		AllocatedCpuMillicores: record.AllocatedCPUMillicores,
 		AllocatedRamBytes:      record.AllocatedRAMBytes,
+		Flavor:                 record.Flavor,
 		OwnerId:                record.OwnerID.String(),
 	}
 	ownerKind, err := runtimeOwnerKindFromString(record.OwnerKind)
