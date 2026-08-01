@@ -229,8 +229,12 @@ functions:
         break
       fi
       ELAPSED=$((ELAPSED + 10))
-      if [ "$ELAPSED" -ge 300 ]; then
-        echo "ERROR: runners TCP endpoint was not accepting connections within 300s" >&2
+      # This wait covers buf generate, a module download and a compile, all
+      # inside the pod -- the slowest phase here by far, and on the platform VM
+      # it does not finish in five minutes. llm-proxy already allows 900s for
+      # the same work.
+      if [ "$ELAPSED" -ge 900 ]; then
+        echo "ERROR: runners TCP endpoint was not accepting connections within 900s" >&2
         echo "Diagnostic netcat log:" >&2
         cat /tmp/runners-nc.log >&2 || true
         echo "Diagnostic port-forward log:" >&2
