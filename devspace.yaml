@@ -197,7 +197,7 @@ functions:
         kubectl describe pods -n ${RUNNERS_NAMESPACE} -l "${LABEL_SELECTOR}" >&2 || true
         exit 1
       fi
-      echo "  still waiting... (${ELAPSED}s)"
+      echo "  still waiting... ($(( $(date +%s) - DEADLINE + 900 ))s elapsed)"
     done
 
     echo "Runners service diagnostics before connection checks:"
@@ -205,7 +205,11 @@ functions:
     kubectl get endpoints runners -n ${RUNNERS_NAMESPACE} -o wide
 
     echo "Waiting for runners TCP endpoint on port 50051..."
-    ELAPSED=0
+    # Real seconds. The counter this replaced added 10 per attempt regardless of
+    # how long the attempt took, and an attempt takes about two: the inner loop
+    # gives up the moment the port-forward dies, which it does for as long as
+    # nothing is listening. "900s" was reached after about three real minutes.
+    DEADLINE=$(( $(date +%s) + 900 ))
     PORT_FORWARD_LOG="/tmp/runners-port-forward.log"
     while true; do
       rm -f "${PORT_FORWARD_LOG}"
@@ -228,12 +232,9 @@ functions:
         cat /tmp/runners-nc.log || true
         break
       fi
-      ELAPSED=$((ELAPSED + 10))
-      # This wait covers buf generate, a module download and a compile, all
-      # inside the pod -- the slowest phase here by far, and on the platform VM
-      # it does not finish in five minutes. llm-proxy already allows 900s for
-      # the same work.
-      if [ "$ELAPSED" -ge 900 ]; then
+      # The pod is generating protos, downloading ~200MB of modules and
+      # compiling before it listens, so this legitimately takes minutes.
+      if [ "$(date +%s)" -ge "${DEADLINE}" ]; then
         echo "ERROR: runners TCP endpoint was not accepting connections within 900s" >&2
         echo "Diagnostic netcat log:" >&2
         cat /tmp/runners-nc.log >&2 || true
