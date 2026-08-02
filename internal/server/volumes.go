@@ -321,8 +321,14 @@ func (s *Server) publishVolumeNotification(ctx context.Context, event string, ro
 	}
 }
 
+// GetVolume reads one volume on the same terms the list RPCs read many: an
+// identified caller must be allowed to view its organization's volumes, while
+// an internal caller holds no identity and is served. Requiring one here left
+// the Orchestrator, which strips its identity for exactly these reads, unable
+// to inspect a volume record it had just been told already exists -- so every
+// retried start failed on the read rather than the write.
 func (s *Server) GetVolume(ctx context.Context, req *runnersv1.GetVolumeRequest) (*runnersv1.GetVolumeResponse, error) {
-	callerID, err := identityFromMetadata(ctx)
+	callerID, err := identityFromMetadataOptional(ctx)
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, "unauthenticated: %v", err)
 	}
@@ -334,8 +340,10 @@ func (s *Server) GetVolume(ctx context.Context, req *runnersv1.GetVolumeRequest)
 	if err != nil {
 		return nil, toStatusError(err)
 	}
-	if err := s.requireRelation(ctx, callerID, organizationViewVolumes, organizationObject(volume.OrganizationID)); err != nil {
-		return nil, err
+	if callerID != nil {
+		if err := s.requireRelation(ctx, *callerID, organizationViewVolumes, organizationObject(volume.OrganizationID)); err != nil {
+			return nil, err
+		}
 	}
 	cache := newVolumeEnrichmentCache()
 	items, err := s.buildVolumeItems(ctx, []volumeRecord{volume}, cache, true)
