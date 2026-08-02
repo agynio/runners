@@ -5,26 +5,6 @@ vars:
   DEV_IMAGE: ghcr.io/agynio/devcontainer-go:1
 
 functions:
-  disable_argocd_sync: |-
-    if kubectl get application runners -n argocd >/dev/null 2>&1; then
-      echo "Disabling ArgoCD auto-sync for runners..."
-      kubectl patch application runners -n argocd \
-        --type merge \
-        -p '{"spec":{"syncPolicy":{"automated":null}}}'
-      echo "ArgoCD auto-sync disabled."
-    else
-      echo "WARNING: ArgoCD Application 'runners' not found in argocd namespace."
-    fi
-  restore_argocd_sync: &restore_argocd_sync |-
-    if kubectl get application runners -n argocd >/dev/null 2>&1; then
-      echo "Re-enabling ArgoCD auto-sync for runners..."
-      kubectl patch application runners -n argocd \
-        --type merge \
-        -p '{"spec":{"syncPolicy":{"automated":{"prune":true,"selfHeal":true}}}}'
-      echo "ArgoCD auto-sync restored."
-    else
-      echo "WARNING: ArgoCD Application 'runners' not found in argocd namespace."
-    fi
   wait_for_runners_deployment: |-
     echo "Waiting for runners deployment to exist..."
     ELAPSED=0
@@ -301,8 +281,6 @@ pipelines:
         short: w
         description: "Keep DevSpace running and stream logs"
     run: |-
-      trap 'echo "Restoring ArgoCD sync..."; restore_argocd_sync' EXIT
-      disable_argocd_sync
       wait_for_runners_deployment
       patch_deployment
       if [ "$(get_flag "watch")" == "true" ]; then
@@ -314,9 +292,6 @@ pipelines:
         stop_dev runners
       fi
 
-  restore-argocd:
-    run: |-
-      restore_argocd_sync
 
   wait-runners:
     run: |-
