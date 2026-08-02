@@ -1252,3 +1252,61 @@ func TestListVolumesSandboxRuntimeOnlySkipsDefinitionEnrichment(t *testing.T) {
 		t.Fatalf("unmet expectations: %v", err)
 	}
 }
+
+// The Orchestrator reads volume records over the mesh with no identity, the
+// same way it lists them: when CreateVolume reports the record already exists
+// it reads the existing one back to check it matches before reusing it.
+// Demanding an identity here failed that read, so a start that had already
+// created its volumes could never be retried.
+func TestGetVolumeServesTheInternalCallerWithoutAnIdentity(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("failed to create mock pool: %v", err)
+	}
+
+	volumeID := uuid.New()
+	runnerID := uuid.New()
+	organizationID := uuid.New()
+	sandboxID := uuid.New()
+	now := time.Now().UTC()
+
+	query := fmt.Sprintf(`SELECT %s FROM volumes WHERE id = $1`, volumeColumns)
+	rows := pgxmock.NewRows(volumeRowColumns).
+		AddRow(volumeID, nil, nil, nil, runnerID, nil, organizationID, "10", volumeStatusActive, nil, nil, runtimeOwnerKindSandbox, sandboxID, now, now)
+	mockPool.ExpectQuery(regexp.QuoteMeta(query)).WithArgs(volumeID).WillReturnRows(rows)
+
+	authorizationClient := fakeAuthorizationClient{
+		check: func(ctx context.Context, req *authorizationv1.CheckRequest) (*authorizationv1.CheckResponse, error) {
+			t.Fatal("expected no authorization check for a caller with no identity")
+			return nil, nil
+		},
+	}
+	agentsClient := fakeAgentsClient{getSandbox: func(ctx context.Context, req *agentsv1.GetSandboxRequest) (*agentsv1.GetSandboxResponse, error) {
+		return &agentsv1.GetSandboxResponse{Sandbox: &agentsv1.Sandbox{Name: "sandbox-name"}}, nil
+	}}
+
+	srv := New(Options{Pool: mockPool, AuthorizationClient: authorizationClient, AgentsClient: agentsClient})
+	resp, err := srv.GetVolume(context.Background(), &runnersv1.GetVolumeRequest{Id: volumeID.String()})
+	if err != nil {
+		t.Fatalf("GetVolume failed: %v", err)
+	}
+	if resp.GetVolume().GetOwnerId() != sandboxID.String() {
+		t.Fatalf("expected owner %s, got %s", sandboxID, resp.GetVolume().GetOwnerId())
+	}
+	if err := mockPool.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+// A malformed identity is a broken caller, not an internal one.
+func TestGetVolumeRejectsAMalformedIdentity(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("failed to create mock pool: %v", err)
+	}
+	srv := New(Options{Pool: mockPool, AuthorizationClient: fakeAuthorizationClient{}})
+	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(identityMetadata, "not-a-uuid"))
+	if _, err := srv.GetVolume(ctx, &runnersv1.GetVolumeRequest{Id: uuid.New().String()}); status.Code(err) != codes.Unauthenticated {
+		t.Fatalf("expected Unauthenticated, got %v", err)
+	}
+}
