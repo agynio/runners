@@ -24,12 +24,15 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 COPY buf.gen.yaml buf.yaml ./
 RUN buf generate buf.build/agynio/api \
     --include-imports \
-    --path agynio/api/agents/v1 \
-    --path agynio/api/runners/v1 \
     --path agynio/api/identity/v1 \
     --path agynio/api/authorization/v1 \
     --path agynio/api/ziti_management/v1 \
     --path agynio/api/notifications/v1
+
+# agents/v1 and runners/v1 come from the vendored copies under proto/ until
+# the hook removal lands in buf.build/agynio/api; see proto/buf.yaml.
+COPY proto ./proto
+RUN buf generate proto --template buf.gen.yaml
 
 COPY . .
 

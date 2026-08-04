@@ -1,0 +1,782 @@
+{"level":"info","msg":"Inject devspacehelper...","time":"2026-07-26T13:25:15+02:00"}
+{"level":"info","msg":"Successfully injected devspacehelper into pod platform/runners-645455fd-vfs4t","time":"2026-07-26T13:25:17+02:00"}
+{"level":"info","msg":"Start syncing","time":"2026-07-26T13:25:17+02:00"}
+{"level":"info","msg":"Downstream - Initial sync completed","time":"2026-07-26T13:25:17+02:00"}
+{"level":"info","msg":"Upstream - Upload 60 create change(s) (Uncompressed ~573.79 KB)","time":"2026-07-26T13:25:18+02:00"}
+{"level":"info","msg":"Upstream - Successfully processed 60 change(s)","time":"2026-07-26T13:25:18+02:00"}
+{"level":"info","msg":"Upstream - Initial sync completed","time":"2026-07-26T13:25:19+02:00"}
+{"level":"info","msg":"Upstream - Upload File 'devspace.yaml'","time":"2026-07-26T13:47:31+02:00"}
+{"level":"info","msg":"Upstream - Upload 1 create change(s) (Uncompressed ~13.32 KB)","time":"2026-07-26T13:47:31+02:00"}
+{"level":"info","msg":"Upstream - Successfully processed 1 change(s)","time":"2026-07-26T13:47:31+02:00"}
+{"level":"error","msg":"Sync Error on /Users/vitaliivalkov/agyn/runners: ping connection: rpc error: code = DeadlineExceeded desc = context deadline exceeded","time":"2026-07-26T13:54:32+02:00"}
+{"level":"error","msg":"Error restarting sync: error selecting container: pods by label selector: get pod: Get \"https://127.0.0.1:6445/api/v1/namespaces/platform/pods/runners-645455fd-vfs4t\": dial tcp 127.0.0.1:6445: connect: connection refused","time":"2026-07-26T13:54:32+02:00"}
+{"level":"error","msg":"Will try again in 15 seconds","time":"2026-07-26T13:54:32+02:00"}
+{"level":"error","msg":"Error restarting sync: error selecting container: pods by label selector: get pod: Get \"https://127.0.0.1:6445/api/v1/namespaces/platform/pods/runners-645455fd-vfs4t\": dial tcp 127.0.0.1:6445: connect: connection refused","time":"2026-07-26T13:54:47+02:00"}
+{"level":"error","msg":"Will try again in 15 seconds","time":"2026-07-26T13:54:47+02:00"}
+{"level":"error","msg":"Error restarting sync: error selecting container: pods by label selector: get pod: Get \"https://127.0.0.1:6445/api/v1/namespaces/platform/pods/runners-645455fd-vfs4t\": dial tcp 127.0.0.1:6445: connect: connection refused","time":"2026-07-26T13:55:02+02:00"}
+{"level":"error","msg":"Will try again in 15 seconds","time":"2026-07-26T13:55:02+02:00"}
+{"level":"error","msg":"Error restarting sync: error selecting container: pods by label selector: get pod: Get \"https://127.0.0.1:6445/api/v1/namespaces/platform/pods/runners-645455fd-vfs4t\": dial tcp 127.0.0.1:6445: connect: connection refused","time":"2026-07-26T13:55:17+02:00"}
+{"level":"error","msg":"Will try again in 15 seconds","time":"2026-07-26T13:55:17+02:00"}
+{"level":"error","msg":"Error restarting sync: error selecting container: pods by label selector: get pod: Get \"https://127.0.0.1:6445/api/v1/namespaces/platform/pods/runners-645455fd-vfs4t\": dial tcp 127.0.0.1:6445: connect: connection refused","time":"2026-07-26T13:55:32+02:00"}
+{"level":"error","msg":"Will try again in 15 seconds","time":"2026-07-26T13:55:32+02:00"}
+{"level":"error","msg":"Error restarting sync: error selecting container: pods by label selector: get pod: Get \"https://127.0.0.1:6445/api/v1/namespaces/platform/pods/runners-645455fd-vfs4t\": dial tcp 127.0.0.1:6445: connect: connection refused","time":"2026-07-26T13:55:47+02:00"}
+{"level":"error","msg":"Will try again in 15 seconds","time":"2026-07-26T13:55:47+02:00"}
+{"level":"error","msg":"Error restarting sync: error selecting container: pods by label selector: get pod: Get \"https://127.0.0.1:6445/api/v1/namespaces/platform/pods/runners-645455fd-vfs4t\": dial tcp 127.0.0.1:6445: connect: connection refused","time":"2026-07-26T13:56:02+02:00"}
+{"level":"error","msg":"Will try again in 15 seconds","time":"2026-07-26T13:56:02+02:00"}
+{"level":"error","msg":"Error restarting sync: error selecting container: pods by label selector: get pod: Get \"https://127.0.0.1:6445/api/v1/namespaces/platform/pods/runners-645455fd-vfs4t\": dial tcp 127.0.0.1:6445: connect: connection refused","time":"2026-07-26T13:56:17+02:00"}
+{"level":"error","msg":"Will try again in 15 seconds","time":"2026-07-26T13:56:17+02:00"}
+{"level":"error","msg":"Error restarting sync: error selecting container: pods by label selector: get pod: Get \"https://127.0.0.1:6445/api/v1/namespaces/platform/pods/runners-645455fd-vfs4t\": dial tcp 127.0.0.1:6445: connect: connection refused","time":"2026-07-26T13:56:32+02:00"}
+{"level":"error","msg":"Will try again in 15 seconds","time":"2026-07-26T13:56:32+02:00"}
+{"level":"error","msg":"Error restarting sync: error selecting container: pods by label selector: get pod: Get \"https://127.0.0.1:6445/api/v1/namespaces/platform/pods/runners-645455fd-vfs4t\": dial tcp 127.0.0.1:6445: connect: connection refused","time":"2026-07-26T13:56:47+02:00"}
+{"level":"error","msg":"Will try again in 15 seconds","time":"2026-07-26T13:56:47+02:00"}
+{"level":"error","msg":"Error restarting sync: error selecting container: pods by label selector: get pod: Get \"https://127.0.0.1:6445/api/v1/namespaces/platform/pods/runners-645455fd-vfs4t\": dial tcp 127.0.0.1:6445: connect: connection refused","time":"2026-07-26T13:57:02+02:00"}
+{"level":"error","msg":"Will try again in 15 seconds","time":"2026-07-26T13:57:02+02:00"}
+{"level":"error","msg":"Error restarting sync: error selecting container: pods by label selector: get pod: Get \"https://127.0.0.1:6445/api/v1/namespaces/platform/pods/runners-645455fd-vfs4t\": dial tcp 127.0.0.1:6445: connect: connection refused","time":"2026-07-26T13:57:17+02:00"}
+{"level":"error","msg":"Will try again in 15 seconds","time":"2026-07-26T13:57:17+02:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2026-07-26T13:57:33+02:00"}
+{"level":"info","msg":"Successfully injected devspacehelper into pod platform/runners-645455fd-vfs4t","time":"2026-07-26T13:57:35+02:00"}
+{"level":"info","msg":"Start syncing","time":"2026-07-26T13:57:35+02:00"}
+{"level":"info","msg":"Sync started on: ./ \u003c-\u003e /opt/app/data","time":"2026-07-26T13:57:35+02:00"}
+{"level":"info","msg":"Waiting for initial sync to complete","time":"2026-07-26T13:57:35+02:00"}
+{"level":"info","msg":"Downstream - Initial sync completed","time":"2026-07-26T13:57:35+02:00"}
+{"level":"info","msg":"Upstream - Initial sync completed","time":"2026-07-26T13:57:35+02:00"}
+{"level":"info","msg":"Initial sync completed","time":"2026-07-26T13:57:35+02:00"}
+{"level":"error","msg":"Sync Error on /Users/vitaliivalkov/agyn/runners: Downstream Sync - connection lost to pod platform/runners-645455fd-vfs4t: Use inotify as watching method in container\n command terminated with exit code 137","time":"2026-07-26T14:09:55+02:00"}
+{"level":"error","msg":"Restarting because: Downstream Sync - connection lost to pod platform/runners-645455fd-vfs4t: Use inotify as watching method in container\n command terminated with exit code 137","time":"2026-07-26T14:09:55+02:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2026-07-26T14:09:56+02:00"}
+{"level":"info","msg":"Successfully injected devspacehelper into pod platform/runners-75d8894c77-9p6hg","time":"2026-07-26T14:09:59+02:00"}
+{"level":"info","msg":"Start syncing","time":"2026-07-26T14:09:59+02:00"}
+{"level":"info","msg":"Downstream - Initial sync completed","time":"2026-07-26T14:09:59+02:00"}
+{"level":"info","msg":"Upstream - Upload 60 create change(s) (Uncompressed ~574.10 KB)","time":"2026-07-26T14:10:00+02:00"}
+{"level":"info","msg":"Upstream - Successfully processed 60 change(s)","time":"2026-07-26T14:10:00+02:00"}
+{"level":"info","msg":"Upstream - Initial sync completed","time":"2026-07-26T14:10:01+02:00"}
+{"level":"error","msg":"Sync Error on /Users/vitaliivalkov/agyn/runners: Upstream Sync - connection lost to pod platform/runners-75d8894c77-9p6hg:  command terminated with exit code 137","time":"2026-07-26T16:48:07+02:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2026-07-26T16:48:09+02:00"}
+{"level":"info","msg":"Successfully injected devspacehelper into pod platform/runners-75d8894c77-9p6hg","time":"2026-07-26T16:48:11+02:00"}
+{"level":"info","msg":"Start syncing","time":"2026-07-26T16:48:11+02:00"}
+{"level":"info","msg":"Sync started on: ./ \u003c-\u003e /opt/app/data","time":"2026-07-26T16:48:11+02:00"}
+{"level":"info","msg":"Waiting for initial sync to complete","time":"2026-07-26T16:48:11+02:00"}
+{"level":"info","msg":"Downstream - Initial sync completed","time":"2026-07-26T16:48:11+02:00"}
+{"level":"info","msg":"Upstream - Initial sync completed","time":"2026-07-26T16:48:11+02:00"}
+{"level":"info","msg":"Initial sync completed","time":"2026-07-26T16:48:11+02:00"}
+{"level":"info","msg":"Upstream - Upload File 'migrations/0012_runner_catalog.sql'","time":"2026-07-26T21:53:47+02:00"}
+{"level":"info","msg":"Upstream - Upload 1 create change(s) (Uncompressed ~1.39 KB)","time":"2026-07-26T21:53:47+02:00"}
+{"level":"info","msg":"Upstream - Successfully processed 1 change(s)","time":"2026-07-26T21:53:47+02:00"}
+{"level":"info","msg":"Upstream - Upload File 'internal/server/catalog.go'","time":"2026-07-26T21:54:46+02:00"}
+{"level":"info","msg":"Upstream - Upload 1 create change(s) (Uncompressed ~12.46 KB)","time":"2026-07-26T21:54:46+02:00"}
+{"level":"info","msg":"Upstream - Successfully processed 1 change(s)","time":"2026-07-26T21:54:46+02:00"}
+{"level":"info","msg":"Upstream - Upload File 'internal/server/pool.go'","time":"2026-07-26T21:55:20+02:00"}
+{"level":"info","msg":"Upstream - Upload 1 create change(s) (Uncompressed ~0.47 KB)","time":"2026-07-26T21:55:20+02:00"}
+{"level":"info","msg":"Upstream - Successfully processed 1 change(s)","time":"2026-07-26T21:55:20+02:00"}
+{"level":"info","msg":"Upstream - Upload File 'internal/server/catalog.go'","time":"2026-07-26T21:55:35+02:00"}
+{"level":"info","msg":"Upstream - Upload 1 create change(s) (Uncompressed ~12.42 KB)","time":"2026-07-26T21:55:35+02:00"}
+{"level":"info","msg":"Upstream - Successfully processed 1 change(s)","time":"2026-07-26T21:55:35+02:00"}
+{"level":"info","msg":"Upstream - Upload File 'internal/server/catalog_test.go'","time":"2026-07-26T21:56:02+02:00"}
+{"level":"info","msg":"Upstream - Upload 1 create change(s) (Uncompressed ~3.70 KB)","time":"2026-07-26T21:56:02+02:00"}
+{"level":"info","msg":"Upstream - Successfully processed 1 change(s)","time":"2026-07-26T21:56:02+02:00"}
+{"level":"error","msg":"Sync Error on /Users/vitaliivalkov/agyn/runners: Upstream Sync - connection lost to pod platform/runners-75d8894c77-9p6hg:  command terminated with exit code 137","time":"2026-07-26T22:47:50+02:00"}
+{"level":"error","msg":"Restarting because: Upstream Sync - connection lost to pod platform/runners-75d8894c77-9p6hg:  command terminated with exit code 137","time":"2026-07-26T22:47:50+02:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2026-07-26T22:47:51+02:00"}
+{"level":"info","msg":"Successfully injected devspacehelper into pod platform/runners-75d8894c77-9p6hg","time":"2026-07-26T22:47:53+02:00"}
+{"level":"info","msg":"Start syncing","time":"2026-07-26T22:47:53+02:00"}
+{"level":"info","msg":"Sync started on: ./ \u003c-\u003e /opt/app/data","time":"2026-07-26T22:47:53+02:00"}
+{"level":"info","msg":"Waiting for initial sync to complete","time":"2026-07-26T22:47:53+02:00"}
+{"level":"error","msg":"Sync Error on /Users/vitaliivalkov/agyn/runners: Upstream Sync - connection lost to pod platform/runners-75d8894c77-9p6hg: exec /tmp/devspacehelper: exec format error\n command terminated with exit code 255","time":"2026-07-26T22:47:53+02:00"}
+{"level":"info","msg":"Initial sync completed","time":"2026-07-26T22:47:53+02:00"}
+{"level":"error","msg":"Error restarting sync: initial sync: Upstream Sync - connection lost to pod platform/runners-75d8894c77-9p6hg: exec /tmp/devspacehelper: exec format error\n command terminated with exit code 255","time":"2026-07-26T22:47:53+02:00"}
+{"level":"error","msg":"Will try again in 15 seconds","time":"2026-07-26T22:47:53+02:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2026-07-26T22:48:08+02:00"}
+{"level":"info","msg":"Successfully injected devspacehelper into pod platform/runners-75d8894c77-9p6hg","time":"2026-07-26T22:48:10+02:00"}
+{"level":"info","msg":"Start syncing","time":"2026-07-26T22:48:10+02:00"}
+{"level":"info","msg":"Sync started on: ./ \u003c-\u003e /opt/app/data","time":"2026-07-26T22:48:10+02:00"}
+{"level":"info","msg":"Waiting for initial sync to complete","time":"2026-07-26T22:48:10+02:00"}
+{"level":"info","msg":"Downstream - Initial sync completed","time":"2026-07-26T22:48:10+02:00"}
+{"level":"info","msg":"Upstream - Initial sync completed","time":"2026-07-26T22:48:11+02:00"}
+{"level":"info","msg":"Initial sync completed","time":"2026-07-26T22:48:11+02:00"}
+{"level":"error","msg":"Sync Error on /Users/vitaliivalkov/agyn/runners: Downstream Sync - connection lost to pod platform/runners-75d8894c77-9p6hg: Use inotify as watching method in container\n command terminated with exit code 137","time":"2026-07-26T22:48:38+02:00"}
+{"level":"error","msg":"Restarting because: Downstream Sync - connection lost to pod platform/runners-75d8894c77-9p6hg: Use inotify as watching method in container\n command terminated with exit code 137","time":"2026-07-26T22:48:38+02:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2026-07-26T22:48:38+02:00"}
+{"level":"error","msg":"Error restarting sync: start sync: inject devspace helper: exec: unable to upgrade connection: container not found (\"runners\")","time":"2026-07-26T22:48:39+02:00"}
+{"level":"error","msg":"Will try again in 15 seconds","time":"2026-07-26T22:48:39+02:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2026-07-26T22:48:54+02:00"}
+{"level":"info","msg":"Successfully injected devspacehelper into pod platform/runners-75d8894c77-9p6hg","time":"2026-07-26T22:48:55+02:00"}
+{"level":"info","msg":"Start syncing","time":"2026-07-26T22:48:55+02:00"}
+{"level":"info","msg":"Sync started on: ./ \u003c-\u003e /opt/app/data","time":"2026-07-26T22:48:55+02:00"}
+{"level":"info","msg":"Waiting for initial sync to complete","time":"2026-07-26T22:48:55+02:00"}
+{"level":"info","msg":"Downstream - Initial sync completed","time":"2026-07-26T22:48:55+02:00"}
+{"level":"info","msg":"Upstream - Initial sync completed","time":"2026-07-26T22:48:56+02:00"}
+{"level":"info","msg":"Initial sync completed","time":"2026-07-26T22:48:56+02:00"}
+{"level":"error","msg":"Sync Error on /Users/vitaliivalkov/agyn/runners: Upstream Sync - connection lost to pod platform/runners-75d8894c77-9p6hg:  command terminated with exit code 137","time":"2026-07-26T22:49:33+02:00"}
+{"level":"error","msg":"Restarting because: Upstream Sync - connection lost to pod platform/runners-75d8894c77-9p6hg:  command terminated with exit code 137","time":"2026-07-26T22:49:33+02:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2026-07-26T22:49:34+02:00"}
+{"level":"error","msg":"Error restarting sync: start sync: inject devspace helper: exec: unable to upgrade connection: container not found (\"runners\")","time":"2026-07-26T22:49:34+02:00"}
+{"level":"error","msg":"Will try again in 15 seconds","time":"2026-07-26T22:49:34+02:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2026-07-26T22:49:58+02:00"}
+{"level":"info","msg":"Successfully injected devspacehelper into pod platform/runners-75d8894c77-9p6hg","time":"2026-07-26T22:49:59+02:00"}
+{"level":"info","msg":"Start syncing","time":"2026-07-26T22:49:59+02:00"}
+{"level":"info","msg":"Sync started on: ./ \u003c-\u003e /opt/app/data","time":"2026-07-26T22:49:59+02:00"}
+{"level":"info","msg":"Waiting for initial sync to complete","time":"2026-07-26T22:49:59+02:00"}
+{"level":"info","msg":"Downstream - Initial sync completed","time":"2026-07-26T22:49:59+02:00"}
+{"level":"info","msg":"Upstream - Initial sync completed","time":"2026-07-26T22:50:00+02:00"}
+{"level":"info","msg":"Initial sync completed","time":"2026-07-26T22:50:00+02:00"}
+{"level":"error","msg":"Sync Error on /Users/vitaliivalkov/agyn/runners: Upstream Sync - connection lost to pod platform/runners-75d8894c77-9p6hg:  command terminated with exit code 137","time":"2026-07-26T22:50:35+02:00"}
+{"level":"error","msg":"Restarting because: Upstream Sync - connection lost to pod platform/runners-75d8894c77-9p6hg:  command terminated with exit code 137","time":"2026-07-26T22:50:35+02:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2026-07-26T22:50:35+02:00"}
+{"level":"error","msg":"Error restarting sync: start sync: inject devspace helper: exec: unable to upgrade connection: container not found (\"runners\")","time":"2026-07-26T22:50:36+02:00"}
+{"level":"error","msg":"Will try again in 15 seconds","time":"2026-07-26T22:50:36+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T22:51:01+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T22:51:11+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T22:51:21+02:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2026-07-26T22:51:26+02:00"}
+{"level":"info","msg":"Successfully injected devspacehelper into pod platform/runners-75d8894c77-9p6hg","time":"2026-07-26T22:51:27+02:00"}
+{"level":"info","msg":"Start syncing","time":"2026-07-26T22:51:27+02:00"}
+{"level":"info","msg":"Sync started on: ./ \u003c-\u003e /opt/app/data","time":"2026-07-26T22:51:27+02:00"}
+{"level":"info","msg":"Waiting for initial sync to complete","time":"2026-07-26T22:51:27+02:00"}
+{"level":"info","msg":"Downstream - Initial sync completed","time":"2026-07-26T22:51:27+02:00"}
+{"level":"info","msg":"Upstream - Initial sync completed","time":"2026-07-26T22:51:28+02:00"}
+{"level":"info","msg":"Initial sync completed","time":"2026-07-26T22:51:28+02:00"}
+{"level":"error","msg":"Sync Error on /Users/vitaliivalkov/agyn/runners: Upstream Sync - connection lost to pod platform/runners-75d8894c77-9p6hg:  command terminated with exit code 137","time":"2026-07-26T22:52:04+02:00"}
+{"level":"error","msg":"Restarting because: Upstream Sync - connection lost to pod platform/runners-75d8894c77-9p6hg:  command terminated with exit code 137","time":"2026-07-26T22:52:04+02:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2026-07-26T22:52:04+02:00"}
+{"level":"error","msg":"Error restarting sync: start sync: inject devspace helper: exec: unable to upgrade connection: container not found (\"runners\")","time":"2026-07-26T22:52:04+02:00"}
+{"level":"error","msg":"Will try again in 15 seconds","time":"2026-07-26T22:52:04+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T22:52:30+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T22:52:40+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T22:52:50+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T22:53:01+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T22:53:11+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T22:53:21+02:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2026-07-26T22:53:29+02:00"}
+{"level":"info","msg":"Successfully injected devspacehelper into pod platform/runners-75d8894c77-9p6hg","time":"2026-07-26T22:53:30+02:00"}
+{"level":"info","msg":"Start syncing","time":"2026-07-26T22:53:30+02:00"}
+{"level":"info","msg":"Sync started on: ./ \u003c-\u003e /opt/app/data","time":"2026-07-26T22:53:30+02:00"}
+{"level":"info","msg":"Waiting for initial sync to complete","time":"2026-07-26T22:53:30+02:00"}
+{"level":"info","msg":"Downstream - Initial sync completed","time":"2026-07-26T22:53:30+02:00"}
+{"level":"info","msg":"Upstream - Initial sync completed","time":"2026-07-26T22:53:31+02:00"}
+{"level":"info","msg":"Initial sync completed","time":"2026-07-26T22:53:31+02:00"}
+{"level":"error","msg":"Sync Error on /Users/vitaliivalkov/agyn/runners: Upstream Sync - connection lost to pod platform/runners-75d8894c77-9p6hg:  command terminated with exit code 137","time":"2026-07-26T22:54:13+02:00"}
+{"level":"error","msg":"Restarting because: Upstream Sync - connection lost to pod platform/runners-75d8894c77-9p6hg:  command terminated with exit code 137","time":"2026-07-26T22:54:13+02:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2026-07-26T22:54:14+02:00"}
+{"level":"error","msg":"Error restarting sync: start sync: inject devspace helper: exec: unable to upgrade connection: container not found (\"runners\")","time":"2026-07-26T22:54:14+02:00"}
+{"level":"error","msg":"Will try again in 15 seconds","time":"2026-07-26T22:54:14+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T22:54:39+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T22:54:50+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T22:55:00+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T22:55:11+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T22:55:21+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T22:55:32+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T22:55:42+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T22:55:52+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T22:56:02+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T22:56:13+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T22:56:23+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T22:56:33+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T22:56:43+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T22:56:53+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T22:57:04+02:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2026-07-26T22:57:05+02:00"}
+{"level":"info","msg":"Successfully injected devspacehelper into pod platform/runners-75d8894c77-9p6hg","time":"2026-07-26T22:57:07+02:00"}
+{"level":"info","msg":"Start syncing","time":"2026-07-26T22:57:07+02:00"}
+{"level":"info","msg":"Sync started on: ./ \u003c-\u003e /opt/app/data","time":"2026-07-26T22:57:07+02:00"}
+{"level":"info","msg":"Waiting for initial sync to complete","time":"2026-07-26T22:57:07+02:00"}
+{"level":"info","msg":"Downstream - Initial sync completed","time":"2026-07-26T22:57:07+02:00"}
+{"level":"info","msg":"Upstream - Initial sync completed","time":"2026-07-26T22:57:07+02:00"}
+{"level":"info","msg":"Initial sync completed","time":"2026-07-26T22:57:07+02:00"}
+{"level":"error","msg":"Sync Error on /Users/vitaliivalkov/agyn/runners: Upstream Sync - connection lost to pod platform/runners-75d8894c77-9p6hg:  command terminated with exit code 137","time":"2026-07-26T22:57:42+02:00"}
+{"level":"error","msg":"Restarting because: Upstream Sync - connection lost to pod platform/runners-75d8894c77-9p6hg:  command terminated with exit code 137","time":"2026-07-26T22:57:42+02:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2026-07-26T22:57:43+02:00"}
+{"level":"error","msg":"Error restarting sync: start sync: inject devspace helper: exec: unable to upgrade connection: container not found (\"runners\")","time":"2026-07-26T22:57:43+02:00"}
+{"level":"error","msg":"Will try again in 15 seconds","time":"2026-07-26T22:57:43+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T22:58:09+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T22:58:19+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T22:58:29+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T22:58:39+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T22:58:50+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T22:59:00+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T22:59:11+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T22:59:21+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T22:59:32+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T22:59:42+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T22:59:52+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:00:02+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:00:13+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:00:23+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:00:33+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:00:43+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:00:54+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:01:04+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:01:15+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:01:25+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:01:35+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:01:46+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:01:56+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:02:06+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:02:16+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:02:26+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:02:37+02:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2026-07-26T23:02:44+02:00"}
+{"level":"info","msg":"Successfully injected devspacehelper into pod platform/runners-75d8894c77-9p6hg","time":"2026-07-26T23:02:45+02:00"}
+{"level":"info","msg":"Start syncing","time":"2026-07-26T23:02:45+02:00"}
+{"level":"info","msg":"Sync started on: ./ \u003c-\u003e /opt/app/data","time":"2026-07-26T23:02:45+02:00"}
+{"level":"info","msg":"Waiting for initial sync to complete","time":"2026-07-26T23:02:45+02:00"}
+{"level":"info","msg":"Downstream - Initial sync completed","time":"2026-07-26T23:02:45+02:00"}
+{"level":"info","msg":"Upstream - Initial sync completed","time":"2026-07-26T23:02:46+02:00"}
+{"level":"info","msg":"Initial sync completed","time":"2026-07-26T23:02:46+02:00"}
+{"level":"error","msg":"Sync Error on /Users/vitaliivalkov/agyn/runners: Downstream Sync - connection lost to pod platform/runners-75d8894c77-9p6hg: Use inotify as watching method in container\n command terminated with exit code 137","time":"2026-07-26T23:03:20+02:00"}
+{"level":"error","msg":"Restarting because: Downstream Sync - connection lost to pod platform/runners-75d8894c77-9p6hg: Use inotify as watching method in container\n command terminated with exit code 137","time":"2026-07-26T23:03:20+02:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2026-07-26T23:03:20+02:00"}
+{"level":"error","msg":"Error restarting sync: start sync: inject devspace helper: exec: unable to upgrade connection: container not found (\"runners\")","time":"2026-07-26T23:03:21+02:00"}
+{"level":"error","msg":"Will try again in 15 seconds","time":"2026-07-26T23:03:21+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:03:46+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:03:57+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:04:07+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:04:17+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:04:28+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:04:38+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:04:48+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:04:58+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:05:09+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:05:19+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:05:29+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:05:40+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:05:50+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:06:00+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:06:10+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:06:21+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:06:31+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:06:41+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:06:52+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:07:02+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:07:13+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:07:23+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:07:34+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:07:44+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:07:54+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:08:04+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:08:15+02:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2026-07-26T23:08:23+02:00"}
+{"level":"info","msg":"Successfully injected devspacehelper into pod platform/runners-75d8894c77-9p6hg","time":"2026-07-26T23:08:24+02:00"}
+{"level":"info","msg":"Start syncing","time":"2026-07-26T23:08:24+02:00"}
+{"level":"info","msg":"Sync started on: ./ \u003c-\u003e /opt/app/data","time":"2026-07-26T23:08:24+02:00"}
+{"level":"info","msg":"Waiting for initial sync to complete","time":"2026-07-26T23:08:24+02:00"}
+{"level":"info","msg":"Downstream - Initial sync completed","time":"2026-07-26T23:08:24+02:00"}
+{"level":"info","msg":"Upstream - Initial sync completed","time":"2026-07-26T23:08:25+02:00"}
+{"level":"info","msg":"Initial sync completed","time":"2026-07-26T23:08:25+02:00"}
+{"level":"error","msg":"Sync Error on /Users/vitaliivalkov/agyn/runners: Upstream Sync - connection lost to pod platform/runners-75d8894c77-9p6hg:  command terminated with exit code 137","time":"2026-07-26T23:08:58+02:00"}
+{"level":"error","msg":"Restarting because: Upstream Sync - connection lost to pod platform/runners-75d8894c77-9p6hg:  command terminated with exit code 137","time":"2026-07-26T23:08:58+02:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2026-07-26T23:08:58+02:00"}
+{"level":"error","msg":"Error restarting sync: start sync: inject devspace helper: exec: unable to upgrade connection: container not found (\"runners\")","time":"2026-07-26T23:08:58+02:00"}
+{"level":"error","msg":"Will try again in 15 seconds","time":"2026-07-26T23:08:58+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:09:24+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:09:34+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:09:44+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:09:55+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:10:05+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:10:15+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:10:25+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:10:36+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:10:46+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:10:57+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:11:07+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:11:17+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:11:27+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:11:38+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:11:48+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:11:58+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:12:08+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:12:18+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:12:29+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:12:39+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:12:49+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:12:59+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:13:10+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:13:20+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:13:31+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:13:41+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:13:52+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:14:02+02:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2026-07-26T23:14:03+02:00"}
+{"level":"info","msg":"Successfully injected devspacehelper into pod platform/runners-75d8894c77-9p6hg","time":"2026-07-26T23:14:04+02:00"}
+{"level":"info","msg":"Start syncing","time":"2026-07-26T23:14:04+02:00"}
+{"level":"info","msg":"Sync started on: ./ \u003c-\u003e /opt/app/data","time":"2026-07-26T23:14:04+02:00"}
+{"level":"info","msg":"Waiting for initial sync to complete","time":"2026-07-26T23:14:04+02:00"}
+{"level":"info","msg":"Downstream - Initial sync completed","time":"2026-07-26T23:14:05+02:00"}
+{"level":"info","msg":"Upstream - Initial sync completed","time":"2026-07-26T23:14:05+02:00"}
+{"level":"info","msg":"Initial sync completed","time":"2026-07-26T23:14:05+02:00"}
+{"level":"error","msg":"Sync Error on /Users/vitaliivalkov/agyn/runners: Upstream Sync - connection lost to pod platform/runners-75d8894c77-9p6hg:  command terminated with exit code 137","time":"2026-07-26T23:14:40+02:00"}
+{"level":"error","msg":"Restarting because: Upstream Sync - connection lost to pod platform/runners-75d8894c77-9p6hg:  command terminated with exit code 137","time":"2026-07-26T23:14:40+02:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2026-07-26T23:14:40+02:00"}
+{"level":"error","msg":"Error restarting sync: start sync: inject devspace helper: exec: unable to upgrade connection: container not found (\"runners\")","time":"2026-07-26T23:14:40+02:00"}
+{"level":"error","msg":"Will try again in 15 seconds","time":"2026-07-26T23:14:40+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:15:06+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:15:16+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:15:27+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:15:37+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:15:48+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:15:58+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:16:08+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:16:18+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:16:28+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:16:38+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:16:48+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:16:59+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:17:09+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:17:20+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:17:30+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:17:41+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:17:51+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:18:02+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:18:12+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:18:22+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:18:33+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:18:43+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:18:53+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:19:04+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:19:14+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:19:24+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:19:35+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:19:45+02:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2026-07-26T23:19:54+02:00"}
+{"level":"info","msg":"Successfully injected devspacehelper into pod platform/runners-75d8894c77-9p6hg","time":"2026-07-26T23:19:55+02:00"}
+{"level":"info","msg":"Start syncing","time":"2026-07-26T23:19:55+02:00"}
+{"level":"info","msg":"Sync started on: ./ \u003c-\u003e /opt/app/data","time":"2026-07-26T23:19:55+02:00"}
+{"level":"info","msg":"Waiting for initial sync to complete","time":"2026-07-26T23:19:55+02:00"}
+{"level":"info","msg":"Downstream - Initial sync completed","time":"2026-07-26T23:19:55+02:00"}
+{"level":"info","msg":"Upstream - Initial sync completed","time":"2026-07-26T23:19:56+02:00"}
+{"level":"info","msg":"Initial sync completed","time":"2026-07-26T23:19:56+02:00"}
+{"level":"error","msg":"Sync Error on /Users/vitaliivalkov/agyn/runners: Upstream Sync - connection lost to pod platform/runners-75d8894c77-9p6hg:  command terminated with exit code 137","time":"2026-07-26T23:20:30+02:00"}
+{"level":"error","msg":"Restarting because: Upstream Sync - connection lost to pod platform/runners-75d8894c77-9p6hg:  command terminated with exit code 137","time":"2026-07-26T23:20:30+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: Error. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:20:40+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:20:51+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:21:01+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:21:11+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:21:22+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:21:32+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:21:43+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:21:53+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:22:03+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:22:14+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:22:24+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:22:35+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:22:45+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:22:55+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:23:05+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:23:16+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:23:26+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:23:37+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:23:47+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:23:58+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:24:08+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:24:19+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:24:29+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:24:39+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:24:49+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:25:00+02:00"}
+{"level":"warning","msg":"Pod runners-75d8894c77-9p6hg has critical status: CrashLoopBackOff. DevSpace will continue waiting, but this operation might timeout","time":"2026-07-26T23:25:10+02:00"}
+{"level":"error","msg":"Error restarting sync: error selecting container: timeout: couldn't find a pod / container in time with pod name: runners-75d8894c77-9p6hg","time":"2026-07-26T23:25:19+02:00"}
+{"level":"error","msg":"Will try again in 15 seconds","time":"2026-07-26T23:25:19+02:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2026-07-26T23:25:33+02:00"}
+{"level":"info","msg":"Successfully injected devspacehelper into pod platform/runners-ccdc86bf5-zkgrx","time":"2026-07-26T23:25:34+02:00"}
+{"level":"info","msg":"Start syncing","time":"2026-07-26T23:25:34+02:00"}
+{"level":"error","msg":"Sync Error on /Users/vitaliivalkov/agyn/runners: Upstream Sync - connection lost to pod platform/runners-ccdc86bf5-zkgrx:  Internal error occurred: error executing command in container: failed to exec in container: failed to start exec \"3e53318c4920c12d95fab462a103b72827ee2f960ed7f80500ef95cd48d61dc2\": OCI runtime exec failed: exec failed: unable to start container process: exec: \"/tmp/devspacehelper\": stat /tmp/devspacehelper: no such file or directory","time":"2026-07-26T23:25:34+02:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2026-07-28T23:52:44+02:00"}
+{"level":"info","msg":"Successfully injected devspacehelper into pod platform/runners-75d8894c77-hx9rl","time":"2026-07-28T23:52:46+02:00"}
+{"level":"info","msg":"Start syncing","time":"2026-07-28T23:52:46+02:00"}
+{"level":"info","msg":"Downstream - Initial sync completed","time":"2026-07-28T23:52:47+02:00"}
+{"level":"info","msg":"Upstream - Upload 63 create change(s) (Uncompressed ~591.75 KB)","time":"2026-07-28T23:52:48+02:00"}
+{"level":"info","msg":"Upstream - Successfully processed 63 change(s)","time":"2026-07-28T23:52:48+02:00"}
+{"level":"info","msg":"Upstream - Initial sync completed","time":"2026-07-28T23:52:49+02:00"}
+{"level":"info","msg":"Start syncing","time":"2026-07-29T00:39:29+02:00"}
+{"level":"info","msg":"Downstream - Initial sync completed","time":"2026-07-29T00:39:29+02:00"}
+{"level":"info","msg":"Upstream - Initial sync completed","time":"2026-07-29T00:39:29+02:00"}
+{"level":"info","msg":"Start syncing","time":"2026-07-29T00:43:20+02:00"}
+{"level":"info","msg":"Downstream - Initial sync completed","time":"2026-07-29T00:43:21+02:00"}
+{"level":"info","msg":"Upstream - Initial sync completed","time":"2026-07-29T00:43:21+02:00"}
+{"level":"error","msg":"Sync Error on /Users/vitaliivalkov/agyn/runners: Upstream Sync - connection lost to pod platform/runners-75d8894c77-hx9rl:  command terminated with exit code 137","time":"2026-07-29T01:42:59+02:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2026-07-29T01:43:00+02:00"}
+{"level":"info","msg":"Successfully injected devspacehelper into pod platform/runners-75d8894c77-hx9rl","time":"2026-07-29T01:43:02+02:00"}
+{"level":"info","msg":"Start syncing","time":"2026-07-29T01:43:02+02:00"}
+{"level":"info","msg":"Sync started on: ./ \u003c-\u003e /opt/app/data","time":"2026-07-29T01:43:02+02:00"}
+{"level":"info","msg":"Waiting for initial sync to complete","time":"2026-07-29T01:43:02+02:00"}
+{"level":"error","msg":"Sync Error on /Users/vitaliivalkov/agyn/runners: Downstream Sync - connection lost to pod platform/runners-75d8894c77-hx9rl: exec /tmp/devspacehelper: exec format error\n command terminated with exit code 255","time":"2026-07-29T01:43:02+02:00"}
+{"level":"info","msg":"Initial sync completed","time":"2026-07-29T01:43:02+02:00"}
+{"level":"error","msg":"Error restarting sync: initial sync: Downstream Sync - connection lost to pod platform/runners-75d8894c77-hx9rl: exec /tmp/devspacehelper: exec format error\n command terminated with exit code 255","time":"2026-07-29T01:43:02+02:00"}
+{"level":"error","msg":"Will try again in 15 seconds","time":"2026-07-29T01:43:02+02:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2026-07-29T01:43:17+02:00"}
+{"level":"info","msg":"Successfully injected devspacehelper into pod platform/runners-75d8894c77-hx9rl","time":"2026-07-29T01:43:19+02:00"}
+{"level":"info","msg":"Start syncing","time":"2026-07-29T01:43:19+02:00"}
+{"level":"info","msg":"Sync started on: ./ \u003c-\u003e /opt/app/data","time":"2026-07-29T01:43:19+02:00"}
+{"level":"info","msg":"Waiting for initial sync to complete","time":"2026-07-29T01:43:19+02:00"}
+{"level":"info","msg":"Downstream - Initial sync completed","time":"2026-07-29T01:43:19+02:00"}
+{"level":"info","msg":"Upstream - Initial sync completed","time":"2026-07-29T01:43:20+02:00"}
+{"level":"info","msg":"Initial sync completed","time":"2026-07-29T01:43:20+02:00"}
+{"level":"error","msg":"Sync Error on /Users/vitaliivalkov/agyn/runners: Downstream Sync - connection lost to pod platform/runners-75d8894c77-hx9rl: Use inotify as watching method in container\n command terminated with exit code 137","time":"2026-07-29T02:06:37+02:00"}
+{"level":"error","msg":"Restarting because: Downstream Sync - connection lost to pod platform/runners-75d8894c77-hx9rl: Use inotify as watching method in container\n command terminated with exit code 137","time":"2026-07-29T02:06:37+02:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2026-07-29T02:06:37+02:00"}
+{"level":"info","msg":"Successfully injected devspacehelper into pod platform/runners-75d8894c77-hx9rl","time":"2026-07-29T02:06:39+02:00"}
+{"level":"info","msg":"Start syncing","time":"2026-07-29T02:06:39+02:00"}
+{"level":"info","msg":"Sync started on: ./ \u003c-\u003e /opt/app/data","time":"2026-07-29T02:06:39+02:00"}
+{"level":"info","msg":"Waiting for initial sync to complete","time":"2026-07-29T02:06:39+02:00"}
+{"level":"error","msg":"Sync Error on /Users/vitaliivalkov/agyn/runners: Upstream Sync - connection lost to pod platform/runners-75d8894c77-hx9rl: exec /tmp/devspacehelper: exec format error\n command terminated with exit code 255","time":"2026-07-29T02:06:39+02:00"}
+{"level":"info","msg":"Initial sync completed","time":"2026-07-29T02:06:39+02:00"}
+{"level":"error","msg":"Error restarting sync: initial sync: Upstream Sync - connection lost to pod platform/runners-75d8894c77-hx9rl: exec /tmp/devspacehelper: exec format error\n command terminated with exit code 255","time":"2026-07-29T02:06:39+02:00"}
+{"level":"error","msg":"Will try again in 15 seconds","time":"2026-07-29T02:06:39+02:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2026-07-29T02:06:55+02:00"}
+{"level":"info","msg":"Successfully injected devspacehelper into pod platform/runners-75d8894c77-hx9rl","time":"2026-07-29T02:06:57+02:00"}
+{"level":"info","msg":"Start syncing","time":"2026-07-29T02:06:57+02:00"}
+{"level":"info","msg":"Sync started on: ./ \u003c-\u003e /opt/app/data","time":"2026-07-29T02:06:57+02:00"}
+{"level":"info","msg":"Waiting for initial sync to complete","time":"2026-07-29T02:06:57+02:00"}
+{"level":"info","msg":"Downstream - Initial sync completed","time":"2026-07-29T02:06:57+02:00"}
+{"level":"info","msg":"Upstream - Initial sync completed","time":"2026-07-29T02:06:57+02:00"}
+{"level":"info","msg":"Initial sync completed","time":"2026-07-29T02:06:57+02:00"}
+{"level":"error","msg":"Sync Error on /Users/vitaliivalkov/agyn/runners: Upstream Sync - connection lost to pod platform/runners-75d8894c77-hx9rl:  command terminated with exit code 137","time":"2026-07-29T02:46:55+02:00"}
+{"level":"error","msg":"Restarting because: Upstream Sync - connection lost to pod platform/runners-75d8894c77-hx9rl:  command terminated with exit code 137","time":"2026-07-29T02:46:55+02:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2026-07-29T02:46:56+02:00"}
+{"level":"info","msg":"Successfully injected devspacehelper into pod platform/runners-75d8894c77-hx9rl","time":"2026-07-29T02:46:58+02:00"}
+{"level":"info","msg":"Start syncing","time":"2026-07-29T02:46:58+02:00"}
+{"level":"info","msg":"Sync started on: ./ \u003c-\u003e /opt/app/data","time":"2026-07-29T02:46:58+02:00"}
+{"level":"info","msg":"Waiting for initial sync to complete","time":"2026-07-29T02:46:58+02:00"}
+{"level":"error","msg":"Sync Error on /Users/vitaliivalkov/agyn/runners: Downstream Sync - connection lost to pod platform/runners-75d8894c77-hx9rl: exec /tmp/devspacehelper: exec format error\n command terminated with exit code 255","time":"2026-07-29T02:46:58+02:00"}
+{"level":"info","msg":"Initial sync completed","time":"2026-07-29T02:46:58+02:00"}
+{"level":"error","msg":"Error restarting sync: initial sync: Downstream Sync - connection lost to pod platform/runners-75d8894c77-hx9rl: exec /tmp/devspacehelper: exec format error\n command terminated with exit code 255","time":"2026-07-29T02:46:58+02:00"}
+{"level":"error","msg":"Will try again in 15 seconds","time":"2026-07-29T02:46:58+02:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2026-07-29T02:47:13+02:00"}
+{"level":"info","msg":"Successfully injected devspacehelper into pod platform/runners-75d8894c77-hx9rl","time":"2026-07-29T02:47:15+02:00"}
+{"level":"info","msg":"Start syncing","time":"2026-07-29T02:47:16+02:00"}
+{"level":"info","msg":"Sync started on: ./ \u003c-\u003e /opt/app/data","time":"2026-07-29T02:47:16+02:00"}
+{"level":"info","msg":"Waiting for initial sync to complete","time":"2026-07-29T02:47:16+02:00"}
+{"level":"info","msg":"Downstream - Initial sync completed","time":"2026-07-29T02:47:16+02:00"}
+{"level":"info","msg":"Upstream - Initial sync completed","time":"2026-07-29T02:47:16+02:00"}
+{"level":"info","msg":"Initial sync completed","time":"2026-07-29T02:47:16+02:00"}
+{"level":"error","msg":"Sync Error on /Users/vitaliivalkov/agyn/runners: Upstream Sync - connection lost to pod platform/runners-75d8894c77-hx9rl:  command terminated with exit code 137","time":"2026-07-29T03:58:57+02:00"}
+{"level":"error","msg":"Restarting because: Upstream Sync - connection lost to pod platform/runners-75d8894c77-hx9rl:  command terminated with exit code 137","time":"2026-07-29T03:58:57+02:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2026-07-29T03:58:57+02:00"}
+{"level":"error","msg":"Error restarting sync: start sync: inject devspace helper: exec: unable to upgrade connection: container not found (\"runners\")","time":"2026-07-29T03:58:58+02:00"}
+{"level":"error","msg":"Will try again in 15 seconds","time":"2026-07-29T03:58:58+02:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2026-07-29T03:59:13+02:00"}
+{"level":"info","msg":"Successfully injected devspacehelper into pod platform/runners-75d8894c77-hx9rl","time":"2026-07-29T03:59:15+02:00"}
+{"level":"info","msg":"Start syncing","time":"2026-07-29T03:59:15+02:00"}
+{"level":"info","msg":"Sync started on: ./ \u003c-\u003e /opt/app/data","time":"2026-07-29T03:59:15+02:00"}
+{"level":"info","msg":"Waiting for initial sync to complete","time":"2026-07-29T03:59:15+02:00"}
+{"level":"info","msg":"Downstream - Initial sync completed","time":"2026-07-29T03:59:15+02:00"}
+{"level":"info","msg":"Upstream - Initial sync completed","time":"2026-07-29T03:59:16+02:00"}
+{"level":"info","msg":"Initial sync completed","time":"2026-07-29T03:59:16+02:00"}
+{"level":"error","msg":"Sync Error on /Users/vitaliivalkov/agyn/runners: Upstream Sync - connection lost to pod platform/runners-75d8894c77-hx9rl:  command terminated with exit code 137","time":"2026-07-29T05:07:15+02:00"}
+{"level":"error","msg":"Restarting because: Upstream Sync - connection lost to pod platform/runners-75d8894c77-hx9rl:  command terminated with exit code 137","time":"2026-07-29T05:07:15+02:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2026-07-29T05:07:16+02:00"}
+{"level":"error","msg":"Error restarting sync: start sync: inject devspace helper: exec: unable to upgrade connection: container not found (\"runners\")","time":"2026-07-29T05:07:16+02:00"}
+{"level":"error","msg":"Will try again in 15 seconds","time":"2026-07-29T05:07:16+02:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2026-07-29T05:07:32+02:00"}
+{"level":"info","msg":"Successfully injected devspacehelper into pod platform/runners-75d8894c77-hx9rl","time":"2026-07-29T05:07:34+02:00"}
+{"level":"info","msg":"Start syncing","time":"2026-07-29T05:07:34+02:00"}
+{"level":"info","msg":"Sync started on: ./ \u003c-\u003e /opt/app/data","time":"2026-07-29T05:07:34+02:00"}
+{"level":"info","msg":"Waiting for initial sync to complete","time":"2026-07-29T05:07:34+02:00"}
+{"level":"info","msg":"Downstream - Initial sync completed","time":"2026-07-29T05:07:34+02:00"}
+{"level":"info","msg":"Upstream - Initial sync completed","time":"2026-07-29T05:07:34+02:00"}
+{"level":"info","msg":"Initial sync completed","time":"2026-07-29T05:07:34+02:00"}
+{"level":"error","msg":"Sync Error on /Users/vitaliivalkov/agyn/runners: Downstream Sync - connection lost to pod platform/runners-75d8894c77-hx9rl: Use inotify as watching method in container\n command terminated with exit code 137","time":"2026-07-29T06:10:46+02:00"}
+{"level":"error","msg":"Restarting because: Downstream Sync - connection lost to pod platform/runners-75d8894c77-hx9rl: Use inotify as watching method in container\n command terminated with exit code 137","time":"2026-07-29T06:10:46+02:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2026-07-29T06:10:48+02:00"}
+{"level":"info","msg":"Successfully injected devspacehelper into pod platform/runners-75d8894c77-hx9rl","time":"2026-07-29T06:10:50+02:00"}
+{"level":"info","msg":"Start syncing","time":"2026-07-29T06:10:50+02:00"}
+{"level":"info","msg":"Sync started on: ./ \u003c-\u003e /opt/app/data","time":"2026-07-29T06:10:50+02:00"}
+{"level":"info","msg":"Waiting for initial sync to complete","time":"2026-07-29T06:10:50+02:00"}
+{"level":"info","msg":"Downstream - Initial sync completed","time":"2026-07-29T06:10:50+02:00"}
+{"level":"info","msg":"Upstream - Initial sync completed","time":"2026-07-29T06:10:50+02:00"}
+{"level":"info","msg":"Initial sync completed","time":"2026-07-29T06:10:50+02:00"}
+{"level":"error","msg":"Sync Error on /Users/vitaliivalkov/agyn/runners: Upstream Sync - connection lost to pod platform/runners-75d8894c77-hx9rl:  command terminated with exit code 137","time":"2026-07-29T06:42:42+02:00"}
+{"level":"error","msg":"Restarting because: Upstream Sync - connection lost to pod platform/runners-75d8894c77-hx9rl:  command terminated with exit code 137","time":"2026-07-29T06:42:42+02:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2026-07-29T06:42:44+02:00"}
+{"level":"info","msg":"Successfully injected devspacehelper into pod platform/runners-75d8894c77-hx9rl","time":"2026-07-29T06:42:46+02:00"}
+{"level":"info","msg":"Start syncing","time":"2026-07-29T06:42:46+02:00"}
+{"level":"info","msg":"Sync started on: ./ \u003c-\u003e /opt/app/data","time":"2026-07-29T06:42:46+02:00"}
+{"level":"info","msg":"Waiting for initial sync to complete","time":"2026-07-29T06:42:46+02:00"}
+{"level":"info","msg":"Downstream - Initial sync completed","time":"2026-07-29T06:42:46+02:00"}
+{"level":"info","msg":"Upstream - Initial sync completed","time":"2026-07-29T06:42:46+02:00"}
+{"level":"info","msg":"Initial sync completed","time":"2026-07-29T06:42:46+02:00"}
+{"level":"error","msg":"Sync Error on /Users/vitaliivalkov/agyn/runners: Upstream Sync - connection lost to pod platform/runners-75d8894c77-hx9rl:  command terminated with exit code 137","time":"2026-07-29T07:18:45+02:00"}
+{"level":"error","msg":"Restarting because: Upstream Sync - connection lost to pod platform/runners-75d8894c77-hx9rl:  command terminated with exit code 137","time":"2026-07-29T07:18:45+02:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2026-07-29T07:18:46+02:00"}
+{"level":"info","msg":"Successfully injected devspacehelper into pod platform/runners-75d8894c77-hx9rl","time":"2026-07-29T07:18:48+02:00"}
+{"level":"info","msg":"Start syncing","time":"2026-07-29T07:18:48+02:00"}
+{"level":"info","msg":"Sync started on: ./ \u003c-\u003e /opt/app/data","time":"2026-07-29T07:18:48+02:00"}
+{"level":"info","msg":"Waiting for initial sync to complete","time":"2026-07-29T07:18:48+02:00"}
+{"level":"error","msg":"Sync Error on /Users/vitaliivalkov/agyn/runners: Upstream Sync - connection lost to pod platform/runners-75d8894c77-hx9rl: exec /tmp/devspacehelper: exec format error\n command terminated with exit code 255","time":"2026-07-29T07:18:48+02:00"}
+{"level":"info","msg":"Initial sync completed","time":"2026-07-29T07:18:48+02:00"}
+{"level":"error","msg":"Error restarting sync: initial sync: Upstream Sync - connection lost to pod platform/runners-75d8894c77-hx9rl: exec /tmp/devspacehelper: exec format error\n command terminated with exit code 255","time":"2026-07-29T07:18:48+02:00"}
+{"level":"error","msg":"Will try again in 15 seconds","time":"2026-07-29T07:18:48+02:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2026-07-29T07:19:04+02:00"}
+{"level":"info","msg":"Successfully injected devspacehelper into pod platform/runners-75d8894c77-hx9rl","time":"2026-07-29T07:19:06+02:00"}
+{"level":"info","msg":"Start syncing","time":"2026-07-29T07:19:06+02:00"}
+{"level":"info","msg":"Sync started on: ./ \u003c-\u003e /opt/app/data","time":"2026-07-29T07:19:06+02:00"}
+{"level":"info","msg":"Waiting for initial sync to complete","time":"2026-07-29T07:19:06+02:00"}
+{"level":"info","msg":"Downstream - Initial sync completed","time":"2026-07-29T07:19:06+02:00"}
+{"level":"info","msg":"Upstream - Initial sync completed","time":"2026-07-29T07:19:06+02:00"}
+{"level":"info","msg":"Initial sync completed","time":"2026-07-29T07:19:06+02:00"}
+{"level":"error","msg":"Sync Error on /Users/vitaliivalkov/agyn/runners: Upstream Sync - connection lost to pod platform/runners-75d8894c77-hx9rl:  command terminated with exit code 137","time":"2026-07-29T08:06:32+02:00"}
+{"level":"error","msg":"Restarting because: Upstream Sync - connection lost to pod platform/runners-75d8894c77-hx9rl:  command terminated with exit code 137","time":"2026-07-29T08:06:32+02:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2026-07-29T08:06:33+02:00"}
+{"level":"info","msg":"Successfully injected devspacehelper into pod platform/runners-75d8894c77-hx9rl","time":"2026-07-29T08:06:35+02:00"}
+{"level":"info","msg":"Start syncing","time":"2026-07-29T08:06:35+02:00"}
+{"level":"info","msg":"Sync started on: ./ \u003c-\u003e /opt/app/data","time":"2026-07-29T08:06:35+02:00"}
+{"level":"info","msg":"Waiting for initial sync to complete","time":"2026-07-29T08:06:35+02:00"}
+{"level":"info","msg":"Downstream - Initial sync completed","time":"2026-07-29T08:06:35+02:00"}
+{"level":"info","msg":"Upstream - Initial sync completed","time":"2026-07-29T08:06:36+02:00"}
+{"level":"info","msg":"Initial sync completed","time":"2026-07-29T08:06:36+02:00"}
+{"level":"error","msg":"Sync Error on /Users/vitaliivalkov/agyn/runners: Upstream Sync - connection lost to pod platform/runners-75d8894c77-hx9rl:  command terminated with exit code 137","time":"2026-07-29T08:26:39+02:00"}
+{"level":"error","msg":"Restarting because: Upstream Sync - connection lost to pod platform/runners-75d8894c77-hx9rl:  command terminated with exit code 137","time":"2026-07-29T08:26:39+02:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2026-07-29T08:26:39+02:00"}
+{"level":"error","msg":"Error restarting sync: start sync: inject devspace helper: exec: unable to upgrade connection: container not found (\"runners\")","time":"2026-07-29T08:26:39+02:00"}
+{"level":"error","msg":"Will try again in 15 seconds","time":"2026-07-29T08:26:39+02:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2026-07-29T08:26:55+02:00"}
+{"level":"info","msg":"Successfully injected devspacehelper into pod platform/runners-75d8894c77-hx9rl","time":"2026-07-29T08:26:57+02:00"}
+{"level":"info","msg":"Start syncing","time":"2026-07-29T08:26:57+02:00"}
+{"level":"info","msg":"Sync started on: ./ \u003c-\u003e /opt/app/data","time":"2026-07-29T08:26:57+02:00"}
+{"level":"info","msg":"Waiting for initial sync to complete","time":"2026-07-29T08:26:57+02:00"}
+{"level":"info","msg":"Downstream - Initial sync completed","time":"2026-07-29T08:26:57+02:00"}
+{"level":"info","msg":"Upstream - Initial sync completed","time":"2026-07-29T08:26:57+02:00"}
+{"level":"info","msg":"Initial sync completed","time":"2026-07-29T08:26:57+02:00"}
+{"level":"error","msg":"Sync Error on /Users/vitaliivalkov/agyn/runners: Upstream Sync - connection lost to pod platform/runners-75d8894c77-hx9rl:  command terminated with exit code 137","time":"2026-07-29T09:31:06+02:00"}
+{"level":"error","msg":"Restarting because: Upstream Sync - connection lost to pod platform/runners-75d8894c77-hx9rl:  command terminated with exit code 137","time":"2026-07-29T09:31:06+02:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2026-07-29T09:31:07+02:00"}
+{"level":"info","msg":"Successfully injected devspacehelper into pod platform/runners-75d8894c77-hx9rl","time":"2026-07-29T09:31:09+02:00"}
+{"level":"info","msg":"Start syncing","time":"2026-07-29T09:31:09+02:00"}
+{"level":"info","msg":"Sync started on: ./ \u003c-\u003e /opt/app/data","time":"2026-07-29T09:31:09+02:00"}
+{"level":"info","msg":"Waiting for initial sync to complete","time":"2026-07-29T09:31:09+02:00"}
+{"level":"error","msg":"Sync Error on /Users/vitaliivalkov/agyn/runners: Upstream Sync - connection lost to pod platform/runners-75d8894c77-hx9rl: exec /tmp/devspacehelper: exec format error\n command terminated with exit code 255","time":"2026-07-29T09:31:09+02:00"}
+{"level":"info","msg":"Initial sync completed","time":"2026-07-29T09:31:09+02:00"}
+{"level":"error","msg":"Error restarting sync: initial sync: Upstream Sync - connection lost to pod platform/runners-75d8894c77-hx9rl: exec /tmp/devspacehelper: exec format error\n command terminated with exit code 255","time":"2026-07-29T09:31:09+02:00"}
+{"level":"error","msg":"Will try again in 15 seconds","time":"2026-07-29T09:31:09+02:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2026-07-29T09:31:25+02:00"}
+{"level":"info","msg":"Successfully injected devspacehelper into pod platform/runners-75d8894c77-hx9rl","time":"2026-07-29T09:31:26+02:00"}
+{"level":"info","msg":"Start syncing","time":"2026-07-29T09:31:26+02:00"}
+{"level":"info","msg":"Sync started on: ./ \u003c-\u003e /opt/app/data","time":"2026-07-29T09:31:26+02:00"}
+{"level":"info","msg":"Waiting for initial sync to complete","time":"2026-07-29T09:31:26+02:00"}
+{"level":"info","msg":"Downstream - Initial sync completed","time":"2026-07-29T09:31:27+02:00"}
+{"level":"info","msg":"Upstream - Initial sync completed","time":"2026-07-29T09:31:27+02:00"}
+{"level":"info","msg":"Initial sync completed","time":"2026-07-29T09:31:27+02:00"}
+{"level":"error","msg":"Sync Error on /Users/vitaliivalkov/agyn/runners: Upstream Sync - connection lost to pod platform/runners-75d8894c77-hx9rl:  command terminated with exit code 137","time":"2026-07-29T09:58:09+02:00"}
+{"level":"error","msg":"Restarting because: Upstream Sync - connection lost to pod platform/runners-75d8894c77-hx9rl:  command terminated with exit code 137","time":"2026-07-29T09:58:09+02:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2026-07-29T10:10:10+02:00"}
+{"level":"info","msg":"Successfully injected devspacehelper into pod platform/runners-75d8894c77-hx9rl","time":"2026-07-29T10:10:12+02:00"}
+{"level":"info","msg":"Start syncing","time":"2026-07-29T10:10:12+02:00"}
+{"level":"info","msg":"Sync started on: ./ \u003c-\u003e /opt/app/data","time":"2026-07-29T10:10:12+02:00"}
+{"level":"info","msg":"Waiting for initial sync to complete","time":"2026-07-29T10:10:12+02:00"}
+{"level":"error","msg":"Sync Error on /Users/vitaliivalkov/agyn/runners: Upstream Sync - connection lost to pod platform/runners-75d8894c77-hx9rl: exec /tmp/devspacehelper: exec format error\n command terminated with exit code 255","time":"2026-07-29T10:10:12+02:00"}
+{"level":"info","msg":"Initial sync completed","time":"2026-07-29T10:10:12+02:00"}
+{"level":"error","msg":"Error restarting sync: initial sync: Upstream Sync - connection lost to pod platform/runners-75d8894c77-hx9rl: exec /tmp/devspacehelper: exec format error\n command terminated with exit code 255","time":"2026-07-29T10:10:12+02:00"}
+{"level":"error","msg":"Will try again in 15 seconds","time":"2026-07-29T10:10:12+02:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2026-07-29T10:10:28+02:00"}
+{"level":"info","msg":"Successfully injected devspacehelper into pod platform/runners-75d8894c77-hx9rl","time":"2026-07-29T10:10:30+02:00"}
+{"level":"info","msg":"Start syncing","time":"2026-07-29T10:10:30+02:00"}
+{"level":"info","msg":"Sync started on: ./ \u003c-\u003e /opt/app/data","time":"2026-07-29T10:10:30+02:00"}
+{"level":"info","msg":"Waiting for initial sync to complete","time":"2026-07-29T10:10:30+02:00"}
+{"level":"info","msg":"Downstream - Initial sync completed","time":"2026-07-29T10:10:30+02:00"}
+{"level":"info","msg":"Upstream - Initial sync completed","time":"2026-07-29T10:10:30+02:00"}
+{"level":"info","msg":"Initial sync completed","time":"2026-07-29T10:10:30+02:00"}
+{"level":"error","msg":"Sync Error on /Users/vitaliivalkov/agyn/runners: Upstream Sync - connection lost to pod platform/runners-75d8894c77-hx9rl:  command terminated with exit code 137","time":"2026-07-29T10:32:14+02:00"}
+{"level":"error","msg":"Restarting because: Upstream Sync - connection lost to pod platform/runners-75d8894c77-hx9rl:  command terminated with exit code 137","time":"2026-07-29T10:32:14+02:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2026-07-29T10:32:14+02:00"}
+{"level":"info","msg":"Successfully injected devspacehelper into pod platform/runners-75d8894c77-hx9rl","time":"2026-07-29T10:32:17+02:00"}
+{"level":"info","msg":"Start syncing","time":"2026-07-29T10:32:17+02:00"}
+{"level":"info","msg":"Sync started on: ./ \u003c-\u003e /opt/app/data","time":"2026-07-29T10:32:17+02:00"}
+{"level":"info","msg":"Waiting for initial sync to complete","time":"2026-07-29T10:32:17+02:00"}
+{"level":"error","msg":"Sync Error on /Users/vitaliivalkov/agyn/runners: Upstream Sync - connection lost to pod platform/runners-75d8894c77-hx9rl: exec /tmp/devspacehelper: exec format error\n command terminated with exit code 255","time":"2026-07-29T10:32:17+02:00"}
+{"level":"info","msg":"Initial sync completed","time":"2026-07-29T10:32:17+02:00"}
+{"level":"error","msg":"Error restarting sync: initial sync: Upstream Sync - connection lost to pod platform/runners-75d8894c77-hx9rl: exec /tmp/devspacehelper: exec format error\n command terminated with exit code 255","time":"2026-07-29T10:32:17+02:00"}
+{"level":"error","msg":"Will try again in 15 seconds","time":"2026-07-29T10:32:17+02:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2026-07-29T10:47:54+02:00"}
+{"level":"info","msg":"Successfully injected devspacehelper into pod platform/runners-75d8894c77-hx9rl","time":"2026-07-29T10:47:56+02:00"}
+{"level":"info","msg":"Start syncing","time":"2026-07-29T10:47:56+02:00"}
+{"level":"info","msg":"Sync started on: ./ \u003c-\u003e /opt/app/data","time":"2026-07-29T10:47:56+02:00"}
+{"level":"info","msg":"Waiting for initial sync to complete","time":"2026-07-29T10:47:56+02:00"}
+{"level":"info","msg":"Downstream - Initial sync completed","time":"2026-07-29T10:47:56+02:00"}
+{"level":"info","msg":"Upstream - Initial sync completed","time":"2026-07-29T10:47:57+02:00"}
+{"level":"info","msg":"Initial sync completed","time":"2026-07-29T10:47:57+02:00"}
+{"level":"error","msg":"Sync Error on /Users/vitaliivalkov/agyn/runners: Downstream Sync - connection lost to pod platform/runners-75d8894c77-hx9rl: Use inotify as watching method in container\n command terminated with exit code 137","time":"2026-07-29T11:18:15+02:00"}
+{"level":"error","msg":"Restarting because: Downstream Sync - connection lost to pod platform/runners-75d8894c77-hx9rl: Use inotify as watching method in container\n command terminated with exit code 137","time":"2026-07-29T11:18:15+02:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2026-07-29T11:18:17+02:00"}
+{"level":"info","msg":"Successfully injected devspacehelper into pod platform/runners-75d8894c77-hx9rl","time":"2026-07-29T11:18:19+02:00"}
+{"level":"info","msg":"Start syncing","time":"2026-07-29T11:18:19+02:00"}
+{"level":"info","msg":"Sync started on: ./ \u003c-\u003e /opt/app/data","time":"2026-07-29T11:18:19+02:00"}
+{"level":"info","msg":"Waiting for initial sync to complete","time":"2026-07-29T11:18:19+02:00"}
+{"level":"info","msg":"Downstream - Initial sync completed","time":"2026-07-29T11:18:19+02:00"}
+{"level":"info","msg":"Upstream - Initial sync completed","time":"2026-07-29T11:18:20+02:00"}
+{"level":"info","msg":"Initial sync completed","time":"2026-07-29T11:18:20+02:00"}
+{"level":"error","msg":"Sync Error on /Users/vitaliivalkov/agyn/runners: Upstream Sync - connection lost to pod platform/runners-75d8894c77-hx9rl:  command terminated with exit code 137","time":"2026-07-29T11:53:33+02:00"}
+{"level":"error","msg":"Restarting because: Upstream Sync - connection lost to pod platform/runners-75d8894c77-hx9rl:  command terminated with exit code 137","time":"2026-07-29T11:53:33+02:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2026-07-29T11:53:33+02:00"}
+{"level":"info","msg":"Successfully injected devspacehelper into pod platform/runners-75d8894c77-hx9rl","time":"2026-07-29T11:53:35+02:00"}
+{"level":"info","msg":"Start syncing","time":"2026-07-29T11:53:35+02:00"}
+{"level":"info","msg":"Sync started on: ./ \u003c-\u003e /opt/app/data","time":"2026-07-29T11:53:35+02:00"}
+{"level":"info","msg":"Waiting for initial sync to complete","time":"2026-07-29T11:53:35+02:00"}
+{"level":"error","msg":"Sync Error on /Users/vitaliivalkov/agyn/runners: Downstream Sync - connection lost to pod platform/runners-75d8894c77-hx9rl: exec /tmp/devspacehelper: exec format error\n command terminated with exit code 255","time":"2026-07-29T11:53:35+02:00"}
+{"level":"info","msg":"Initial sync completed","time":"2026-07-29T11:53:35+02:00"}
+{"level":"error","msg":"Error restarting sync: initial sync: Downstream Sync - connection lost to pod platform/runners-75d8894c77-hx9rl: exec /tmp/devspacehelper: exec format error\n command terminated with exit code 255","time":"2026-07-29T11:53:35+02:00"}
+{"level":"error","msg":"Will try again in 15 seconds","time":"2026-07-29T11:53:35+02:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2026-07-29T11:53:51+02:00"}
+{"level":"info","msg":"Successfully injected devspacehelper into pod platform/runners-75d8894c77-hx9rl","time":"2026-07-29T11:53:53+02:00"}
+{"level":"info","msg":"Start syncing","time":"2026-07-29T11:53:53+02:00"}
+{"level":"info","msg":"Sync started on: ./ \u003c-\u003e /opt/app/data","time":"2026-07-29T11:53:53+02:00"}
+{"level":"info","msg":"Waiting for initial sync to complete","time":"2026-07-29T11:53:53+02:00"}
+{"level":"info","msg":"Downstream - Initial sync completed","time":"2026-07-29T11:53:53+02:00"}
+{"level":"info","msg":"Upstream - Initial sync completed","time":"2026-07-29T11:53:54+02:00"}
+{"level":"info","msg":"Initial sync completed","time":"2026-07-29T11:53:54+02:00"}
+{"level":"error","msg":"Sync Error on /Users/vitaliivalkov/agyn/runners: Upstream Sync - connection lost to pod platform/runners-75d8894c77-hx9rl:  command terminated with exit code 137","time":"2026-07-29T12:08:28+02:00"}
+{"level":"error","msg":"Restarting because: Upstream Sync - connection lost to pod platform/runners-75d8894c77-hx9rl:  command terminated with exit code 137","time":"2026-07-29T12:08:28+02:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2026-07-29T12:08:30+02:00"}
+{"level":"info","msg":"Successfully injected devspacehelper into pod platform/runners-75d8894c77-hx9rl","time":"2026-07-29T12:08:32+02:00"}
+{"level":"info","msg":"Start syncing","time":"2026-07-29T12:08:32+02:00"}
+{"level":"info","msg":"Sync started on: ./ \u003c-\u003e /opt/app/data","time":"2026-07-29T12:08:32+02:00"}
+{"level":"info","msg":"Waiting for initial sync to complete","time":"2026-07-29T12:08:32+02:00"}
+{"level":"info","msg":"Downstream - Initial sync completed","time":"2026-07-29T12:08:32+02:00"}
+{"level":"info","msg":"Upstream - Initial sync completed","time":"2026-07-29T12:08:33+02:00"}
+{"level":"info","msg":"Initial sync completed","time":"2026-07-29T12:08:33+02:00"}
+{"level":"error","msg":"Sync Error on /Users/vitaliivalkov/agyn/runners: Upstream Sync - connection lost to pod platform/runners-75d8894c77-hx9rl:  command terminated with exit code 137","time":"2026-07-29T12:27:06+02:00"}
+{"level":"error","msg":"Restarting because: Upstream Sync - connection lost to pod platform/runners-75d8894c77-hx9rl:  command terminated with exit code 137","time":"2026-07-29T12:27:06+02:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2026-07-29T12:27:07+02:00"}
+{"level":"error","msg":"Error restarting sync: start sync: inject devspace helper: exec: unable to upgrade connection: container not found (\"runners\")","time":"2026-07-29T12:27:08+02:00"}
+{"level":"error","msg":"Will try again in 15 seconds","time":"2026-07-29T12:27:08+02:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2026-07-29T12:31:26+02:00"}
+{"level":"info","msg":"Successfully injected devspacehelper into pod platform/runners-75d8894c77-hx9rl","time":"2026-07-29T12:31:28+02:00"}
+{"level":"info","msg":"Start syncing","time":"2026-07-29T12:31:28+02:00"}
+{"level":"info","msg":"Sync started on: ./ \u003c-\u003e /opt/app/data","time":"2026-07-29T12:31:28+02:00"}
+{"level":"info","msg":"Waiting for initial sync to complete","time":"2026-07-29T12:31:28+02:00"}
+{"level":"info","msg":"Downstream - Initial sync completed","time":"2026-07-29T12:31:28+02:00"}
+{"level":"info","msg":"Upstream - Initial sync completed","time":"2026-07-29T12:31:29+02:00"}
+{"level":"info","msg":"Initial sync completed","time":"2026-07-29T12:31:29+02:00"}
+{"level":"error","msg":"Sync Error on /Users/vitaliivalkov/agyn/runners: Upstream Sync - connection lost to pod platform/runners-75d8894c77-hx9rl:  command terminated with exit code 137","time":"2026-07-29T12:50:15+02:00"}
+{"level":"error","msg":"Restarting because: Upstream Sync - connection lost to pod platform/runners-75d8894c77-hx9rl:  command terminated with exit code 137","time":"2026-07-29T12:50:15+02:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2026-07-29T12:50:16+02:00"}
+{"level":"info","msg":"Successfully injected devspacehelper into pod platform/runners-75d8894c77-hx9rl","time":"2026-07-29T12:50:18+02:00"}
+{"level":"info","msg":"Start syncing","time":"2026-07-29T12:50:18+02:00"}
+{"level":"info","msg":"Sync started on: ./ \u003c-\u003e /opt/app/data","time":"2026-07-29T12:50:18+02:00"}
+{"level":"info","msg":"Waiting for initial sync to complete","time":"2026-07-29T12:50:18+02:00"}
+{"level":"error","msg":"Sync Error on /Users/vitaliivalkov/agyn/runners: Upstream Sync - connection lost to pod platform/runners-75d8894c77-hx9rl: exec /tmp/devspacehelper: exec format error\n command terminated with exit code 255","time":"2026-07-29T12:50:18+02:00"}
+{"level":"info","msg":"Initial sync completed","time":"2026-07-29T12:50:18+02:00"}
+{"level":"error","msg":"Error restarting sync: initial sync: Upstream Sync - connection lost to pod platform/runners-75d8894c77-hx9rl: exec /tmp/devspacehelper: exec format error\n command terminated with exit code 255","time":"2026-07-29T12:50:18+02:00"}
+{"level":"error","msg":"Will try again in 15 seconds","time":"2026-07-29T12:50:18+02:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2026-07-29T12:50:33+02:00"}
+{"level":"info","msg":"Successfully injected devspacehelper into pod platform/runners-75d8894c77-hx9rl","time":"2026-07-29T12:50:35+02:00"}
+{"level":"info","msg":"Start syncing","time":"2026-07-29T12:50:35+02:00"}
+{"level":"info","msg":"Sync started on: ./ \u003c-\u003e /opt/app/data","time":"2026-07-29T12:50:35+02:00"}
+{"level":"info","msg":"Waiting for initial sync to complete","time":"2026-07-29T12:50:35+02:00"}
+{"level":"info","msg":"Downstream - Initial sync completed","time":"2026-07-29T12:50:35+02:00"}
+{"level":"info","msg":"Upstream - Initial sync completed","time":"2026-07-29T12:50:36+02:00"}
+{"level":"info","msg":"Initial sync completed","time":"2026-07-29T12:50:36+02:00"}
+{"level":"info","msg":"Start syncing","time":"2026-07-29T17:18:20+02:00"}
+{"level":"info","msg":"Downstream - Initial sync completed","time":"2026-07-29T17:18:20+02:00"}
+{"level":"info","msg":"Upstream - Initial sync completed","time":"2026-07-29T17:18:20+02:00"}
+{"level":"info","msg":"Start syncing","time":"2026-07-29T18:13:13+02:00"}
+{"level":"info","msg":"Downstream - Initial sync completed","time":"2026-07-29T18:13:14+02:00"}
+{"level":"info","msg":"Upstream - Initial sync completed","time":"2026-07-29T18:13:14+02:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2026-07-29T18:42:45+02:00"}
+{"level":"info","msg":"Successfully injected devspacehelper into pod platform/runners-6bf6c4f4f7-gpf4v","time":"2026-07-29T18:42:47+02:00"}
+{"level":"info","msg":"Start syncing","time":"2026-07-29T18:42:47+02:00"}
+{"level":"info","msg":"Downstream - Initial sync completed","time":"2026-07-29T18:42:47+02:00"}
+{"level":"info","msg":"Upstream - Upload 63 create change(s) (Uncompressed ~591.75 KB)","time":"2026-07-29T18:42:48+02:00"}
+{"level":"info","msg":"Upstream - Successfully processed 63 change(s)","time":"2026-07-29T18:42:48+02:00"}
+{"level":"info","msg":"Upstream - Initial sync completed","time":"2026-07-29T18:42:50+02:00"}
+{"level":"info","msg":"Upstream - Handling 3 removes","time":"2026-07-30T02:20:33+02:00"}
+{"level":"info","msg":"Upstream - Remove 'internal/server/catalog.go'","time":"2026-07-30T02:20:33+02:00"}
+{"level":"info","msg":"Upstream - Remove 'internal/server/catalog.go'","time":"2026-07-30T02:20:33+02:00"}
+{"level":"info","msg":"Upstream - Remove 'migrations/0012_runner_catalog.sql'","time":"2026-07-30T02:20:33+02:00"}
+{"level":"info","msg":"Upstream - Remove 'migrations/0012_runner_catalog.sql'","time":"2026-07-30T02:20:33+02:00"}
+{"level":"info","msg":"Upstream - Remove 'internal/server/catalog_test.go'","time":"2026-07-30T02:20:33+02:00"}
+{"level":"info","msg":"Upstream - Remove 'internal/server/catalog_test.go'","time":"2026-07-30T02:20:33+02:00"}
+{"level":"info","msg":"Upstream - Upload 13 create change(s) (Uncompressed ~340.19 KB)","time":"2026-07-30T02:20:33+02:00"}
+{"level":"info","msg":"Upstream - Successfully processed 16 change(s)","time":"2026-07-30T02:20:33+02:00"}
+{"level":"info","msg":"Upstream - Upload 16 create change(s) (Uncompressed ~378.43 KB)","time":"2026-07-30T02:20:36+02:00"}
+{"level":"info","msg":"Upstream - Successfully processed 16 change(s)","time":"2026-07-30T02:20:36+02:00"}
+{"level":"info","msg":"Upstream - Upload File 'migrations/0013_workload_flavor.sql'","time":"2026-07-30T15:41:38+02:00"}
+{"level":"info","msg":"Upstream - Upload File 'internal/server/workloads.go'","time":"2026-07-30T15:41:38+02:00"}
+{"level":"info","msg":"Upstream - Upload 2 create change(s) (Uncompressed ~62.96 KB)","time":"2026-07-30T15:41:38+02:00"}
+{"level":"info","msg":"Upstream - Successfully processed 2 change(s)","time":"2026-07-30T15:41:38+02:00"}
+{"level":"info","msg":"Upstream - Upload File 'internal/server/workloads.go'","time":"2026-07-30T15:41:54+02:00"}
+{"level":"info","msg":"Upstream - Upload 1 create change(s) (Uncompressed ~62.90 KB)","time":"2026-07-30T15:41:54+02:00"}
+{"level":"info","msg":"Upstream - Successfully processed 1 change(s)","time":"2026-07-30T15:41:54+02:00"}
+{"level":"info","msg":"Upstream - Upload File 'internal/server/workloads.go'","time":"2026-07-30T15:42:07+02:00"}
+{"level":"info","msg":"Upstream - Upload 1 create change(s) (Uncompressed ~63.02 KB)","time":"2026-07-30T15:42:07+02:00"}
+{"level":"info","msg":"Upstream - Successfully processed 1 change(s)","time":"2026-07-30T15:42:07+02:00"}
+{"level":"info","msg":"Upstream - Upload File 'internal/server/workloads.go'","time":"2026-07-30T15:42:19+02:00"}
+{"level":"info","msg":"Upstream - Upload 1 create change(s) (Uncompressed ~63.06 KB)","time":"2026-07-30T15:42:19+02:00"}
+{"level":"info","msg":"Upstream - Successfully processed 1 change(s)","time":"2026-07-30T15:42:19+02:00"}
+{"level":"info","msg":"Upstream - Upload File 'internal/server/workloads_test.go'","time":"2026-07-30T15:43:32+02:00"}
+{"level":"info","msg":"Upstream - Upload 1 create change(s) (Uncompressed ~111.32 KB)","time":"2026-07-30T15:43:32+02:00"}
+{"level":"info","msg":"Upstream - Successfully processed 1 change(s)","time":"2026-07-30T15:43:32+02:00"}
+{"level":"info","msg":"Upstream - Upload File 'internal/server/workloads_test.go'","time":"2026-07-30T15:43:42+02:00"}
+{"level":"info","msg":"Upstream - Upload 1 create change(s) (Uncompressed ~111.33 KB)","time":"2026-07-30T15:43:42+02:00"}
+{"level":"info","msg":"Upstream - Successfully processed 1 change(s)","time":"2026-07-30T15:43:42+02:00"}
+{"level":"info","msg":"Upstream - Upload File 'internal/server/workloads_test.go'","time":"2026-07-30T15:44:15+02:00"}
+{"level":"info","msg":"Upstream - Upload 1 create change(s) (Uncompressed ~111.43 KB)","time":"2026-07-30T15:44:15+02:00"}
+{"level":"info","msg":"Upstream - Successfully processed 1 change(s)","time":"2026-07-30T15:44:15+02:00"}
+{"level":"info","msg":"Upstream - Upload File 'internal/server/workload_logs_test.go'","time":"2026-07-30T15:44:54+02:00"}
+{"level":"info","msg":"Upstream - Upload 1 create change(s) (Uncompressed ~10.98 KB)","time":"2026-07-30T15:44:54+02:00"}
+{"level":"info","msg":"Upstream - Successfully processed 1 change(s)","time":"2026-07-30T15:44:54+02:00"}
+{"level":"info","msg":"Upstream - Upload File 'internal/server/workload_logs_test.go'","time":"2026-07-30T15:45:15+02:00"}
+{"level":"info","msg":"Upstream - Upload 1 create change(s) (Uncompressed ~10.98 KB)","time":"2026-07-30T15:45:15+02:00"}
+{"level":"info","msg":"Upstream - Successfully processed 1 change(s)","time":"2026-07-30T15:45:15+02:00"}
+{"level":"info","msg":"Upstream - Upload File 'internal/server/workload_logs_test.go'","time":"2026-07-30T15:45:44+02:00"}
+{"level":"info","msg":"Upstream - Upload 1 create change(s) (Uncompressed ~10.99 KB)","time":"2026-07-30T15:45:44+02:00"}
+{"level":"info","msg":"Upstream - Successfully processed 1 change(s)","time":"2026-07-30T15:45:44+02:00"}
+{"level":"info","msg":"Upstream - Upload File 'internal/server/workloads_test.go'","time":"2026-07-30T15:46:12+02:00"}
+{"level":"info","msg":"Upstream - Upload 1 create change(s) (Uncompressed ~111.50 KB)","time":"2026-07-30T15:46:12+02:00"}
+{"level":"info","msg":"Upstream - Successfully processed 1 change(s)","time":"2026-07-30T15:46:12+02:00"}
+{"level":"info","msg":"Upstream - Upload File 'internal/server/workloads_test.go'","time":"2026-07-30T15:47:01+02:00"}
+{"level":"info","msg":"Upstream - Upload 1 create change(s) (Uncompressed ~111.53 KB)","time":"2026-07-30T15:47:01+02:00"}
+{"level":"info","msg":"Upstream - Successfully processed 1 change(s)","time":"2026-07-30T15:47:01+02:00"}
+{"level":"info","msg":"Upstream - Upload File 'internal/server/workloads_test.go'","time":"2026-07-30T15:47:38+02:00"}
+{"level":"info","msg":"Upstream - Upload 1 create change(s) (Uncompressed ~113.47 KB)","time":"2026-07-30T15:47:38+02:00"}
+{"level":"info","msg":"Upstream - Successfully processed 1 change(s)","time":"2026-07-30T15:47:38+02:00"}
+{"level":"info","msg":"Upstream - Upload File 'internal/server/workloads.go'","time":"2026-07-30T15:47:57+02:00"}
+{"level":"info","msg":"Upstream - Upload 1 create change(s) (Uncompressed ~63.03 KB)","time":"2026-07-30T15:47:57+02:00"}
+{"level":"info","msg":"Upstream - Successfully processed 1 change(s)","time":"2026-07-30T15:47:57+02:00"}
+{"level":"info","msg":"Upstream - Upload File 'internal/server/workloads.go'","time":"2026-07-30T15:48:00+02:00"}
+{"level":"info","msg":"Upstream - Upload 1 create change(s) (Uncompressed ~62.87 KB)","time":"2026-07-30T15:48:00+02:00"}
+{"level":"info","msg":"Upstream - Successfully processed 1 change(s)","time":"2026-07-30T15:48:00+02:00"}
+{"level":"info","msg":"Upstream - Upload File 'internal/server/workloads.go'","time":"2026-07-30T15:48:26+02:00"}
+{"level":"info","msg":"Upstream - Upload 1 create change(s) (Uncompressed ~63.06 KB)","time":"2026-07-30T15:48:26+02:00"}
+{"level":"info","msg":"Upstream - Successfully processed 1 change(s)","time":"2026-07-30T15:48:26+02:00"}
+{"level":"info","msg":"Upstream - Handling 1 removes","time":"2026-07-30T16:18:14+02:00"}
+{"level":"info","msg":"Upstream - Remove 'migrations/0013_workload_flavor.sql'","time":"2026-07-30T16:18:14+02:00"}
+{"level":"info","msg":"Upstream - Remove 'migrations/0013_workload_flavor.sql'","time":"2026-07-30T16:18:14+02:00"}
+{"level":"info","msg":"Upstream - Upload File 'internal/server/workload_logs_test.go'","time":"2026-07-30T16:18:14+02:00"}
+{"level":"info","msg":"Upstream - Upload File 'internal/server/workloads.go'","time":"2026-07-30T16:18:14+02:00"}
+{"level":"info","msg":"Upstream - Upload File 'internal/server/workloads_test.go'","time":"2026-07-30T16:18:14+02:00"}
+{"level":"info","msg":"Upstream - Upload 3 create change(s) (Uncompressed ~185.13 KB)","time":"2026-07-30T16:18:14+02:00"}
+{"level":"info","msg":"Upstream - Successfully processed 4 change(s)","time":"2026-07-30T16:18:14+02:00"}
+{"level":"info","msg":"Upstream - Upload 4 create change(s) (Uncompressed ~187.60 KB)","time":"2026-07-30T16:18:16+02:00"}
+{"level":"info","msg":"Upstream - Successfully processed 4 change(s)","time":"2026-07-30T16:18:16+02:00"}
+{"level":"info","msg":"Upstream - Upload File 'internal/zitimanager/manager.go'","time":"2026-07-30T16:18:21+02:00"}
+{"level":"info","msg":"Upstream - Upload File 'cmd/runners/main.go'","time":"2026-07-30T16:18:21+02:00"}
+{"level":"info","msg":"Upstream - Upload 2 create change(s) (Uncompressed ~12.82 KB)","time":"2026-07-30T16:18:21+02:00"}
+{"level":"info","msg":"Upstream - Successfully processed 2 change(s)","time":"2026-07-30T16:18:21+02:00"}
+{"level":"info","msg":"Upstream - Upload File 'internal/zitimanager/manager.go'","time":"2026-07-30T16:41:44+02:00"}
+{"level":"info","msg":"Upstream - Upload File 'cmd/runners/main.go'","time":"2026-07-30T16:41:44+02:00"}
+{"level":"info","msg":"Upstream - Upload 2 create change(s) (Uncompressed ~12.07 KB)","time":"2026-07-30T16:41:44+02:00"}
+{"level":"info","msg":"Upstream - Successfully processed 2 change(s)","time":"2026-07-30T16:41:44+02:00"}
+{"level":"info","msg":"Upstream - Upload File 'cmd/runners/main.go'","time":"2026-07-30T16:42:23+02:00"}
+{"level":"info","msg":"Upstream - Upload 1 create change(s) (Uncompressed ~4.59 KB)","time":"2026-07-30T16:42:23+02:00"}
+{"level":"info","msg":"Upstream - Successfully processed 1 change(s)","time":"2026-07-30T16:42:23+02:00"}
+{"level":"info","msg":"Upstream - Upload File 'cmd/runners/main.go'","time":"2026-07-30T16:58:00+02:00"}
+{"level":"info","msg":"Upstream - Upload File 'internal/zitimanager/manager.go'","time":"2026-07-30T16:58:00+02:00"}
+{"level":"info","msg":"Upstream - Upload 2 create change(s) (Uncompressed ~12.82 KB)","time":"2026-07-30T16:58:00+02:00"}
+{"level":"info","msg":"Upstream - Successfully processed 2 change(s)","time":"2026-07-30T16:58:00+02:00"}
+{"level":"info","msg":"Upstream - Upload File 'cmd/runners/main.go'","time":"2026-07-30T16:58:02+02:00"}
+{"level":"info","msg":"Upstream - Upload File 'internal/zitimanager/manager.go'","time":"2026-07-30T16:58:02+02:00"}
+{"level":"info","msg":"Upstream - Upload 2 create change(s) (Uncompressed ~12.24 KB)","time":"2026-07-30T16:58:02+02:00"}
+{"level":"info","msg":"Upstream - Successfully processed 2 change(s)","time":"2026-07-30T16:58:02+02:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2026-08-02T01:26:09+02:00"}
+{"level":"info","msg":"Successfully injected devspacehelper into pod platform/runners-75d8894c77-5cnnc","time":"2026-08-02T01:26:11+02:00"}
+{"level":"info","msg":"Start syncing","time":"2026-08-02T01:26:11+02:00"}
+{"level":"info","msg":"Downstream - Initial sync completed","time":"2026-08-02T01:26:11+02:00"}
+{"level":"info","msg":"Upstream - Upload 64 create change(s) (Uncompressed ~594.63 KB)","time":"2026-08-02T01:26:12+02:00"}
+{"level":"info","msg":"Upstream - Successfully processed 64 change(s)","time":"2026-08-02T01:26:12+02:00"}
+{"level":"info","msg":"Upstream - Initial sync completed","time":"2026-08-02T01:26:13+02:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2026-08-03T00:47:08+02:00"}
+{"level":"info","msg":"Successfully injected devspacehelper into pod platform/runners-75d8894c77-7pphg","time":"2026-08-03T00:47:09+02:00"}
+{"level":"info","msg":"Start syncing","time":"2026-08-03T00:47:09+02:00"}
+{"level":"info","msg":"Downstream - Initial sync completed","time":"2026-08-03T00:47:09+02:00"}
+{"level":"info","msg":"Upstream - Upload 64 create change(s) (Uncompressed ~612.25 KB)","time":"2026-08-03T00:47:10+02:00"}
+{"level":"info","msg":"Upstream - Successfully processed 64 change(s)","time":"2026-08-03T00:47:10+02:00"}
+{"level":"info","msg":"Upstream - Initial sync completed","time":"2026-08-03T00:47:11+02:00"}

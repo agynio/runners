@@ -1,0 +1,540 @@
+syntax = "proto3";
+
+package agynio.api.runner.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// RunnerService mirrors the current docker-runner HTTP+WS+SSE surface,
+// but replaces unary exec/run with a single streaming-only Exec RPC.
+service RunnerService {
+  // Health/readiness
+  rpc Ready(ReadyRequest) returns (ReadyResponse);
+
+  // Targets (containers today)
+  rpc StartWorkload(StartWorkloadRequest) returns (StartWorkloadResponse);
+  rpc StopWorkload(StopWorkloadRequest) returns (StopWorkloadResponse);
+  rpc RemoveWorkload(RemoveWorkloadRequest) returns (RemoveWorkloadResponse);
+
+  // Minimal inspect surface with EXACT fields required by platform today.
+  rpc InspectWorkload(InspectWorkloadRequest) returns (InspectWorkloadResponse);
+
+  rpc GetWorkloadLabels(GetWorkloadLabelsRequest) returns (GetWorkloadLabelsResponse);
+
+  rpc ListWorkloads(ListWorkloadsRequest) returns (ListWorkloadsResponse);
+
+  rpc FindWorkloadsByLabels(FindWorkloadsByLabelsRequest) returns (FindWorkloadsByLabelsResponse);
+  rpc ListWorkloadsByVolume(ListWorkloadsByVolumeRequest) returns (ListWorkloadsByVolumeResponse);
+
+  rpc ListVolumes(ListVolumesRequest) returns (ListVolumesResponse);
+
+  rpc RemoveVolume(RemoveVolumeRequest) returns (RemoveVolumeResponse);
+
+  rpc TouchWorkload(TouchWorkloadRequest) returns (TouchWorkloadResponse);
+
+  rpc PutArchive(PutArchiveRequest) returns (PutArchiveResponse);
+
+  // Streaming logs/events (SSE equivalents)
+  // StreamWorkloadLogs streams logs for a workload container addressed by container_name.
+  // Error/EOF contract (returned via gRPC status codes, not in-band):
+  // - NotFound for unknown workload or container
+  // - OK when logs are exhausted or the container terminates with the Pod still present
+  // - Unavailable when the Pod is deleted mid-stream
+  rpc StreamWorkloadLogs(StreamWorkloadLogsRequest) returns (stream StreamWorkloadLogsResponse);
+  rpc StreamEvents(StreamEventsRequest) returns (stream StreamEventsResponse);
+
+  // Exec (streaming-only; replaces /v1/exec/run and /v1/exec/interactive/ws)
+  rpc Exec(stream ExecRequest) returns (stream ExecResponse);
+
+  // Cancellation for a previously started execution_id.
+  rpc CancelExecution(CancelExecutionRequest) returns (CancelExecutionResponse);
+}
+
+// -------------------- Common --------------------
+
+message ReadyRequest {}
+
+message ReadyResponse {
+  string status = 1; // e.g. "ok"
+}
+
+message RunnerError {
+  string code = 1;
+  string message = 2;
+  map<string, string> details = 3;
+  bool retryable = 4;
+}
+
+// -------------------- Target lifecycle --------------------
+
+message EnvVar {
+  string name = 1;
+  string value = 2;
+}
+
+// Volume specifications for a workload.
+message VolumeSpec {
+  // Logical name referenced by mounts.
+  string name = 1;
+
+  VolumeKind kind = 2;
+
+  // For named (persistent) volumes, the backend-level identifier.
+  // Docker example: "ha_ws_<threadId>".
+  string persistent_name = 3;
+
+  // Labels applied to the persistent volume claim.
+  map<string, string> labels = 4;
+
+  map<string, string> additional_properties = 100;
+}
+
+enum VolumeKind {
+  VOLUME_KIND_UNSPECIFIED = 0;
+  VOLUME_KIND_EPHEMERAL = 1;
+  VOLUME_KIND_NAMED = 2;
+}
+
+message VolumeMount {
+  // References VolumeSpec.name.
+  string volume = 1;
+
+  string mount_path = 2;
+  bool read_only = 3;
+}
+
+// InlineFileMount references a file supplied through
+// StartWorkloadRequest.inline_files.
+message InlineFileMount {
+  string path = 1;
+}
+
+// ContainerSpec describes a single container within a workload.
+message ContainerSpec {
+  string image = 1;
+  string name = 2;
+  repeated string cmd = 3;
+  string entrypoint = 4;
+
+  repeated EnvVar env = 5;
+
+  string working_dir = 6;
+
+  // Volume mounts inside this container.
+  repeated VolumeMount mounts = 7;
+
+  // Required capabilities that the backend must satisfy for this container.
+  // Example values: "privileged", "dind".
+  repeated string required_capabilities = 8;
+
+  // Inline files mounted read-only into this container.
+  repeated InlineFileMount inline_file_mounts = 9;
+
+  // Backend-specific optional properties.
+  map<string, string> additional_properties = 100;
+}
+
+// DNS configuration for the workload pod.
+message DnsConfig {
+  // DNS nameservers (e.g., ["127.0.0.1", "10.96.0.10"]).
+  repeated string nameservers = 1;
+
+  // DNS search domains (e.g., ["svc.cluster.local", "cluster.local"]).
+  repeated string searches = 2;
+}
+
+message ImagePullCredential {
+  string registry = 1;
+  string username = 2;
+  string password = 3;
+}
+
+// A workload is a main container plus optional sidecars.
+// Runner MUST ensure sidecars share the same network namespace as the main container.
+message StartWorkloadRequest {
+  ContainerSpec main = 1;
+  repeated ContainerSpec sidecars = 2;
+
+  repeated VolumeSpec volumes = 3;
+  repeated ContainerSpec init_containers = 4;
+
+  // DNS configuration for the workload pod. When set, the runner
+  // overrides the default DNS policy with the provided nameservers
+  // and search domains.
+  DnsConfig dns_config = 5;
+
+  repeated ImagePullCredential image_pull_credentials = 6;
+
+  // Labels applied to the workload pod.
+  map<string, string> labels = 7;
+
+  // Optional workload id to use for the runner instance.
+  string workload_id = 8;
+
+  // Runner-level capabilities required by the workload. Free-form strings
+  // (e.g., "privileged", "dind").
+  repeated string capabilities = 9;
+
+  // Small files keyed by absolute container path and mounted read-only into
+  // containers that list the path in inline_file_mounts.
+  map<string, bytes> inline_files = 10;
+
+  map<string, string> additional_properties = 100;
+}
+
+message SidecarInstance {
+  string name = 1;
+  string id = 2;
+  string status = 3;
+}
+
+message StartWorkloadResponse {
+  // Workload/group identifier.
+  string id = 1;
+
+  WorkloadContainers containers = 2;
+
+  WorkloadStatus status = 3;
+
+  // Present when status is FAILED.
+  WorkloadFailure failure = 4;
+
+  reserved 5;
+  reserved "runner_id";
+}
+
+message WorkloadContainers {
+  // Main container identifier.
+  string main = 1;
+
+  repeated SidecarInstance sidecars = 2;
+}
+
+enum WorkloadStatus {
+  WORKLOAD_STATUS_UNSPECIFIED = 0;
+  WORKLOAD_STATUS_RUNNING = 1;
+  WORKLOAD_STATUS_STARTING = 2;
+  WORKLOAD_STATUS_STOPPED = 3;
+  WORKLOAD_STATUS_FAILED = 4;
+}
+
+message WorkloadFailure {
+  string code = 1;
+  string message = 2;
+  map<string, string> details = 3;
+}
+
+message StopWorkloadRequest {
+  string workload_id = 1;
+  uint32 timeout_sec = 2;
+}
+
+message StopWorkloadResponse {}
+
+message RemoveWorkloadRequest {
+  string workload_id = 1;
+  bool force = 2;
+  bool remove_volumes = 3;
+}
+
+message RemoveWorkloadResponse {}
+
+enum ContainerRole {
+  CONTAINER_ROLE_UNSPECIFIED = 0;
+  CONTAINER_ROLE_MAIN = 1;
+  CONTAINER_ROLE_SIDECAR = 2;
+  CONTAINER_ROLE_INIT = 3;
+}
+
+enum ContainerStatus {
+  CONTAINER_STATUS_UNSPECIFIED = 0;
+  CONTAINER_STATUS_RUNNING = 1;
+  CONTAINER_STATUS_TERMINATED = 2;
+  CONTAINER_STATUS_WAITING = 3;
+}
+
+// Mirrors agynio.api.runners.v1.Container; keep fields in sync.
+message WorkloadContainer {
+  // Runtime-assigned identifier from the container runtime (audit only).
+  string container_id = 1;
+  // Stable name unique within the workload, matches the Pod container name.
+  string name = 2;
+  ContainerRole role = 3;
+  string image = 4;
+  ContainerStatus status = 5;
+  optional string reason = 6;
+  optional string message = 7;
+  optional int32 exit_code = 8;
+  int32 restart_count = 9;
+  optional google.protobuf.Timestamp started_at = 10;
+  optional google.protobuf.Timestamp finished_at = 11;
+}
+
+message InspectWorkloadRequest {
+  string workload_id = 1;
+}
+
+// Inspect workload details plus per-container runtime state.
+// Existing fields are preserved for backward compatibility.
+message InspectWorkloadResponse {
+  string id = 1;
+  string name = 2;
+
+  string image = 3;
+  string config_image = 4;
+  map<string, string> config_labels = 5;
+
+  repeated TargetMount mounts = 6;
+
+  string state_status = 7;
+  bool state_running = 8;
+  repeated WorkloadContainer containers = 9;
+}
+
+message TargetMount {
+  string type = 1;
+  string source = 2;
+  string destination = 3;
+  bool read_only = 4;
+}
+
+message GetWorkloadLabelsRequest {
+  string workload_id = 1;
+}
+
+message GetWorkloadLabelsResponse {
+  map<string, string> labels = 1;
+}
+
+message ListWorkloadsRequest {}
+
+message WorkloadListItem {
+  string instance_id = 1;
+  string workload_key = 2;
+}
+
+message ListWorkloadsResponse {
+  repeated WorkloadListItem workloads = 1;
+}
+
+message FindWorkloadsByLabelsRequest {
+  map<string, string> labels = 1;
+  bool all = 2;
+}
+
+message FindWorkloadsByLabelsResponse {
+  repeated string target_ids = 1;
+}
+
+message ListWorkloadsByVolumeRequest {
+  string volume_name = 1;
+}
+
+message ListWorkloadsByVolumeResponse {
+  repeated string target_ids = 1;
+}
+
+message ListVolumesRequest {}
+
+message VolumeListItem {
+  string instance_id = 1;
+  string volume_key = 2;
+}
+
+message ListVolumesResponse {
+  repeated VolumeListItem volumes = 1;
+}
+
+message RemoveVolumeRequest {
+  string volume_name = 1;
+  bool force = 2;
+}
+
+message RemoveVolumeResponse {}
+
+message TouchWorkloadRequest {
+  string workload_id = 1;
+}
+
+message TouchWorkloadResponse {}
+
+message PutArchiveRequest {
+  string workload_id = 1;
+  string path = 2;
+  bytes tar_payload = 3;
+}
+
+message PutArchiveResponse {}
+
+// -------------------- Logs streaming --------------------
+
+message StreamWorkloadLogsRequest {
+  string workload_id = 1;
+
+  bool follow = 2;
+  // Deprecated: used only when since_time is unset.
+  int64 since = 3 [deprecated = true]; // epoch seconds; 0 = unset
+  // Deprecated: used only when tail_lines is unset.
+  uint32 tail = 4 [deprecated = true]; // 0 = backend default
+  // Deprecated: retained for backward compatibility; servers may ignore.
+  bool stdout = 5 [deprecated = true];
+  bool stderr = 6 [deprecated = true];
+  bool timestamps = 7 [deprecated = true];
+
+  // Stable container name within the workload. Required; empty -> InvalidArgument.
+  string container_name = 8;
+  // Number of lines from the end of the log to return (0 = backend default).
+  // When set (>0), overrides the deprecated tail field.
+  uint32 tail_lines = 9;
+  // Only return logs since this time (unset = all).
+  // When set, overrides the deprecated since field.
+  google.protobuf.Timestamp since_time = 10;
+}
+
+message StreamWorkloadLogsResponse {
+  oneof event {
+    LogChunk chunk = 1;
+    // Deprecated: end-of-stream is indicated by a clean gRPC EOF (OK).
+    LogEnd end = 2 [deprecated = true];
+    // Deprecated: errors must be surfaced via gRPC status codes.
+    RunnerError error = 3 [deprecated = true];
+  }
+}
+
+message LogChunk {
+  bytes data = 1;
+  google.protobuf.Timestamp ts = 2;
+}
+
+// Deprecated: end-of-stream is indicated by gRPC EOF.
+message LogEnd {}
+
+// -------------------- Runtime events streaming --------------------
+
+message StreamEventsRequest {
+  int64 since = 1; // epoch seconds; 0 = unset
+  repeated EventFilter filters = 2;
+}
+
+message EventFilter {
+  string key = 1;
+  repeated string values = 2;
+}
+
+message StreamEventsResponse {
+  oneof event {
+    RunnerEventData data = 1;
+    RunnerError error = 2;
+  }
+}
+
+message RunnerEventData {
+  // Opaque JSON representation (preserves parity with docker events passthrough).
+  string json = 1;
+  google.protobuf.Timestamp ts = 2;
+}
+
+// -------------------- Exec (streaming-only) --------------------
+
+message ExecRequest {
+  oneof msg {
+    ExecStartRequest start = 1;
+    ExecStdin stdin = 2;
+    ExecResize resize = 3;
+  }
+}
+
+message ExecStartRequest {
+  string request_id = 1;
+
+  string target_id = 2;
+
+  // Exactly one must be set.
+  repeated string command_argv = 3;
+  string command_shell = 4;
+
+  ExecOptions options = 5;
+}
+
+message ExecOptions {
+  string workdir = 1;
+  repeated EnvVar env = 2;
+
+  uint64 timeout_ms = 3;
+  uint64 idle_timeout_ms = 4;
+
+  bool tty = 5;
+  bool separate_stderr = 6;
+
+  bool kill_on_timeout = 7;
+  bool log_to_pid1 = 8;
+
+  uint64 exit_tail_bytes = 9;
+}
+
+message ExecStdin {
+  bytes data = 1;
+  bool eof = 2;
+}
+
+message ExecResize {
+  uint32 cols = 1;
+  uint32 rows = 2;
+}
+
+message ExecResponse {
+  oneof event {
+    ExecStarted started = 1;
+    ExecOutput stdout = 2;
+    ExecOutput stderr = 3;
+    ExecExit exit = 4;
+    ExecError error = 5;
+  }
+}
+
+message ExecStarted {
+  string execution_id = 1;
+  google.protobuf.Timestamp started_at = 2;
+}
+
+message ExecOutput {
+  uint64 seq = 1;
+  bytes data = 2;
+  google.protobuf.Timestamp ts = 3;
+}
+
+message ExecExit {
+  string execution_id = 1;
+  int32 exit_code = 2;
+
+  bool killed = 3;
+  ExecExitReason reason = 4;
+
+  bytes stdout_tail = 5;
+  bytes stderr_tail = 6;
+
+  google.protobuf.Timestamp finished_at = 7;
+}
+
+enum ExecExitReason {
+  EXEC_EXIT_REASON_UNSPECIFIED = 0;
+  EXEC_EXIT_REASON_COMPLETED = 1;
+  EXEC_EXIT_REASON_TIMEOUT = 2;
+  EXEC_EXIT_REASON_IDLE_TIMEOUT = 3;
+  EXEC_EXIT_REASON_CANCELLED = 4;
+  EXEC_EXIT_REASON_RUNNER_ERROR = 5;
+}
+
+message ExecError {
+  string code = 1;
+  string message = 2;
+  bool retryable = 3;
+}
+
+message CancelExecutionRequest {
+  string execution_id = 1;
+  bool force = 2;
+}
+
+message CancelExecutionResponse {
+  bool cancelled = 1;
+}

@@ -1,0 +1,762 @@
+syntax = "proto3";
+
+package agynio.api.runners.v1;
+
+import "agynio/api/runner/v1/runner.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/agynio/api/gen/agynio/api/runners/v1;runnersv1";
+
+// RunnersService manages runners and their workload state.
+service RunnersService {
+  // --- Runner management ---
+  rpc RegisterRunner(RegisterRunnerRequest) returns (RegisterRunnerResponse);
+  rpc GetRunner(GetRunnerRequest) returns (GetRunnerResponse);
+  rpc ListRunners(ListRunnersRequest) returns (ListRunnersResponse);
+  rpc UpdateRunner(UpdateRunnerRequest) returns (UpdateRunnerResponse);
+  rpc DeleteRunner(DeleteRunnerRequest) returns (DeleteRunnerResponse);
+  rpc ValidateServiceToken(ValidateServiceTokenRequest) returns (ValidateServiceTokenResponse);
+  rpc EnrollRunner(EnrollRunnerRequest) returns (EnrollRunnerResponse);
+
+  // --- Flavors ---
+  // Superseded by ReportRunnerCatalog: flavors are declared in the runner's
+  // own configuration, not managed through platform APIs. Retained so existing
+  // callers keep compiling while they migrate; the service does not implement
+  // them.
+  rpc CreateFlavor(CreateFlavorRequest) returns (CreateFlavorResponse) {
+    option deprecated = true;
+  }
+  rpc GetFlavor(GetFlavorRequest) returns (GetFlavorResponse) {
+    option deprecated = true;
+  }
+  rpc UpdateFlavor(UpdateFlavorRequest) returns (UpdateFlavorResponse) {
+    option deprecated = true;
+  }
+  rpc DeleteFlavor(DeleteFlavorRequest) returns (DeleteFlavorResponse) {
+    option deprecated = true;
+  }
+  rpc ListFlavors(ListFlavorsRequest) returns (ListFlavorsResponse);
+
+  // --- Runner catalog ---
+  // The catalog is declared in the runner's own configuration and reported
+  // here; a report replaces the runner's stored catalog wholesale.
+  rpc ReportRunnerCatalog(ReportRunnerCatalogRequest) returns (ReportRunnerCatalogResponse);
+  rpc ListStorageClasses(ListStorageClassesRequest) returns (ListStorageClassesResponse);
+
+  // --- Workload state ---
+  rpc CreateWorkload(CreateWorkloadRequest) returns (CreateWorkloadResponse);
+  rpc UpdateWorkload(UpdateWorkloadRequest) returns (UpdateWorkloadResponse);
+  rpc UpdateWorkloadStatus(UpdateWorkloadStatusRequest) returns (UpdateWorkloadStatusResponse);
+  rpc TouchWorkload(TouchWorkloadRequest) returns (TouchWorkloadResponse);
+  rpc DeleteWorkload(DeleteWorkloadRequest) returns (DeleteWorkloadResponse);
+  rpc GetWorkload(GetWorkloadRequest) returns (GetWorkloadResponse);
+  rpc ListWorkloadsByThread(ListWorkloadsByThreadRequest) returns (ListWorkloadsByThreadResponse);
+  rpc ListWorkloadsByAgentInstance(ListWorkloadsByAgentInstanceRequest) returns (ListWorkloadsByAgentInstanceResponse);
+  rpc ListWorkloads(ListWorkloadsRequest) returns (ListWorkloadsResponse);
+  rpc BatchUpdateWorkloadSampledAt(BatchUpdateWorkloadSampledAtRequest) returns (BatchUpdateWorkloadSampledAtResponse);
+
+  // --- Workload logs ---
+  rpc StreamWorkloadLogs(agynio.api.runner.v1.StreamWorkloadLogsRequest) returns (stream agynio.api.runner.v1.StreamWorkloadLogsResponse);
+
+  // --- Volume state ---
+  rpc CreateVolume(CreateVolumeRequest) returns (CreateVolumeResponse);
+  rpc UpdateVolume(UpdateVolumeRequest) returns (UpdateVolumeResponse);
+  rpc GetVolume(GetVolumeRequest) returns (GetVolumeResponse);
+  rpc ListVolumes(ListVolumesRequest) returns (ListVolumesResponse);
+  rpc ListVolumesByThread(ListVolumesByThreadRequest) returns (ListVolumesByThreadResponse);
+  rpc ListVolumesByAgentInstance(ListVolumesByAgentInstanceRequest) returns (ListVolumesByAgentInstanceResponse);
+  rpc BatchUpdateVolumeSampledAt(BatchUpdateVolumeSampledAtRequest) returns (BatchUpdateVolumeSampledAtResponse);
+}
+
+// ===========================================================================
+// Common
+// ===========================================================================
+
+message EntityMeta {
+  string id = 1;
+  google.protobuf.Timestamp created_at = 2;
+  google.protobuf.Timestamp updated_at = 3;
+}
+
+message ComputeResources {
+  string requests_cpu = 1;
+  string requests_memory = 2;
+  string limits_cpu = 3;
+  string limits_memory = 4;
+}
+
+message SampledAtEntry {
+  string id = 1;
+  google.protobuf.Timestamp sampled_at = 2;
+}
+
+enum SortDirection {
+  SORT_DIRECTION_UNSPECIFIED = 0;
+  SORT_DIRECTION_ASC = 1;
+  SORT_DIRECTION_DESC = 2;
+}
+
+// ===========================================================================
+// Runner
+// ===========================================================================
+
+enum RunnerStatus {
+  RUNNER_STATUS_UNSPECIFIED = 0;
+  RUNNER_STATUS_PENDING = 1;
+  RUNNER_STATUS_ENROLLED = 2;
+  RUNNER_STATUS_OFFLINE = 3;
+}
+
+message Runner {
+  EntityMeta meta = 1;
+  string name = 2;
+  optional string organization_id = 3;
+  string identity_id = 4;
+  RunnerStatus status = 5;
+  map<string, string> labels = 6;
+  // Per-runner OpenZiti service name (e.g. "runner-{id}")
+  string openziti_service_name = 7;
+  // Capabilities supported by this runner. Free-form strings (e.g., "privileged", "dind").
+  repeated string capabilities = 8;
+}
+
+message RegisterRunnerRequest {
+  string name = 1;
+  optional string organization_id = 2;
+  map<string, string> labels = 3;
+  // Capabilities supported by this runner. Free-form strings (e.g., "privileged", "dind").
+  repeated string capabilities = 4;
+}
+
+message RegisterRunnerResponse {
+  Runner runner = 1;
+  string service_token = 2;
+}
+
+message GetRunnerRequest {
+  string id = 1;
+}
+
+message GetRunnerResponse {
+  Runner runner = 1;
+}
+
+message ListRunnersRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+  optional string organization_id = 3;
+}
+
+message ListRunnersResponse {
+  repeated Runner runners = 1;
+  string next_page_token = 2;
+}
+
+message UpdateRunnerRequest {
+  string id = 1;
+  optional string name = 2;
+  // Labels replace the existing map; omitted keys are removed.
+  map<string, string> labels = 3;
+  // Capabilities replace the existing list; an empty list clears all capabilities.
+  repeated string capabilities = 4;
+}
+
+message UpdateRunnerResponse {
+  Runner runner = 1;
+}
+
+message DeleteRunnerRequest {
+  string id = 1;
+}
+
+message DeleteRunnerResponse {}
+
+message ValidateServiceTokenRequest {
+  string token_hash = 1;
+}
+
+message ValidateServiceTokenResponse {
+  Runner runner = 1;
+}
+
+message EnrollRunnerRequest {
+  string service_token = 1;
+}
+
+message EnrollRunnerResponse {
+  bytes identity_json = 1;
+  string service_name = 2;
+  string identity_id = 3;
+}
+
+// ===========================================================================
+// Flavor
+// ===========================================================================
+
+message Flavor {
+  // Catalog entries have no platform identity — they are named entries in a
+  // runner's report, replaced wholesale on the next report. Unset for reported
+  // entries; retained for callers still reading it.
+  EntityMeta meta = 1 [deprecated = true];
+  string runner_id = 2;
+  string name = 3;
+  ComputeResources resources = 4;
+  bool default = 5;
+  bool deprecated = 6;
+  optional string organization_id = 7;
+  string runner_name = 8;
+}
+
+message CreateFlavorRequest {
+  string runner_id = 1;
+  string name = 2;
+  ComputeResources resources = 3;
+  bool default = 4;
+}
+
+message CreateFlavorResponse {
+  Flavor flavor = 1;
+}
+
+message GetFlavorRequest {
+  string id = 1;
+}
+
+message GetFlavorResponse {
+  Flavor flavor = 1;
+}
+
+message UpdateFlavorRequest {
+  string id = 1;
+  optional string name = 2;
+  optional ComputeResources resources = 3;
+  optional bool default = 4;
+  optional bool deprecated = 5;
+}
+
+message UpdateFlavorResponse {
+  Flavor flavor = 1;
+}
+
+message DeleteFlavorRequest {
+  string id = 1;
+}
+
+message DeleteFlavorResponse {}
+
+message ListFlavorsRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+  optional string runner_id = 3;
+  optional string organization_id = 4;
+  optional bool include_deprecated = 5;
+}
+
+message ListFlavorsResponse {
+  repeated Flavor flavors = 1;
+  string next_page_token = 2;
+}
+
+message StorageClass {
+  string runner_id = 1;
+  string name = 2;
+  bool default = 3;
+  bool deprecated = 4;
+  optional string organization_id = 5;
+  string runner_name = 6;
+}
+
+// FlavorEntry and StorageClassEntry are what a runner declares in its own
+// configuration; the platform-scoped fields above are filled in on read.
+message FlavorEntry {
+  string name = 1;
+  ComputeResources resources = 2;
+  bool default = 3;
+  bool deprecated = 4;
+}
+
+message StorageClassEntry {
+  string name = 1;
+  bool default = 2;
+  bool deprecated = 3;
+}
+
+message ReportRunnerCatalogRequest {
+  string runner_id = 1;
+  // Authenticates the report, as for EnrollRunner.
+  string service_token = 2;
+  repeated FlavorEntry flavors = 3;
+  repeated StorageClassEntry storage_classes = 4;
+  repeated string capabilities = 5;
+}
+
+message ReportRunnerCatalogResponse {
+  int32 flavor_count = 1;
+  int32 storage_class_count = 2;
+  int32 capability_count = 3;
+}
+
+message ListStorageClassesRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+  optional string runner_id = 3;
+  optional string organization_id = 4;
+  optional bool include_deprecated = 5;
+}
+
+message ListStorageClassesResponse {
+  repeated StorageClass storage_classes = 1;
+  string next_page_token = 2;
+}
+
+// ===========================================================================
+// Workload
+// ===========================================================================
+
+enum RuntimeOwnerKind {
+  RUNTIME_OWNER_KIND_UNSPECIFIED = 0;
+  RUNTIME_OWNER_KIND_AGENT_INSTANCE = 1;
+  RUNTIME_OWNER_KIND_SANDBOX = 2;
+}
+
+enum WorkloadStatus {
+  WORKLOAD_STATUS_UNSPECIFIED = 0;
+  WORKLOAD_STATUS_STARTING = 1;
+  // Container is up and healthy. This does not imply the agent is actively
+  // processing; see Workload.agent_state.
+  WORKLOAD_STATUS_RUNNING = 2;
+  WORKLOAD_STATUS_STOPPING = 3;
+  WORKLOAD_STATUS_STOPPED = 4;
+  WORKLOAD_STATUS_FAILED = 5;
+}
+
+enum WorkloadAgentState {
+  WORKLOAD_AGENT_STATE_UNSPECIFIED = 0;
+  WORKLOAD_AGENT_STATE_PROCESSING = 1;
+  WORKLOAD_AGENT_STATE_IDLE = 2;
+}
+
+enum WorkloadFailureReason {
+  WORKLOAD_FAILURE_REASON_UNSPECIFIED = 0;
+  WORKLOAD_FAILURE_REASON_START_FAILED = 1;
+  WORKLOAD_FAILURE_REASON_IMAGE_PULL_FAILED = 2;
+  WORKLOAD_FAILURE_REASON_CONFIG_INVALID = 3;
+  WORKLOAD_FAILURE_REASON_CRASHLOOP = 4;
+  WORKLOAD_FAILURE_REASON_RUNTIME_LOST = 5;
+}
+
+enum ContainerRole {
+  CONTAINER_ROLE_UNSPECIFIED = 0;
+  CONTAINER_ROLE_MAIN = 1;
+  CONTAINER_ROLE_SIDECAR = 2;
+  CONTAINER_ROLE_INIT = 3;
+}
+
+enum ContainerStatus {
+  CONTAINER_STATUS_UNSPECIFIED = 0;
+  CONTAINER_STATUS_RUNNING = 1;
+  CONTAINER_STATUS_TERMINATED = 2;
+  CONTAINER_STATUS_WAITING = 3;
+}
+
+message Container {
+  // Runtime-assigned identifier from the container runtime (audit only).
+  string container_id = 1;
+  // Stable name unique within the workload, matches the Pod container name.
+  string name = 2;
+  ContainerRole role = 3;
+  string image = 4;
+  ContainerStatus status = 5;
+  optional string reason = 6;
+  optional string message = 7;
+  optional int32 exit_code = 8;
+  int32 restart_count = 9;
+  optional google.protobuf.Timestamp started_at = 10;
+  optional google.protobuf.Timestamp finished_at = 11;
+}
+
+message Workload {
+  EntityMeta meta = 1;
+  string runner_id = 2;
+  string thread_id = 3;
+  // Deprecated: use agent_class_id. Unset/absent agent ownership is expressed
+  // by owner_kind plus agent_class_id presence, not by an empty string sentinel.
+  string agent_id = 4 [deprecated = true];
+  string organization_id = 5;
+  WorkloadStatus status = 6;
+  repeated Container containers = 7;
+  string ziti_identity_id = 8;
+  optional string instance_id = 9;
+  google.protobuf.Timestamp last_activity_at = 10;
+  optional google.protobuf.Timestamp last_metering_sampled_at = 11;
+  optional google.protobuf.Timestamp removed_at = 12;
+  int32 allocated_cpu_millicores = 13;
+  int64 allocated_ram_bytes = 14;
+  // Flavor the workload started on. Empty when it started without an environment.
+  string flavor = 26;
+  // Machine-readable reason for failures when status is WORKLOAD_STATUS_FAILED.
+  // When status is not FAILED, this value may be unset or stale.
+  optional WorkloadFailureReason failure_reason = 15;
+  // Human-readable failure detail for failed workloads; not intended for
+  // programmatic parsing. When status is not FAILED, this value may be unset
+  // or stale.
+  optional string failure_message = 16;
+  // Deprecated: use agent_class_name. Unset/absent agent ownership is
+  // expressed by agent_class_name presence, not by an empty string sentinel.
+  string agent_name = 17 [deprecated = true];
+  // Denormalized display name for runner_id.
+  string runner_name = 18;
+  WorkloadAgentState agent_state = 19;
+  RuntimeOwnerKind owner_kind = 20;
+  string owner_id = 21;
+  optional string owner_name = 22;
+  optional string agent_class_id = 23;
+  optional string agent_class_name = 24;
+  // Present when owner_kind is RUNTIME_OWNER_KIND_AGENT_INSTANCE; absent otherwise.
+  optional string agent_instance_id = 25;
+}
+
+message CreateWorkloadRequest {
+  string id = 1;
+  string runner_id = 2;
+  string thread_id = 3;
+  // Deprecated: use agent_class_id. Unset/absent agent ownership is expressed
+  // by owner_kind plus agent_class_id presence, not by an empty string sentinel.
+  string agent_id = 4 [deprecated = true];
+  string organization_id = 5;
+  WorkloadStatus status = 6;
+  repeated Container containers = 7;
+  string ziti_identity_id = 8;
+  int32 allocated_cpu_millicores = 9;
+  int64 allocated_ram_bytes = 10;
+  RuntimeOwnerKind owner_kind = 11;
+  string owner_id = 12;
+  optional string agent_class_id = 13;
+  // Present when owner_kind is RUNTIME_OWNER_KIND_AGENT_INSTANCE; absent otherwise.
+  optional string agent_instance_id = 14;
+  string flavor = 15;
+}
+
+message CreateWorkloadResponse {
+  Workload workload = 1;
+}
+
+message UpdateWorkloadRequest {
+  string id = 1;
+  optional WorkloadStatus status = 2;
+  repeated Container containers = 3;
+  optional string instance_id = 4;
+  optional google.protobuf.Timestamp removed_at = 5;
+  optional google.protobuf.Timestamp last_metering_sampled_at = 6;
+  // Use this RPC to set or update failure details.
+  optional WorkloadFailureReason failure_reason = 7;
+  // Human-readable failure detail; not intended for programmatic parsing.
+  optional string failure_message = 8;
+}
+
+message UpdateWorkloadResponse {
+  Workload workload = 1;
+}
+
+// Updates status and containers only. Use UpdateWorkload to set failure
+// details such as failure_reason and failure_message.
+message UpdateWorkloadStatusRequest {
+  string id = 1;
+  WorkloadStatus status = 2;
+  repeated Container containers = 3;
+}
+
+message UpdateWorkloadStatusResponse {
+  Workload workload = 1;
+}
+
+message TouchWorkloadRequest {
+  string id = 1;
+}
+
+message TouchWorkloadResponse {}
+
+message DeleteWorkloadRequest {
+  string id = 1;
+}
+
+message DeleteWorkloadResponse {}
+
+message GetWorkloadRequest {
+  string id = 1;
+}
+
+message GetWorkloadResponse {
+  Workload workload = 1;
+}
+
+enum ListWorkloadsSortField {
+  LIST_WORKLOADS_SORT_FIELD_UNSPECIFIED = 0;
+  LIST_WORKLOADS_SORT_FIELD_STARTED = 1;
+  LIST_WORKLOADS_SORT_FIELD_AGENT = 2;
+  LIST_WORKLOADS_SORT_FIELD_RUNNER = 3;
+  LIST_WORKLOADS_SORT_FIELD_STATUS = 4;
+  LIST_WORKLOADS_SORT_FIELD_DURATION = 5;
+}
+
+message ListWorkloadsSort {
+  ListWorkloadsSortField field = 1;
+  SortDirection direction = 2;
+}
+
+message ListWorkloadsFilter {
+  repeated string agent_id_in = 1;
+  repeated string runner_id_in = 2;
+  repeated WorkloadStatus status_in = 3;
+  optional google.protobuf.Timestamp started_after = 4;
+  optional google.protobuf.Timestamp started_before = 5;
+  optional bool pending_sample = 6;
+  repeated RuntimeOwnerKind owner_kind_in = 7;
+  repeated string owner_id_in = 8;
+}
+
+message ListWorkloadsByThreadRequest {
+  string thread_id = 1;
+  int32 page_size = 2;
+  string page_token = 3;
+  optional string agent_id = 4;
+  // Optional status filter. An empty list returns workloads for all statuses.
+  repeated WorkloadStatus statuses = 5;
+}
+
+message ListWorkloadsByThreadResponse {
+  // Ordered by created_at DESC, id DESC for stable pagination.
+  repeated Workload workloads = 1;
+  string next_page_token = 2;
+}
+
+message ListWorkloadsByAgentInstanceRequest {
+  string agent_instance_id = 1;
+  int32 page_size = 2;
+  string page_token = 3;
+  // Optional status filter. An empty list returns workloads for all statuses.
+  repeated WorkloadStatus statuses = 4;
+}
+
+message ListWorkloadsByAgentInstanceResponse {
+  // Ordered by created_at DESC, id DESC for stable pagination.
+  repeated Workload workloads = 1;
+  string next_page_token = 2;
+}
+
+message ListWorkloadsRequest {
+  int32 page_size = 1;
+  // Opaque cursor; reuse only with the same sort and filter.
+  string page_token = 2;
+  // Deprecated: use filter.status_in instead.
+  repeated WorkloadStatus statuses = 3 [deprecated = true];
+  // Required organization scope; caller must hold can_view_workloads.
+  optional string organization_id = 4;
+  // Deprecated: use filter.runner_id_in instead.
+  optional string runner_id = 5 [deprecated = true];
+  // Deprecated: use filter.pending_sample instead.
+  optional bool pending_sample = 6 [deprecated = true];
+  ListWorkloadsFilter filter = 7;
+  ListWorkloadsSort sort = 8;
+}
+
+message ListWorkloadsResponse {
+  repeated Workload workloads = 1;
+  string next_page_token = 2;
+}
+
+message BatchUpdateWorkloadSampledAtRequest {
+  repeated SampledAtEntry entries = 1;
+}
+
+message BatchUpdateWorkloadSampledAtResponse {}
+
+// ===========================================================================
+// Volume
+// ===========================================================================
+
+enum VolumeStatus {
+  VOLUME_STATUS_UNSPECIFIED = 0;
+  VOLUME_STATUS_PROVISIONING = 1;
+  VOLUME_STATUS_ACTIVE = 2;
+  VOLUME_STATUS_DEPROVISIONING = 3;
+  VOLUME_STATUS_DELETED = 4;
+  VOLUME_STATUS_FAILED = 5;
+}
+
+message Volume {
+  EntityMeta meta = 1;
+  optional string instance_id = 2;
+  // Deprecated: use volume_definition_id. Runtime-only sandbox workspace
+  // volumes are expressed by owner_kind plus volume_definition_id presence,
+  // not by an empty string sentinel.
+  string volume_id = 3 [deprecated = true];
+  string thread_id = 4;
+  string runner_id = 5;
+  // Deprecated: use agent_class_id. Sandbox-owned volumes are expressed by
+  // owner_kind plus agent_class_id presence, not by an empty string sentinel.
+  string agent_id = 6 [deprecated = true];
+  string organization_id = 7;
+  string size_gb = 8;
+  VolumeStatus status = 9;
+  optional google.protobuf.Timestamp removed_at = 10;
+  optional google.protobuf.Timestamp last_metering_sampled_at = 11;
+  // Deprecated: use volume_definition_name. Runtime-only sandbox workspace
+  // volumes are expressed by volume_definition_name presence, not by an empty
+  // string sentinel.
+  string volume_name = 12 [deprecated = true];
+  // Current attachments for this volume; empty when unattached.
+  repeated Attachment attachments = 13;
+  RuntimeOwnerKind owner_kind = 14;
+  string owner_id = 15;
+  optional string owner_name = 16;
+  optional string volume_definition_id = 17;
+  optional string agent_class_id = 18;
+  optional string volume_definition_name = 19;
+  // Present when owner_kind is RUNTIME_OWNER_KIND_AGENT_INSTANCE; absent otherwise.
+  optional string agent_instance_id = 20;
+}
+
+enum AttachmentKind {
+  ATTACHMENT_KIND_UNSPECIFIED = 0;
+  ATTACHMENT_KIND_AGENT = 1;
+  ATTACHMENT_KIND_MCP = 2;
+  // 3 was ATTACHMENT_KIND_HOOK. Reserved rather than reused: a client built
+  // before hooks were removed still sends it.
+  reserved 3;
+}
+
+message Attachment {
+  AttachmentKind kind = 1;
+  string id = 2;
+  string name = 3;
+}
+
+enum VolumeAttachmentFilterKind {
+  VOLUME_ATTACHMENT_FILTER_KIND_UNSPECIFIED = 0;
+  VOLUME_ATTACHMENT_FILTER_KIND_AGENT = 1;
+  VOLUME_ATTACHMENT_FILTER_KIND_MCP = 2;
+  VOLUME_ATTACHMENT_FILTER_KIND_UNATTACHED = 4;
+  // 3 was VOLUME_ATTACHMENT_FILTER_KIND_HOOK.
+  reserved 3;
+}
+
+message CreateVolumeRequest {
+  string id = 1;
+  // Deprecated: use volume_definition_id. Runtime-only sandbox workspace
+  // volumes are expressed by owner_kind plus volume_definition_id presence,
+  // not by an empty string sentinel.
+  string volume_id = 2 [deprecated = true];
+  string thread_id = 3;
+  string runner_id = 4;
+  // Deprecated: use agent_class_id. Sandbox-owned volumes are expressed by
+  // owner_kind plus agent_class_id presence, not by an empty string sentinel.
+  string agent_id = 5 [deprecated = true];
+  string organization_id = 6;
+  string size_gb = 7;
+  VolumeStatus status = 8;
+  RuntimeOwnerKind owner_kind = 9;
+  string owner_id = 10;
+  optional string volume_definition_id = 11;
+  optional string agent_class_id = 12;
+  // Present when owner_kind is RUNTIME_OWNER_KIND_AGENT_INSTANCE; absent otherwise.
+  optional string agent_instance_id = 13;
+}
+
+message CreateVolumeResponse {
+  Volume volume = 1;
+}
+
+message UpdateVolumeRequest {
+  string id = 1;
+  optional VolumeStatus status = 2;
+  optional string instance_id = 3;
+  optional google.protobuf.Timestamp removed_at = 4;
+  optional google.protobuf.Timestamp last_metering_sampled_at = 5;
+}
+
+message UpdateVolumeResponse {
+  Volume volume = 1;
+}
+
+message GetVolumeRequest {
+  string id = 1;
+}
+
+message GetVolumeResponse {
+  Volume volume = 1;
+}
+
+enum ListVolumesSortField {
+  LIST_VOLUMES_SORT_FIELD_UNSPECIFIED = 0;
+  LIST_VOLUMES_SORT_FIELD_NAME = 1;
+  LIST_VOLUMES_SORT_FIELD_SIZE = 2;
+  LIST_VOLUMES_SORT_FIELD_STATUS = 3;
+  LIST_VOLUMES_SORT_FIELD_CREATED = 4;
+}
+
+message ListVolumesSort {
+  ListVolumesSortField field = 1;
+  SortDirection direction = 2;
+}
+
+message ListVolumesFilter {
+  repeated VolumeStatus status_in = 1;
+  repeated string runner_id_in = 2;
+  repeated VolumeAttachmentFilterKind attached_to_kind_in = 3;
+  optional bool pending_sample = 4;
+  optional string volume_name_substring = 5;
+  repeated RuntimeOwnerKind owner_kind_in = 6;
+  repeated string owner_id_in = 7;
+}
+
+message ListVolumesRequest {
+  int32 page_size = 1;
+  // Opaque cursor; reuse only with the same sort and filter.
+  string page_token = 2;
+  // Deprecated: use filter.status_in instead.
+  repeated VolumeStatus statuses = 3 [deprecated = true];
+  // Required organization scope; caller must hold can_view_volumes.
+  optional string organization_id = 4;
+  // Deprecated: use filter.runner_id_in instead.
+  optional string runner_id = 5 [deprecated = true];
+  // Deprecated: use filter.pending_sample instead.
+  optional bool pending_sample = 6 [deprecated = true];
+  ListVolumesFilter filter = 7;
+  ListVolumesSort sort = 8;
+}
+
+message ListVolumesResponse {
+  repeated Volume volumes = 1;
+  string next_page_token = 2;
+}
+
+message ListVolumesByThreadRequest {
+  string thread_id = 1;
+  int32 page_size = 2;
+  string page_token = 3;
+}
+
+message ListVolumesByThreadResponse {
+  repeated Volume volumes = 1;
+  string next_page_token = 2;
+}
+
+message ListVolumesByAgentInstanceRequest {
+  string agent_instance_id = 1;
+  int32 page_size = 2;
+  string page_token = 3;
+  // Optional status filter. An empty list returns volumes for all statuses.
+  repeated VolumeStatus statuses = 4;
+}
+
+message ListVolumesByAgentInstanceResponse {
+  repeated Volume volumes = 1;
+  string next_page_token = 2;
+}
+
+message BatchUpdateVolumeSampledAtRequest {
+  repeated SampledAtEntry entries = 1;
+}
+
+message BatchUpdateVolumeSampledAtResponse {}

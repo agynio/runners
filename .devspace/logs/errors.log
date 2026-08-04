@@ -1,0 +1,3 @@
+{"level":"error","msg":"Runtime error occurred: EOF","time":"2026-07-26T13:54:04+02:00"}
+{"level":"error","msg":"Runtime error occurred: EOF","time":"2026-07-26T13:54:17+02:00"}
+{"level":"error","msg":"Runtime error occurred: io: read/write on closed pipe","time":"2026-07-26T23:25:34+02:00"}
