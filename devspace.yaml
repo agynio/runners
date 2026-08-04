@@ -62,9 +62,10 @@ functions:
                                     --path agynio/api/identity/v1 \
                     --path agynio/api/authorization/v1 \
                     --path agynio/api/ziti_management/v1 \
-                    --path agynio/api/notifications/v1
-                  # agents/v1 and runners/v1 are vendored until the hook removal lands upstream
-                  buf generate proto --template buf.gen.yaml
+                    --path agynio/api/notifications/v1 \
+                    --path agynio/api/agents/v1 \
+                    --path agynio/api/runner/v1 \
+                    --path agynio/api/runners/v1
                   echo "buf generate complete, verifying runners package..."
                   go list ./cmd/runners
                   echo "buf generate complete, starting go run..."
