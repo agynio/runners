@@ -621,9 +621,7 @@ enum AttachmentKind {
   ATTACHMENT_KIND_UNSPECIFIED = 0;
   ATTACHMENT_KIND_AGENT = 1;
   ATTACHMENT_KIND_MCP = 2;
-  // 3 was ATTACHMENT_KIND_HOOK. Reserved rather than reused: a client built
-  // before hooks were removed still sends it.
-  reserved 3;
+  ATTACHMENT_KIND_HOOK = 3 [deprecated = true];
 }
 
 message Attachment {
@@ -636,9 +634,8 @@ enum VolumeAttachmentFilterKind {
   VOLUME_ATTACHMENT_FILTER_KIND_UNSPECIFIED = 0;
   VOLUME_ATTACHMENT_FILTER_KIND_AGENT = 1;
   VOLUME_ATTACHMENT_FILTER_KIND_MCP = 2;
+  VOLUME_ATTACHMENT_FILTER_KIND_HOOK = 3 [deprecated = true];
   VOLUME_ATTACHMENT_FILTER_KIND_UNATTACHED = 4;
-  // 3 was VOLUME_ATTACHMENT_FILTER_KIND_HOOK.
-  reserved 3;
 }
 
 message CreateVolumeRequest {
