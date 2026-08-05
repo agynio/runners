@@ -108,7 +108,6 @@ type volumeEnrichmentCache struct {
 	agentNames   map[uuid.UUID]string
 	sandboxNames map[uuid.UUID]string
 	mcpNames     map[uuid.UUID]string
-	hookNames    map[uuid.UUID]string
 }
 
 func newVolumeEnrichmentCache() *volumeEnrichmentCache {
@@ -118,7 +117,6 @@ func newVolumeEnrichmentCache() *volumeEnrichmentCache {
 		agentNames:   map[uuid.UUID]string{},
 		sandboxNames: map[uuid.UUID]string{},
 		mcpNames:     map[uuid.UUID]string{},
-		hookNames:    map[uuid.UUID]string{},
 	}
 }
 
@@ -482,7 +480,6 @@ func (s *Server) ListVolumes(ctx context.Context, req *runnersv1.ListVolumesRequ
 				return nil, status.Error(codes.InvalidArgument, "filter.attached_to_kind_in: unspecified kind")
 			case runnersv1.VolumeAttachmentFilterKind_VOLUME_ATTACHMENT_FILTER_KIND_AGENT,
 				runnersv1.VolumeAttachmentFilterKind_VOLUME_ATTACHMENT_FILTER_KIND_MCP,
-				runnersv1.VolumeAttachmentFilterKind_VOLUME_ATTACHMENT_FILTER_KIND_HOOK,
 				runnersv1.VolumeAttachmentFilterKind_VOLUME_ATTACHMENT_FILTER_KIND_UNATTACHED:
 				filter.AttachedKinds = append(filter.AttachedKinds, kind)
 			default:
@@ -1389,20 +1386,6 @@ func (s *Server) ensureMcpNames(ctx context.Context, cache *volumeEnrichmentCach
 	return nil
 }
 
-func (s *Server) ensureHookNames(ctx context.Context, cache *volumeEnrichmentCache, hookIDs []uuid.UUID) error {
-	for _, hookID := range uniqueUUIDs(hookIDs) {
-		if _, ok := cache.hookNames[hookID]; ok {
-			continue
-		}
-		name, err := s.resolveHookName(ctx, hookID)
-		if err != nil {
-			return err
-		}
-		cache.hookNames[hookID] = name
-	}
-	return nil
-}
-
 func (s *Server) ensureVolumeAttachments(ctx context.Context, cache *volumeEnrichmentCache, volumeIDs []uuid.UUID) error {
 	missing := []uuid.UUID{}
 	for _, volumeID := range uniqueUUIDs(volumeIDs) {
@@ -1418,7 +1401,6 @@ func (s *Server) ensureVolumeAttachments(ctx context.Context, cache *volumeEnric
 	attachmentsByVolume := make(map[uuid.UUID][]*agentsv1.VolumeAttachment, len(missing))
 	attachmentAgentIDs := []uuid.UUID{}
 	mcpIDs := []uuid.UUID{}
-	hookIDs := []uuid.UUID{}
 
 	for _, volumeID := range missing {
 		attachments, err := s.listVolumeAttachments(ctx, volumeID)
@@ -1443,14 +1425,6 @@ func (s *Server) ensureVolumeAttachments(ctx context.Context, cache *volumeEnric
 				mcpIDs = append(mcpIDs, parsed)
 				continue
 			}
-			if attachment.GetHookId() != "" {
-				parsed, err := parseUUID(attachment.GetHookId())
-				if err != nil {
-					return fmt.Errorf("attachment hook_id: %w", err)
-				}
-				hookIDs = append(hookIDs, parsed)
-				continue
-			}
 			return errors.New("attachment target missing")
 		}
 	}
@@ -1459,9 +1433,6 @@ func (s *Server) ensureVolumeAttachments(ctx context.Context, cache *volumeEnric
 		return err
 	}
 	if err := s.ensureMcpNames(ctx, cache, mcpIDs); err != nil {
-		return err
-	}
-	if err := s.ensureHookNames(ctx, cache, hookIDs); err != nil {
 		return err
 	}
 
@@ -1495,20 +1466,6 @@ func (s *Server) ensureVolumeAttachments(ctx context.Context, cache *volumeEnric
 				}
 				protoAttachments = append(protoAttachments, &runnersv1.Attachment{
 					Kind: runnersv1.AttachmentKind_ATTACHMENT_KIND_MCP,
-					Id:   parsed.String(),
-					Name: name,
-				})
-			case attachment.GetHookId() != "":
-				parsed, err := parseUUID(attachment.GetHookId())
-				if err != nil {
-					return fmt.Errorf("attachment hook_id: %w", err)
-				}
-				name, ok := cache.hookNames[parsed]
-				if !ok {
-					return fmt.Errorf("hook name missing for %s", parsed)
-				}
-				protoAttachments = append(protoAttachments, &runnersv1.Attachment{
-					Kind: runnersv1.AttachmentKind_ATTACHMENT_KIND_HOOK,
 					Id:   parsed.String(),
 					Name: name,
 				})
@@ -1610,10 +1567,6 @@ func matchesVolumeAttachmentKinds(attachments []*runnersv1.Attachment, kindFilte
 			}
 		case runnersv1.AttachmentKind_ATTACHMENT_KIND_MCP:
 			if kindFilter[runnersv1.VolumeAttachmentFilterKind_VOLUME_ATTACHMENT_FILTER_KIND_MCP] {
-				return true
-			}
-		case runnersv1.AttachmentKind_ATTACHMENT_KIND_HOOK:
-			if kindFilter[runnersv1.VolumeAttachmentFilterKind_VOLUME_ATTACHMENT_FILTER_KIND_HOOK] {
 				return true
 			}
 		}

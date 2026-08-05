@@ -149,22 +149,3 @@ func (s *Server) resolveMcpName(ctx context.Context, mcpID uuid.UUID) (string, e
 	}
 	return mcp.GetName(), nil
 }
-
-func (s *Server) resolveHookName(ctx context.Context, hookID uuid.UUID) (string, error) {
-	if s.agentsClient == nil {
-		return "", errors.New("agents client not configured")
-	}
-	resp, err := s.agentsClient.GetHook(outgoingContext(ctx), &agentsv1.GetHookRequest{Id: hookID.String()})
-	if err != nil {
-		return "", fmt.Errorf("get hook %s: %w", hookID, err)
-	}
-	hook := resp.GetHook()
-	if hook == nil {
-		return "", fmt.Errorf("hook %s not found", hookID)
-	}
-	name := strings.TrimSpace(hook.GetDescription())
-	if name == "" {
-		name = strings.TrimSpace(hook.GetEvent())
-	}
-	return name, nil
-}

@@ -199,7 +199,6 @@ type fakeAgentsClient struct {
 	listVolumes           func(ctx context.Context, req *agentsv1.ListVolumesRequest) (*agentsv1.ListVolumesResponse, error)
 	listVolumeAttachments func(ctx context.Context, req *agentsv1.ListVolumeAttachmentsRequest) (*agentsv1.ListVolumeAttachmentsResponse, error)
 	getMcp                func(ctx context.Context, req *agentsv1.GetMcpRequest) (*agentsv1.GetMcpResponse, error)
-	getHook               func(ctx context.Context, req *agentsv1.GetHookRequest) (*agentsv1.GetHookResponse, error)
 }
 
 func (f fakeAgentsClient) GetAgent(ctx context.Context, req *agentsv1.GetAgentRequest, opts ...grpc.CallOption) (*agentsv1.GetAgentResponse, error) {
@@ -242,13 +241,6 @@ func (f fakeAgentsClient) GetMcp(ctx context.Context, req *agentsv1.GetMcpReques
 		return nil, status.Error(codes.Unimplemented, "not implemented")
 	}
 	return f.getMcp(ctx, req)
-}
-
-func (f fakeAgentsClient) GetHook(ctx context.Context, req *agentsv1.GetHookRequest, opts ...grpc.CallOption) (*agentsv1.GetHookResponse, error) {
-	if f.getHook == nil {
-		return nil, status.Error(codes.Unimplemented, "not implemented")
-	}
-	return f.getHook(ctx, req)
 }
 
 type fakeAuthorizationClient struct {
