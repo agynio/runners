@@ -121,7 +121,12 @@ func (s *Server) resolveVolumeNames(ctx context.Context, volumeIDs []uuid.UUID) 
 		if volume == nil {
 			return nil, fmt.Errorf("volume %s not found", volumeID)
 		}
-		name := strings.TrimSpace(volume.GetDescription())
+		// A volume carries a real name now; description is the deprecated field
+		// it used to be labelled by, and the mount path the last resort.
+		name := strings.TrimSpace(volume.GetName())
+		if name == "" {
+			name = strings.TrimSpace(volume.GetDescription())
+		}
 		if name == "" {
 			name = strings.TrimSpace(volume.GetMountPath())
 		}
