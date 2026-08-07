@@ -1016,33 +1016,41 @@ func TestBatchUpdateVolumeSampledAtInvalid(t *testing.T) {
 	}
 }
 
-func TestCreateVolumeSandboxRuntimeOnly(t *testing.T) {
+// A sandbox volume names the definition it was made from, like every other
+// disk. It carries no thread or class, which is what distinguishes it from an
+// agent-instance volume -- not the absence of a definition.
+func TestCreateVolumeSandboxNamesItsDefinition(t *testing.T) {
 	mockPool, err := pgxmock.NewPool()
 	if err != nil {
 		t.Fatalf("failed to create mock pool: %v", err)
 	}
+	defer mockPool.Close()
 
 	volumeID := uuid.New()
+	definitionID := uuid.New()
 	runnerID := uuid.New()
 	organizationID := uuid.New()
 	sandboxID := uuid.New()
-	now := time.Now().UTC()
+	now := time.Now()
+
 	query := fmt.Sprintf("INSERT INTO volumes (id, volume_id, thread_id, runner_id, agent_id, organization_id, size_gb, status, owner_kind, owner_id)\n\t    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)\n\t    RETURNING %s", volumeColumns)
 	rows := pgxmock.NewRows(volumeRowColumns).
-		AddRow(volumeID, nil, nil, nil, runnerID, nil, organizationID, "10", volumeStatusActive, nil, nil, runtimeOwnerKindSandbox, sandboxID, now, now)
+		AddRow(volumeID, nil, definitionID, nil, runnerID, nil, organizationID, "10", volumeStatusActive, nil, nil, runtimeOwnerKindSandbox, sandboxID, now, now)
 	mockPool.ExpectQuery(regexp.QuoteMeta(query)).
-		WithArgs(volumeID, nil, nil, runnerID, nil, organizationID, "10", volumeStatusActive, runtimeOwnerKindSandbox, sandboxID).
+		WithArgs(volumeID, definitionID, nil, runnerID, nil, organizationID, "10", volumeStatusActive, runtimeOwnerKindSandbox, sandboxID).
 		WillReturnRows(rows)
 
 	srv := New(Options{Pool: mockPool})
+	definition := definitionID.String()
 	resp, err := srv.CreateVolume(context.Background(), &runnersv1.CreateVolumeRequest{
-		Id:             volumeID.String(),
-		RunnerId:       runnerID.String(),
-		OrganizationId: organizationID.String(),
-		SizeGb:         "10",
-		Status:         runnersv1.VolumeStatus_VOLUME_STATUS_ACTIVE,
-		OwnerKind:      runnersv1.RuntimeOwnerKind_RUNTIME_OWNER_KIND_SANDBOX,
-		OwnerId:        sandboxID.String(),
+		Id:                 volumeID.String(),
+		RunnerId:           runnerID.String(),
+		OrganizationId:     organizationID.String(),
+		SizeGb:             "10",
+		Status:             runnersv1.VolumeStatus_VOLUME_STATUS_ACTIVE,
+		OwnerKind:          runnersv1.RuntimeOwnerKind_RUNTIME_OWNER_KIND_SANDBOX,
+		OwnerId:            sandboxID.String(),
+		VolumeDefinitionId: &definition,
 	})
 	if err != nil {
 		t.Fatalf("CreateVolume failed: %v", err)
@@ -1050,15 +1058,38 @@ func TestCreateVolumeSandboxRuntimeOnly(t *testing.T) {
 	if resp.GetVolume().GetOwnerKind() != runnersv1.RuntimeOwnerKind_RUNTIME_OWNER_KIND_SANDBOX {
 		t.Fatalf("expected sandbox owner kind, got %s", resp.GetVolume().GetOwnerKind())
 	}
-	if resp.GetVolume().GetOwnerId() != sandboxID.String() {
-		t.Fatalf("expected owner id %s, got %s", sandboxID, resp.GetVolume().GetOwnerId())
+	if resp.GetVolume().GetVolumeDefinitionId() != definitionID.String() {
+		t.Fatalf("expected definition %s, got %q", definitionID, resp.GetVolume().GetVolumeDefinitionId())
 	}
-	if resp.GetVolume().GetVolumeId() != "" || resp.GetVolume().GetAgentId() != "" || resp.GetVolume().GetThreadId() != "" {
-		t.Fatalf("expected runtime-only sandbox volume without definition/agent/thread ids")
+	if resp.GetVolume().GetAgentId() != "" || resp.GetVolume().GetThreadId() != "" {
+		t.Fatalf("expected a sandbox volume to carry no class or thread")
 	}
 
 	if err := mockPool.ExpectationsWereMet(); err != nil {
 		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+// Every disk is made from a definition, whatever owns it.
+func TestCreateVolumeRequiresADefinition(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("failed to create mock pool: %v", err)
+	}
+	defer mockPool.Close()
+
+	srv := New(Options{Pool: mockPool})
+	_, err = srv.CreateVolume(context.Background(), &runnersv1.CreateVolumeRequest{
+		Id:             uuid.NewString(),
+		RunnerId:       uuid.NewString(),
+		OrganizationId: uuid.NewString(),
+		SizeGb:         "10",
+		Status:         runnersv1.VolumeStatus_VOLUME_STATUS_ACTIVE,
+		OwnerKind:      runnersv1.RuntimeOwnerKind_RUNTIME_OWNER_KIND_SANDBOX,
+		OwnerId:        uuid.NewString(),
+	})
+	if err == nil {
+		t.Fatal("expected a volume without a definition to be refused")
 	}
 }
 

@@ -161,10 +161,12 @@ func (s *Server) CreateVolume(ctx context.Context, req *runnersv1.CreateVolumeRe
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "owner_id: %v", err)
 	}
+	// Every disk is made from a definition an operator declared, whatever owns
+	// it. The implicit sandbox workspace was the one exception and is gone.
+	if volumeID == nil {
+		return nil, status.Error(codes.InvalidArgument, "volume_definition_id: value is empty")
+	}
 	if ownerKind == runtimeOwnerKindAgentInstance {
-		if volumeID == nil {
-			return nil, status.Error(codes.InvalidArgument, "volume_definition_id: value is empty")
-		}
 		if threadID == nil {
 			return nil, status.Error(codes.InvalidArgument, "thread_id: value is empty")
 		}
