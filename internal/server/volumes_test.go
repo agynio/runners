@@ -74,10 +74,7 @@ func TestListVolumesFiltersOrganization(t *testing.T) {
 
 	agentsClient := fakeAgentsClient{
 		getVolume: func(ctx context.Context, req *agentsv1.GetVolumeRequest) (*agentsv1.GetVolumeResponse, error) {
-			return &agentsv1.GetVolumeResponse{Volume: &agentsv1.Volume{Description: volumeName}}, nil
-		},
-		listVolumeAttachments: func(ctx context.Context, req *agentsv1.ListVolumeAttachmentsRequest) (*agentsv1.ListVolumeAttachmentsResponse, error) {
-			return &agentsv1.ListVolumeAttachmentsResponse{}, nil
+			return &agentsv1.GetVolumeResponse{Volume: &agentsv1.Volume{Name: volumeName, Target: &agentsv1.Volume_EnvironmentId{EnvironmentId: agentID.String()}}}, nil
 		},
 	}
 
@@ -152,10 +149,7 @@ func TestListVolumesInternalNoIdentity(t *testing.T) {
 
 	agentsClient := fakeAgentsClient{
 		getVolume: func(ctx context.Context, req *agentsv1.GetVolumeRequest) (*agentsv1.GetVolumeResponse, error) {
-			return &agentsv1.GetVolumeResponse{Volume: &agentsv1.Volume{Description: volumeName}}, nil
-		},
-		listVolumeAttachments: func(ctx context.Context, req *agentsv1.ListVolumeAttachmentsRequest) (*agentsv1.ListVolumeAttachmentsResponse, error) {
-			return &agentsv1.ListVolumeAttachmentsResponse{}, nil
+			return &agentsv1.GetVolumeResponse{Volume: &agentsv1.Volume{Name: volumeName, Target: &agentsv1.Volume_EnvironmentId{EnvironmentId: agentID.String()}}}, nil
 		},
 	}
 
@@ -223,10 +217,7 @@ func TestListVolumesFiltersRunner(t *testing.T) {
 
 	agentsClient := fakeAgentsClient{
 		getVolume: func(ctx context.Context, req *agentsv1.GetVolumeRequest) (*agentsv1.GetVolumeResponse, error) {
-			return &agentsv1.GetVolumeResponse{Volume: &agentsv1.Volume{Description: volumeName}}, nil
-		},
-		listVolumeAttachments: func(ctx context.Context, req *agentsv1.ListVolumeAttachmentsRequest) (*agentsv1.ListVolumeAttachmentsResponse, error) {
-			return &agentsv1.ListVolumeAttachmentsResponse{}, nil
+			return &agentsv1.GetVolumeResponse{Volume: &agentsv1.Volume{Name: volumeName, Target: &agentsv1.Volume_EnvironmentId{EnvironmentId: agentID.String()}}}, nil
 		},
 	}
 
@@ -297,10 +288,7 @@ func TestListVolumesPendingSample(t *testing.T) {
 
 	agentsClient := fakeAgentsClient{
 		getVolume: func(ctx context.Context, req *agentsv1.GetVolumeRequest) (*agentsv1.GetVolumeResponse, error) {
-			return &agentsv1.GetVolumeResponse{Volume: &agentsv1.Volume{Description: volumeName}}, nil
-		},
-		listVolumeAttachments: func(ctx context.Context, req *agentsv1.ListVolumeAttachmentsRequest) (*agentsv1.ListVolumeAttachmentsResponse, error) {
-			return &agentsv1.ListVolumeAttachmentsResponse{}, nil
+			return &agentsv1.GetVolumeResponse{Volume: &agentsv1.Volume{Name: volumeName, Target: &agentsv1.Volume_EnvironmentId{EnvironmentId: agentID.String()}}}, nil
 		},
 	}
 
@@ -384,23 +372,12 @@ func TestListVolumesFiltersAttachments(t *testing.T) {
 		getVolume: func(ctx context.Context, req *agentsv1.GetVolumeRequest) (*agentsv1.GetVolumeResponse, error) {
 			switch req.GetId() {
 			case volumeResourceID.String():
-				return &agentsv1.GetVolumeResponse{Volume: &agentsv1.Volume{Description: volumeName}}, nil
+				return &agentsv1.GetVolumeResponse{Volume: &agentsv1.Volume{Name: volumeName, Target: &agentsv1.Volume_EnvironmentId{EnvironmentId: agentID.String()}}}, nil
 			case otherResourceID.String():
 				return &agentsv1.GetVolumeResponse{Volume: &agentsv1.Volume{Description: otherName}}, nil
 			default:
 				return &agentsv1.GetVolumeResponse{Volume: &agentsv1.Volume{}}, nil
 			}
-		},
-		listVolumeAttachments: func(ctx context.Context, req *agentsv1.ListVolumeAttachmentsRequest) (*agentsv1.ListVolumeAttachmentsResponse, error) {
-			if req.GetVolumeId() == volumeResourceID.String() {
-				return &agentsv1.ListVolumeAttachmentsResponse{
-					VolumeAttachments: []*agentsv1.VolumeAttachment{{
-						VolumeId: volumeResourceID.String(),
-						Target:   &agentsv1.VolumeAttachment_AgentId{AgentId: agentID.String()},
-					}},
-				}, nil
-			}
-			return &agentsv1.ListVolumeAttachmentsResponse{}, nil
 		},
 		getAgent: func(ctx context.Context, req *agentsv1.GetAgentRequest) (*agentsv1.GetAgentResponse, error) {
 			return &agentsv1.GetAgentResponse{Agent: &agentsv1.Agent{Name: "agent"}}, nil
@@ -511,15 +488,12 @@ func TestListVolumesPaginationByName(t *testing.T) {
 		getVolume: func(ctx context.Context, req *agentsv1.GetVolumeRequest) (*agentsv1.GetVolumeResponse, error) {
 			switch req.GetId() {
 			case volumeResourceID.String():
-				return &agentsv1.GetVolumeResponse{Volume: &agentsv1.Volume{Description: volumeName}}, nil
+				return &agentsv1.GetVolumeResponse{Volume: &agentsv1.Volume{Name: volumeName, Target: &agentsv1.Volume_EnvironmentId{EnvironmentId: agentID.String()}}}, nil
 			case otherResourceID.String():
 				return &agentsv1.GetVolumeResponse{Volume: &agentsv1.Volume{Description: otherName}}, nil
 			default:
 				return &agentsv1.GetVolumeResponse{Volume: &agentsv1.Volume{}}, nil
 			}
-		},
-		listVolumeAttachments: func(ctx context.Context, req *agentsv1.ListVolumeAttachmentsRequest) (*agentsv1.ListVolumeAttachmentsResponse, error) {
-			return &agentsv1.ListVolumeAttachmentsResponse{}, nil
 		},
 	}
 

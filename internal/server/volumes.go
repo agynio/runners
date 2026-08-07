@@ -1283,32 +1283,24 @@ func (s *Server) listVolumesByNamePage(ctx context.Context, filter volumeListFil
 	return volumes, nextToken, nil
 }
 
-func (s *Server) listVolumeAttachments(ctx context.Context, volumeID uuid.UUID) ([]*agentsv1.VolumeAttachment, error) {
+// volumeTargets reports what mounts a disk. A volume used to reach a workload
+// through a separate attachment record; it now carries its own target, so the
+// definition is the only thing to read.
+func (s *Server) volumeTargets(ctx context.Context, volumeID uuid.UUID) ([]*agentsv1.Volume, error) {
 	if s.agentsClient == nil {
 		return nil, errors.New("agents client not configured")
 	}
-	attachmentsCtx := outgoingContext(ctx)
-	attachments := []*agentsv1.VolumeAttachment{}
-	pageToken := ""
-	for {
-		resp, err := s.agentsClient.ListVolumeAttachments(attachmentsCtx, &agentsv1.ListVolumeAttachmentsRequest{
-			PageSize:  maxListPageSize,
-			PageToken: pageToken,
-			VolumeId:  volumeID.String(),
-		})
-		if err != nil {
-			if isNotFoundGrpcError(err) {
-				return []*agentsv1.VolumeAttachment{}, nil
-			}
-			return nil, err
+	resp, err := s.agentsClient.GetVolume(outgoingContext(ctx), &agentsv1.GetVolumeRequest{Id: volumeID.String()})
+	if err != nil {
+		if isNotFoundGrpcError(err) {
+			return nil, nil
 		}
-		attachments = append(attachments, resp.GetVolumeAttachments()...)
-		if resp.GetNextPageToken() == "" {
-			break
-		}
-		pageToken = resp.GetNextPageToken()
+		return nil, err
 	}
-	return attachments, nil
+	if resp.GetVolume() == nil {
+		return nil, nil
+	}
+	return []*agentsv1.Volume{resp.GetVolume()}, nil
 }
 
 func (s *Server) ensureVolumeNames(ctx context.Context, cache *volumeEnrichmentCache, volumeIDs []uuid.UUID) error {
@@ -1400,34 +1392,24 @@ func (s *Server) ensureVolumeAttachments(ctx context.Context, cache *volumeEnric
 		return nil
 	}
 
-	attachmentsByVolume := make(map[uuid.UUID][]*agentsv1.VolumeAttachment, len(missing))
+	attachmentsByVolume := make(map[uuid.UUID][]*agentsv1.Volume, len(missing))
 	attachmentAgentIDs := []uuid.UUID{}
 	mcpIDs := []uuid.UUID{}
 
 	for _, volumeID := range missing {
-		attachments, err := s.listVolumeAttachments(ctx, volumeID)
+		attachments, err := s.volumeTargets(ctx, volumeID)
 		if err != nil {
 			return fmt.Errorf("list volume attachments: %w", err)
 		}
 		attachmentsByVolume[volumeID] = attachments
-		for _, attachment := range attachments {
-			if attachment.GetAgentId() != "" {
-				parsed, err := parseUUID(attachment.GetAgentId())
+		for _, definition := range attachments {
+			if definition.GetMcpId() != "" {
+				parsed, err := parseUUID(definition.GetMcpId())
 				if err != nil {
-					return fmt.Errorf("attachment agent_id: %w", err)
-				}
-				attachmentAgentIDs = append(attachmentAgentIDs, parsed)
-				continue
-			}
-			if attachment.GetMcpId() != "" {
-				parsed, err := parseUUID(attachment.GetMcpId())
-				if err != nil {
-					return fmt.Errorf("attachment mcp_id: %w", err)
+					return fmt.Errorf("volume mcp_id: %w", err)
 				}
 				mcpIDs = append(mcpIDs, parsed)
-				continue
 			}
-			return errors.New("attachment target missing")
 		}
 	}
 
@@ -1441,38 +1423,30 @@ func (s *Server) ensureVolumeAttachments(ctx context.Context, cache *volumeEnric
 	for _, volumeID := range missing {
 		attachments := attachmentsByVolume[volumeID]
 		protoAttachments := make([]*runnersv1.Attachment, 0, len(attachments))
-		for _, attachment := range attachments {
+		for _, definition := range attachments {
 			switch {
-			case attachment.GetAgentId() != "":
-				parsed, err := parseUUID(attachment.GetAgentId())
+			case definition.GetMcpId() != "":
+				parsed, err := parseUUID(definition.GetMcpId())
 				if err != nil {
-					return fmt.Errorf("attachment agent_id: %w", err)
-				}
-				name, ok := cache.agentNames[parsed]
-				if !ok {
-					return fmt.Errorf("agent name missing for %s", parsed)
-				}
-				protoAttachments = append(protoAttachments, &runnersv1.Attachment{
-					Kind: runnersv1.AttachmentKind_ATTACHMENT_KIND_AGENT,
-					Id:   parsed.String(),
-					Name: name,
-				})
-			case attachment.GetMcpId() != "":
-				parsed, err := parseUUID(attachment.GetMcpId())
-				if err != nil {
-					return fmt.Errorf("attachment mcp_id: %w", err)
-				}
-				name, ok := cache.mcpNames[parsed]
-				if !ok {
-					return fmt.Errorf("mcp name missing for %s", parsed)
+					return fmt.Errorf("volume mcp_id: %w", err)
 				}
 				protoAttachments = append(protoAttachments, &runnersv1.Attachment{
 					Kind: runnersv1.AttachmentKind_ATTACHMENT_KIND_MCP,
 					Id:   parsed.String(),
-					Name: name,
+					Name: cache.mcpNames[parsed],
 				})
-			default:
-				return errors.New("attachment target missing")
+			case definition.GetEnvironmentId() != "":
+				parsed, err := parseUUID(definition.GetEnvironmentId())
+				if err != nil {
+					return fmt.Errorf("volume environment_id: %w", err)
+				}
+				// An environment volume is mounted by whatever runs the
+				// environment, which the workload record already names.
+				protoAttachments = append(protoAttachments, &runnersv1.Attachment{
+					Kind: runnersv1.AttachmentKind_ATTACHMENT_KIND_AGENT,
+					Id:   parsed.String(),
+					Name: definition.GetName(),
+				})
 			}
 		}
 		cache.attachments[volumeID] = protoAttachments
