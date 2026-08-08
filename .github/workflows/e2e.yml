@@ -21,9 +21,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Provision cluster
-        uses: agynio/bootstrap/.github/actions/provision@main
-        with:
-          ref: de8f5b68db4c17a5e41152aa6f8dde8b38de4812
+        uses: agynio/e2e/.github/actions/provision-vm@main
 
       - name: Setup DevSpace
         uses: agynio/e2e/.github/actions/setup-devspace@main
@@ -46,22 +44,8 @@ jobs:
           devspace run-pipeline wait-runners
 
       - name: Run E2E tests
-        uses: agynio/e2e/.github/actions/run-tests@noa/fix-go-core-runners-llm-helpers
+        uses: agynio/e2e/.github/actions/run-tests@main
         with:
           service: runners
           include_smoke: "false"
           e2e-ref: noa/fix-go-core-runners-llm-helpers
-
-      - name: Restore ArgoCD sync
-        if: always()
-        run: |
-          set +e
-          if [ -f /tmp/runners-devspace.pid ]; then
-            kill "$(cat /tmp/runners-devspace.pid)"
-            wait "$(cat /tmp/runners-devspace.pid)" || true
-          fi
-          if command -v devspace >/dev/null 2>&1; then
-            devspace run-pipeline restore-argocd
-          else
-            echo "DevSpace is not installed; skipping ArgoCD sync restore."
-          fi
