@@ -380,9 +380,16 @@ func (s *Server) publishWorkloadUpdateNotifications(ctx context.Context, workloa
 		s.publishWorkloadNotification(ctx, "workload.updated", updatedRooms, payload)
 	}
 	if statusChanged {
-		s.publishWorkloadNotification(ctx, "workload.status_changed", []string{workloadRoom}, payload)
+		// The flat room as well: the Orchestrator reconciles every workload in
+		// the cluster and cannot subscribe per workload without racing the
+		// creation of the next one.
+		s.publishWorkloadNotification(ctx, "workload.status_changed", []string{workloadRoom, platformWorkloadsRoom}, payload)
 	}
 }
+
+// platformWorkloadsRoom is cluster-wide and held by the platform alone. See
+// architecture/notifications.md#cluster-wide-rooms.
+const platformWorkloadsRoom = "workloads"
 
 func (s *Server) publishWorkloadNotification(ctx context.Context, event string, rooms []string, payload *structpb.Struct) {
 	if s.notificationsClient == nil {
