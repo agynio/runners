@@ -2396,8 +2396,12 @@ func TestUpdateWorkloadPublishesNotifications(t *testing.T) {
 				t.Fatalf("unexpected workload.updated rooms: %v", rooms)
 			}
 		case "workload.status_changed":
+			// The workload's own room for whoever is watching that one, and the
+			// cluster-wide room the Orchestrator holds -- it reconciles every
+			// workload and cannot subscribe per workload without racing the
+			// creation of the next one.
 			rooms := req.GetRooms()
-			if len(rooms) != 1 || rooms[0] != workloadRoom {
+			if len(rooms) != 2 || !hasRoom(rooms, workloadRoom) || !hasRoom(rooms, "workloads") {
 				t.Fatalf("unexpected workload.status_changed rooms: %v", rooms)
 			}
 		default:
