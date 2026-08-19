@@ -186,7 +186,7 @@ func TestCreateWorkloadWritesAuthorizationTuples(t *testing.T) {
 	if gotWriteReq == nil {
 		t.Fatal("expected authorization Write to be called")
 	}
-	assertWorkloadAuthorizationWrites(t, gotWriteReq, workloadID, organizationID, agentID)
+	assertWorkloadAuthorizationWrites(t, gotWriteReq, workloadID, organizationID, agentID, threadID)
 
 	if err := mockPool.ExpectationsWereMet(); err != nil {
 		t.Fatalf("unmet expectations: %v", err)
@@ -357,7 +357,7 @@ func TestCreateWorkloadMapsAgentInstanceIDToOwnerID(t *testing.T) {
 	if gotWriteReq == nil {
 		t.Fatal("expected authorization Write to be called")
 	}
-	assertWorkloadAuthorizationWrites(t, gotWriteReq, workloadID, organizationID, agentID)
+	assertWorkloadAuthorizationWrites(t, gotWriteReq, workloadID, organizationID, agentID, agentInstanceID)
 
 	if err := mockPool.ExpectationsWereMet(); err != nil {
 		t.Fatalf("unmet expectations: %v", err)
@@ -385,7 +385,9 @@ func TestCreateWorkloadRejectsMismatchedAgentInstanceID(t *testing.T) {
 	}
 }
 
-func assertWorkloadAuthorizationWrites(t *testing.T, req *authorizationv1.WriteRequest, workloadID, organizationID, agentID uuid.UUID) {
+// viewers are the identities expected to hold owner_agent: the agent class and
+// the workload's own runtime identity, which is who asks from inside it.
+func assertWorkloadAuthorizationWrites(t *testing.T, req *authorizationv1.WriteRequest, workloadID, organizationID uuid.UUID, viewers ...uuid.UUID) {
 	t.Helper()
 	expected := []*authorizationv1.TupleKey{
 		{
@@ -393,11 +395,13 @@ func assertWorkloadAuthorizationWrites(t *testing.T, req *authorizationv1.WriteR
 			Relation: workloadOrgRelation,
 			Object:   workloadObject(workloadID),
 		},
-		{
-			User:     identityObject(agentID),
+	}
+	for _, viewer := range viewers {
+		expected = append(expected, &authorizationv1.TupleKey{
+			User:     identityObject(viewer),
 			Relation: workloadOwnerAgentRelation,
 			Object:   workloadObject(workloadID),
-		},
+		})
 	}
 	writes := req.GetWrites()
 	if len(writes) != len(expected) {
@@ -2762,12 +2766,9 @@ func TestCreateWorkloadSandboxOwner(t *testing.T) {
 	if resp.GetWorkload().GetAgentId() != "" || resp.GetWorkload().GetThreadId() != "" {
 		t.Fatalf("expected sandbox workload without agent/thread ids")
 	}
-	if gotWriteReq == nil || len(gotWriteReq.GetWrites()) != 1 {
-		t.Fatalf("expected only organization authorization tuple, got %#v", gotWriteReq)
-	}
-	if gotWriteReq.GetWrites()[0].GetRelation() != workloadOrgRelation {
-		t.Fatalf("expected org relation, got %s", gotWriteReq.GetWrites()[0].GetRelation())
-	}
+	// A sandbox workload names no agent class, so the only identity that can
+	// view it is its own -- the sandbox the workload runs for.
+	assertWorkloadAuthorizationWrites(t, gotWriteReq, workloadID, organizationID, sandboxID)
 
 	if err := mockPool.ExpectationsWereMet(); err != nil {
 		t.Fatalf("unmet expectations: %v", err)

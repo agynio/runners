@@ -219,7 +219,7 @@ func (s *Server) CreateWorkload(ctx context.Context, req *runnersv1.CreateWorklo
 	if err != nil {
 		return nil, toStatusError(err)
 	}
-	if err := s.writeWorkloadAuthorization(ctx, id, organizationID, agentID); err != nil {
+	if err := s.writeWorkloadAuthorization(ctx, id, organizationID, agentID, ownerID); err != nil {
 		return nil, err
 	}
 
@@ -744,8 +744,8 @@ func (s *Server) BatchUpdateWorkloadSampledAt(ctx context.Context, req *runnersv
 	return &runnersv1.BatchUpdateWorkloadSampledAtResponse{}, nil
 }
 
-func (s *Server) writeWorkloadAuthorization(ctx context.Context, workloadID, organizationID uuid.UUID, agentID *uuid.UUID) error {
-	tuples := workloadAuthorizationTuples(workloadID, organizationID, agentID)
+func (s *Server) writeWorkloadAuthorization(ctx context.Context, workloadID, organizationID uuid.UUID, agentID, ownerID *uuid.UUID) error {
+	tuples := workloadAuthorizationTuples(workloadID, organizationID, agentID, ownerID)
 	if len(tuples) == 0 {
 		return nil
 	}
@@ -755,7 +755,14 @@ func (s *Server) writeWorkloadAuthorization(ctx context.Context, workloadID, org
 	return nil
 }
 
-func workloadAuthorizationTuples(workloadID, organizationID uuid.UUID, agentID *uuid.UUID) []*authorizationv1.TupleKey {
+// workloadAuthorizationTuples names who may see a workload.
+//
+// The owner is here as well as the agent class because the owner is who
+// actually asks. A workload authenticates as its own runtime identity -- the
+// agent instance, or the sandbox -- so a check made from inside one carried an
+// id the class tuple never matched, and `agyn expose list` in a workload was
+// refused a view of the workload it was running in.
+func workloadAuthorizationTuples(workloadID, organizationID uuid.UUID, agentID, ownerID *uuid.UUID) []*authorizationv1.TupleKey {
 	object := workloadObject(workloadID)
 	tuples := []*authorizationv1.TupleKey{
 		{
@@ -764,9 +771,17 @@ func workloadAuthorizationTuples(workloadID, organizationID uuid.UUID, agentID *
 			Object:   object,
 		},
 	}
-	if agentID != nil {
+	seen := map[uuid.UUID]struct{}{}
+	for _, viewer := range []*uuid.UUID{agentID, ownerID} {
+		if viewer == nil {
+			continue
+		}
+		if _, already := seen[*viewer]; already {
+			continue
+		}
+		seen[*viewer] = struct{}{}
 		tuples = append(tuples, &authorizationv1.TupleKey{
-			User:     identityObject(*agentID),
+			User:     identityObject(*viewer),
 			Relation: workloadOwnerAgentRelation,
 			Object:   object,
 		})
