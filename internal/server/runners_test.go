@@ -161,6 +161,10 @@ type fakeIdentityClient struct {
 	registerIdentity func(ctx context.Context, req *identityv1.RegisterIdentityRequest) (*identityv1.RegisterIdentityResponse, error)
 }
 
+func (f fakeIdentityClient) DeleteOrganizationResources(context.Context, *identityv1.DeleteOrganizationResourcesRequest, ...grpc.CallOption) (*identityv1.DeleteOrganizationResourcesResponse, error) {
+	return &identityv1.DeleteOrganizationResourcesResponse{}, nil
+}
+
 func (f fakeIdentityClient) RegisterIdentity(ctx context.Context, req *identityv1.RegisterIdentityRequest, opts ...grpc.CallOption) (*identityv1.RegisterIdentityResponse, error) {
 	if f.registerIdentity == nil {
 		return nil, status.Error(codes.Unimplemented, "not implemented")

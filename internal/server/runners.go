@@ -338,6 +338,16 @@ func (s *Server) DeleteRunner(ctx context.Context, req *runnersv1.DeleteRunnerRe
 		return nil, err
 	}
 
+	if err := s.deleteRunnerRecord(ctx, runner); err != nil {
+		return nil, toStatusError(err)
+	}
+	return &runnersv1.DeleteRunnerResponse{}, nil
+}
+
+// deleteRunnerRecord is the delete path itself, without the permission check:
+// the caller has already established that it may. The organization teardown
+// reuses it so a runner leaves through the same door however it is removed.
+func (s *Server) deleteRunnerRecord(ctx context.Context, runner runnerRecord) error {
 	if runner.ZitiServiceID != "" || runner.ZitiIdentityID != "" {
 		if _, err := s.zitiManagementClient.DeleteRunnerIdentity(ctx, &zitimanagementv1.DeleteRunnerIdentityRequest{
 			IdentityId:    runner.IdentityID.String(),
@@ -349,10 +359,7 @@ func (s *Server) DeleteRunner(ctx context.Context, req *runnersv1.DeleteRunnerRe
 
 	s.cleanupRunnerAuthorization(ctx, runner.IdentityID, runner.OrganizationID)
 
-	if err := s.deleteRunner(ctx, id); err != nil {
-		return nil, toStatusError(err)
-	}
-	return &runnersv1.DeleteRunnerResponse{}, nil
+	return s.deleteRunner(ctx, runner.Meta.ID)
 }
 
 func (s *Server) ValidateServiceToken(ctx context.Context, req *runnersv1.ValidateServiceTokenRequest) (*runnersv1.ValidateServiceTokenResponse, error) {
