@@ -857,6 +857,10 @@ func (s *Server) updateWorkload(ctx context.Context, input workloadUpdateInput) 
 	if input.RemovedAt != nil {
 		addUpdateClause(&clauses, &args, "removed_at", *input.RemovedAt)
 	}
+	// A terminal status always carries removed_at, whoever wrote it.
+	if input.RemovedAt == nil && input.Status != nil && isTerminalWorkloadStatus(*input.Status) {
+		clauses = append(clauses, "removed_at = COALESCE(removed_at, NOW())")
+	}
 	if input.LastMeteringAt != nil {
 		addUpdateClause(&clauses, &args, "last_metering_sampled_at", *input.LastMeteringAt)
 	}
@@ -1806,6 +1810,10 @@ func timestampProto(value *time.Time) *timestamppb.Timestamp {
 		return nil
 	}
 	return timestamppb.New(*value)
+}
+
+func isTerminalWorkloadStatus(status string) bool {
+	return status == workloadStatusStopped || status == workloadStatusFailed
 }
 
 func workloadStatusToString(status runnersv1.WorkloadStatus) (string, error) {

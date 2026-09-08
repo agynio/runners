@@ -751,7 +751,7 @@ func (s *Server) insertVolume(ctx context.Context, input volumeInsertInput) (vol
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) {
 			if pgErr.Code == "23505" {
-				return volumeRecord{}, AlreadyExists("volume")
+				return s.reopenClosedVolume(ctx, input)
 			}
 			if pgErr.Code == "23503" {
 				return volumeRecord{}, NotFound("runner")
@@ -762,6 +762,44 @@ func (s *Server) insertVolume(ctx context.Context, input volumeInsertInput) (vol
 	volume.OwnerKind = input.OwnerKind
 	volume.OwnerID = input.OwnerID
 	return volume, nil
+}
+
+// reopenClosedVolume gives a create that collided with a closed row a fresh
+// provisioning generation: same disk slot, metering resumed from now. An open
+// row keeps the conflict.
+func (s *Server) reopenClosedVolume(ctx context.Context, input volumeInsertInput) (volumeRecord, error) {
+	row := s.pool.QueryRow(ctx,
+		fmt.Sprintf(`UPDATE volumes
+	    SET volume_id = $2, thread_id = $3, runner_id = $4, agent_id = $5, organization_id = $6, size_gb = $7,
+	        status = $8, owner_kind = $9, owner_id = $10,
+	        removed_at = NULL, instance_id = NULL, last_metering_sampled_at = NOW(), updated_at = NOW()
+	    WHERE id = $1 AND status IN ('%s', '%s')
+	    RETURNING %s`, volumeStatusDeleted, volumeStatusFailed, volumeColumns),
+		input.ID,
+		nullableUUIDValue(input.VolumeID),
+		nullableUUIDValue(input.ThreadID),
+		input.RunnerID,
+		nullableUUIDValue(input.AgentID),
+		input.OrganizationID,
+		input.SizeGB,
+		input.Status,
+		input.OwnerKind,
+		input.OwnerID,
+	)
+	volume, err := scanVolume(row)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return volumeRecord{}, AlreadyExists("volume")
+		}
+		return volumeRecord{}, err
+	}
+	volume.OwnerKind = input.OwnerKind
+	volume.OwnerID = input.OwnerID
+	return volume, nil
+}
+
+func isClosedVolumeStatus(status string) bool {
+	return status == volumeStatusDeleted || status == volumeStatusFailed
 }
 
 func (s *Server) updateVolume(ctx context.Context, input volumeUpdateInput) (volumeRecord, error) {
@@ -776,6 +814,10 @@ func (s *Server) updateVolume(ctx context.Context, input volumeUpdateInput) (vol
 	}
 	if input.RemovedAt != nil {
 		addUpdateClause(&clauses, &args, "removed_at", *input.RemovedAt)
+	}
+	// A closed status always carries removed_at, whoever wrote it.
+	if input.RemovedAt == nil && input.Status != nil && isClosedVolumeStatus(*input.Status) {
+		clauses = append(clauses, "removed_at = COALESCE(removed_at, NOW())")
 	}
 	if input.LastMeteringAt != nil {
 		addUpdateClause(&clauses, &args, "last_metering_sampled_at", *input.LastMeteringAt)

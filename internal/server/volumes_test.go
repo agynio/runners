@@ -1315,3 +1315,17 @@ func TestGetVolumeRejectsAMalformedIdentity(t *testing.T) {
 		t.Fatalf("expected Unauthenticated, got %v", err)
 	}
 }
+
+func TestClosedVolumeStatuses(t *testing.T) {
+	for status, closed := range map[string]bool{
+		volumeStatusProvisioning: false,
+		volumeStatusActive:       false,
+		volumeStatusDeprovision:  false,
+		volumeStatusDeleted:      true,
+		volumeStatusFailed:       true,
+	} {
+		if isClosedVolumeStatus(status) != closed {
+			t.Errorf("expected isClosedVolumeStatus(%q) = %v", status, closed)
+		}
+	}
+}

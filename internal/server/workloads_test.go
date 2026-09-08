@@ -2831,3 +2831,17 @@ func TestCreateWorkloadPersistsFlavor(t *testing.T) {
 		t.Fatalf("expected flavor ram-4gb, got %q", resp.GetWorkload().GetFlavor())
 	}
 }
+
+func TestTerminalWorkloadStatuses(t *testing.T) {
+	for status, terminal := range map[string]bool{
+		workloadStatusStarting: false,
+		workloadStatusRunning:  false,
+		workloadStatusStopping: false,
+		workloadStatusStopped:  true,
+		workloadStatusFailed:   true,
+	} {
+		if isTerminalWorkloadStatus(status) != terminal {
+			t.Errorf("expected isTerminalWorkloadStatus(%q) = %v", status, terminal)
+		}
+	}
+}
