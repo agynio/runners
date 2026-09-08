@@ -188,6 +188,10 @@ func (f fakeIdentityClient) ResolveNickname(ctx context.Context, req *identityv1
 	return nil, status.Error(codes.Unimplemented, "not implemented")
 }
 
+func (f fakeIdentityClient) DeleteOrganizationResources(ctx context.Context, req *identityv1.DeleteOrganizationResourcesRequest, opts ...grpc.CallOption) (*identityv1.DeleteOrganizationResourcesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "not implemented")
+}
+
 func (f fakeIdentityClient) BatchGetNicknames(ctx context.Context, req *identityv1.BatchGetNicknamesRequest, opts ...grpc.CallOption) (*identityv1.BatchGetNicknamesResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "not implemented")
 }
