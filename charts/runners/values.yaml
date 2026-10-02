@@ -30,6 +30,9 @@ authorizationPolicy:
   orchestratorServiceAccount:
     name: agents-orchestrator
     namespace: ""
+  organizationsServiceAccount:
+    name: organizations
+    namespace: ""
   identityServiceAccounts:
     - name: gateway
       namespace: ""
