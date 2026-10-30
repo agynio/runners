@@ -1034,10 +1034,13 @@ func (s *Server) touchWorkloadForOwner(ctx context.Context, id uuid.UUID, caller
 	}
 	switch workload.OwnerKind {
 	case runtimeOwnerKindAgentInstance:
-		if callerID == nil {
-			return nil, PermissionDenied()
-		}
-		if *callerID != workload.OwnerID {
+		// No identity is the Terminal Proxy, touching for a TTY session
+		// attached to the agent's shell: the mesh policy admits an identity-less
+		// TouchWorkload from that principal alone. It is treated exactly as the
+		// agent's own keepalive, idle -> processing flip included, so an agent
+		// is not hibernated under the person inspecting it. A present identity
+		// has to be the owner's.
+		if callerID != nil && *callerID != workload.OwnerID {
 			return nil, PermissionDenied()
 		}
 		return s.touchAgentInstanceWorkload(ctx, workload.Meta.ID, workload.OwnerID)

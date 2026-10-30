@@ -2085,6 +2085,8 @@ func TestTouchWorkloadPublishesUpdateWhenIdle(t *testing.T) {
 	}
 }
 
+// A present identity that is not the owner's is refused, now that none at
+// all is admitted as the Terminal Proxy's.
 func TestTouchWorkloadRequiresOwnerIdentity(t *testing.T) {
 	mockPool, err := pgxmock.NewPool()
 	if err != nil {
@@ -2110,6 +2112,93 @@ func TestTouchWorkloadRequiresOwnerIdentity(t *testing.T) {
 	_, err = srv.TouchWorkload(ctx, &runnersv1.TouchWorkloadRequest{Id: workloadID.String()})
 	if status.Code(err) != codes.PermissionDenied {
 		t.Fatalf("expected PermissionDenied error, got %v", err)
+	}
+
+	if err := mockPool.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+// The Terminal Proxy touches an agent workload for each TTY session attached
+// to its shell, carrying no identity as it never did; the mesh policy admits
+// the identity-less call from its principal alone. The touch flips an idle
+// agent back to processing exactly as the agent's own keepalive does, so the
+// Orchestrator does not hibernate it under the person inspecting it.
+func TestTouchWorkloadInternalFlipsIdleAgentToProcessing(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("failed to create mock pool: %v", err)
+	}
+
+	now := time.Now().UTC()
+	existing := defaultWorkloadRecord(uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New(), now)
+	existing.AgentState = workloadAgentStateIdle
+	expectWorkloadSelect(t, mockPool, existing)
+
+	processing := existing
+	processing.AgentState = workloadAgentStateProcessing
+	updateQuery := fmt.Sprintf("UPDATE workloads SET agent_state = $1, last_activity_at = NOW(), updated_at = NOW() WHERE id = $2 AND owner_kind = $3 AND owner_id = $4 AND agent_state = $5 RETURNING %s", workloadColumns)
+	mockPool.ExpectQuery(regexp.QuoteMeta(updateQuery)).
+		WithArgs(workloadAgentStateProcessing, existing.Meta.ID, runtimeOwnerKindAgentInstance, existing.OwnerID, workloadAgentStateIdle).
+		WillReturnRows(workloadRows(t, processing))
+
+	notificationsClient, published := collectNotifications()
+	srv := New(Options{Pool: mockPool, NotificationsClient: notificationsClient})
+	if _, err := srv.TouchWorkload(context.Background(), &runnersv1.TouchWorkloadRequest{Id: existing.Meta.ID.String()}); err != nil {
+		t.Fatalf("TouchWorkload failed: %v", err)
+	}
+
+	if len(*published) != 1 {
+		t.Fatalf("expected 1 notification, got %d", len(*published))
+	}
+	event := (*published)[0]
+	if event.GetEvent() != "workload.updated" {
+		t.Fatalf("unexpected event: %s", event.GetEvent())
+	}
+	rooms := event.GetRooms()
+	workloadRoom := fmt.Sprintf("workload:%s", existing.Meta.ID)
+	orgRoom := fmt.Sprintf("organization:%s", existing.OrganizationID)
+	if len(rooms) != 3 || !hasRoom(rooms, workloadRoom) || !hasRoom(rooms, orgRoom) || !hasRoom(rooms, platformWorkloadsRoom) {
+		t.Fatalf("unexpected workload.updated rooms: %v", rooms)
+	}
+	if got := payloadString(t, event, "agent_state"); got != workloadAgentStateProcessing {
+		t.Fatalf("expected agent_state processing in the event, got %q", got)
+	}
+
+	if err := mockPool.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+// With the agent already processing, the identity-less touch is the lightweight
+// one: the timestamp moves and nothing is published, as for the owner's own.
+func TestTouchWorkloadInternalOnProcessingAgentOnlyMovesTheTimestamp(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("failed to create mock pool: %v", err)
+	}
+
+	now := time.Now().UTC()
+	existing := defaultWorkloadRecord(uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New(), now)
+	expectWorkloadSelect(t, mockPool, existing)
+
+	updateQuery := fmt.Sprintf("UPDATE workloads SET agent_state = $1, last_activity_at = NOW(), updated_at = NOW() WHERE id = $2 AND owner_kind = $3 AND owner_id = $4 AND agent_state = $5 RETURNING %s", workloadColumns)
+	mockPool.ExpectQuery(regexp.QuoteMeta(updateQuery)).
+		WithArgs(workloadAgentStateProcessing, existing.Meta.ID, runtimeOwnerKindAgentInstance, existing.OwnerID, workloadAgentStateIdle).
+		WillReturnRows(pgxmock.NewRows(workloadRowColumns))
+
+	touchQuery := "UPDATE workloads SET last_activity_at = NOW(), updated_at = NOW() WHERE id = $1 AND owner_kind = $2 AND owner_id = $3"
+	mockPool.ExpectExec(regexp.QuoteMeta(touchQuery)).
+		WithArgs(existing.Meta.ID, runtimeOwnerKindAgentInstance, existing.OwnerID).
+		WillReturnResult(pgxmock.NewResult("UPDATE", 1))
+
+	notificationsClient, published := collectNotifications()
+	srv := New(Options{Pool: mockPool, NotificationsClient: notificationsClient})
+	if _, err := srv.TouchWorkload(context.Background(), &runnersv1.TouchWorkloadRequest{Id: existing.Meta.ID.String()}); err != nil {
+		t.Fatalf("TouchWorkload failed: %v", err)
+	}
+	if len(*published) != 0 {
+		t.Fatalf("expected no notifications, got %d", len(*published))
 	}
 
 	if err := mockPool.ExpectationsWereMet(); err != nil {
