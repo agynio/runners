@@ -2064,7 +2064,7 @@ func TestTouchWorkloadPublishesUpdateWhenIdle(t *testing.T) {
 	workloadRoom := fmt.Sprintf("workload:%s", workloadID)
 	orgRoom := fmt.Sprintf("organization:%s", organizationID)
 	rooms := request.GetRooms()
-	if len(rooms) != 2 || !hasRoom(rooms, workloadRoom) || !hasRoom(rooms, orgRoom) {
+	if len(rooms) != 3 || !hasRoom(rooms, workloadRoom) || !hasRoom(rooms, orgRoom) || !hasRoom(rooms, platformWorkloadsRoom) {
 		t.Fatalf("unexpected workload.updated rooms: %v", rooms)
 	}
 	payload := request.GetPayload().AsMap()
@@ -2242,7 +2242,7 @@ func TestSweepWorkloadActivityPublishesUpdates(t *testing.T) {
 		rooms := req.GetRooms()
 		workloadRoom := fmt.Sprintf("workload:%s", workloadID)
 		orgRoom := fmt.Sprintf("organization:%s", organizationID)
-		if len(rooms) != 2 || !hasRoom(rooms, workloadRoom) || !hasRoom(rooms, orgRoom) {
+		if len(rooms) != 3 || !hasRoom(rooms, workloadRoom) || !hasRoom(rooms, orgRoom) || !hasRoom(rooms, platformWorkloadsRoom) {
 			t.Fatalf("unexpected workload.updated rooms: %v", rooms)
 		}
 	}
@@ -2412,7 +2412,7 @@ func TestUpdateWorkloadPublishesNotifications(t *testing.T) {
 		switch req.GetEvent() {
 		case "workload.updated":
 			rooms := req.GetRooms()
-			if len(rooms) != 2 || !hasRoom(rooms, workloadRoom) || !hasRoom(rooms, orgRoom) {
+			if len(rooms) != 3 || !hasRoom(rooms, workloadRoom) || !hasRoom(rooms, orgRoom) || !hasRoom(rooms, platformWorkloadsRoom) {
 				t.Fatalf("unexpected workload.updated rooms: %v", rooms)
 			}
 		case "workload.status_changed":
@@ -2512,7 +2512,7 @@ func TestUpdateWorkloadFailureMetadata(t *testing.T) {
 	workloadRoom := fmt.Sprintf("workload:%s", workloadID)
 	orgRoom := fmt.Sprintf("organization:%s", organizationID)
 	rooms := request.GetRooms()
-	if len(rooms) != 2 || !hasRoom(rooms, workloadRoom) || !hasRoom(rooms, orgRoom) {
+	if len(rooms) != 3 || !hasRoom(rooms, workloadRoom) || !hasRoom(rooms, orgRoom) || !hasRoom(rooms, platformWorkloadsRoom) {
 		t.Fatalf("unexpected workload.updated rooms: %v", rooms)
 	}
 	payload := request.GetPayload().AsMap()

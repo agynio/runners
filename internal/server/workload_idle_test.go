@@ -56,7 +56,7 @@ func TestReportWorkloadIdleFlipsProcessingToIdle(t *testing.T) {
 	rooms := event.GetRooms()
 	workloadRoom := fmt.Sprintf("workload:%s", existing.Meta.ID)
 	orgRoom := fmt.Sprintf("organization:%s", existing.OrganizationID)
-	if len(rooms) != 2 || !hasRoom(rooms, workloadRoom) || !hasRoom(rooms, orgRoom) {
+	if len(rooms) != 3 || !hasRoom(rooms, workloadRoom) || !hasRoom(rooms, orgRoom) || !hasRoom(rooms, platformWorkloadsRoom) {
 		t.Fatalf("unexpected workload.updated rooms: %v", rooms)
 	}
 	if got := payloadString(t, event, "agent_state"); got != workloadAgentStateIdle {

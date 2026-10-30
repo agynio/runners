@@ -457,9 +457,16 @@ func (s *Server) publishWorkloadUpdateNotifications(ctx context.Context, workloa
 		return
 	}
 	workloadRoom := fmt.Sprintf("workload:%s", workload.Meta.ID.String())
+	// Every workload.updated, whoever emits it (UpdateWorkload, TouchWorkload,
+	// ReportWorkloadIdle, the activity sweep), goes to the organization's room
+	// and the workload's own for the Console, and to the flat platform room:
+	// the Orchestrator holds only the cluster-wide rooms and hibernates on the
+	// agent_state flip, which has to reach it the moment the turn ends rather
+	// than on its next poll.
 	updatedRooms := []string{
 		fmt.Sprintf("organization:%s", workload.OrganizationID.String()),
 		workloadRoom,
+		platformWorkloadsRoom,
 	}
 	if statusChanged || containersChanged || failureChanged || agentStateChanged {
 		s.publishWorkloadNotification(ctx, "workload.updated", updatedRooms, payload)
