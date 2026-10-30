@@ -25,11 +25,14 @@ import (
 )
 
 const (
-	workloadStatusStarting = "starting"
-	workloadStatusRunning  = "running"
-	workloadStatusStopping = "stopping"
-	workloadStatusStopped  = "stopped"
-	workloadStatusFailed   = "failed"
+	workloadStatusStarting    = "starting"
+	workloadStatusRunning     = "running"
+	workloadStatusHibernating = "hibernating"
+	workloadStatusHibernated  = "hibernated"
+	workloadStatusWaking      = "waking"
+	workloadStatusStopping    = "stopping"
+	workloadStatusStopped     = "stopped"
+	workloadStatusFailed      = "failed"
 
 	workloadAgentStateProcessing = "processing"
 	workloadAgentStateIdle       = "idle"
@@ -39,6 +42,8 @@ const (
 	workloadFailureReasonConfigInvalid   = "config_invalid"
 	workloadFailureReasonCrashloop       = "crashloop"
 	workloadFailureReasonRuntimeLost     = "runtime_lost"
+	workloadFailureReasonWakeFailed      = "wake_failed"
+	workloadFailureReasonSnapshotLost    = "snapshot_lost"
 
 	containerRoleMain    = "main"
 	containerRoleSidecar = "sidecar"
@@ -48,7 +53,7 @@ const (
 	containerStatusTerminated = "terminated"
 	containerStatusWaiting    = "waiting"
 
-	workloadColumns = `id, runner_id, thread_id, agent_id, organization_id, status, agent_state, failure_reason, failure_message, containers, ziti_identity_id, allocated_cpu_millicores, allocated_ram_bytes, flavor, persistent_shells, instance_id, last_activity_at, last_metering_sampled_at, removed_at, owner_kind, owner_id, created_at, updated_at`
+	workloadColumns = `id, runner_id, thread_id, agent_id, organization_id, status, agent_state, failure_reason, failure_message, containers, ziti_identity_id, allocated_cpu_millicores, allocated_ram_bytes, flavor, persistent_shells, instance_id, last_activity_at, last_metering_sampled_at, removed_at, hibernated_at, woken_at, snapshot_size_bytes, owner_kind, owner_id, created_at, updated_at`
 )
 
 type workloadRecord struct {
@@ -71,6 +76,9 @@ type workloadRecord struct {
 	LastActivityAt         time.Time
 	RemovedAt              *time.Time
 	LastMeteringAt         *time.Time
+	HibernatedAt           *time.Time
+	WokenAt                *time.Time
+	SnapshotSizeBytes      *int64
 	OwnerKind              string
 	OwnerID                uuid.UUID
 }
@@ -101,7 +109,48 @@ type workloadUpdateInput struct {
 	InstanceID        *string
 	RemovedAt         *time.Time
 	LastMeteringAt    *time.Time
+	HibernatedAt      *time.Time
+	WokenAt           *time.Time
+	SnapshotSizeBytes *int64
+	Transition        workloadTransition
+}
+
+// workloadTransition is what a status change carries besides the status.
+//
+// It is derived from the recorded status and the one being written, never from
+// who is writing, so the Orchestrator's reconciliation and a runner's report of
+// the same transition leave the record identical.
+type workloadTransition struct {
+	// ResetLastActivity opens a fresh keepalive window when a workload boots or
+	// wakes, so the activity sweep does not idle it before agynd's first touch.
 	ResetLastActivity bool
+	// EnteredHibernated stamps hibernated_at unless the writer supplied one.
+	EnteredHibernated bool
+	// Woke carries the wake resets: woken_at and last_metering_sampled_at to
+	// now, so compute billing resumes at the wake and never covers the sleep;
+	// agent_state back to processing, since a workload is only woken for work;
+	// and the fields that described the sleep cleared, since it is over.
+	Woke bool
+}
+
+func transitionWorkload(from, to string) workloadTransition {
+	switch to {
+	case workloadStatusRunning:
+		switch from {
+		case workloadStatusStarting:
+			return workloadTransition{ResetLastActivity: true}
+		case workloadStatusWaking:
+			return workloadTransition{ResetLastActivity: true, Woke: true}
+		}
+		// hibernating -> running is a hibernation that did not take: the
+		// workload never slept, so nothing is reset and the agent stays as idle
+		// as it was, ready for the next attempt.
+	case workloadStatusHibernated:
+		if from != workloadStatusHibernated {
+			return workloadTransition{EnteredHibernated: true}
+		}
+	}
+	return workloadTransition{}
 }
 
 type workloadListFilter struct {
@@ -302,15 +351,42 @@ func (s *Server) UpdateWorkload(ctx context.Context, req *runnersv1.UpdateWorklo
 		lastMeteringAt = &value
 	}
 
-	if statusValue == nil && containersJSON == nil && instanceID == nil && removedAt == nil && lastMeteringAt == nil && failureReason == nil && failureMessage == nil {
+	var hibernatedAt *time.Time
+	if req.HibernatedAt != nil {
+		if err := req.GetHibernatedAt().CheckValid(); err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "hibernated_at: %v", err)
+		}
+		value := req.GetHibernatedAt().AsTime()
+		hibernatedAt = &value
+	}
+
+	var wokenAt *time.Time
+	if req.WokenAt != nil {
+		if err := req.GetWokenAt().CheckValid(); err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "woken_at: %v", err)
+		}
+		value := req.GetWokenAt().AsTime()
+		wokenAt = &value
+	}
+
+	var snapshotSizeBytes *int64
+	if req.SnapshotSizeBytes != nil {
+		value := req.GetSnapshotSizeBytes()
+		if value < 0 {
+			return nil, status.Error(codes.InvalidArgument, "snapshot_size_bytes must not be negative")
+		}
+		snapshotSizeBytes = &value
+	}
+
+	if statusValue == nil && containersJSON == nil && instanceID == nil && removedAt == nil && lastMeteringAt == nil && failureReason == nil && failureMessage == nil && hibernatedAt == nil && wokenAt == nil && snapshotSizeBytes == nil {
 		return nil, status.Error(codes.InvalidArgument, "at least one field must be provided")
 	}
 
-	needsExisting := false
-	if s.notificationsClient != nil && (statusValue != nil || containersJSON != nil || failureReason != nil || failureMessage != nil) {
-		needsExisting = true
-	}
-	if statusValue != nil && *statusValue == workloadStatusRunning {
+	// A status write needs the recorded status: what the transition carries --
+	// the keepalive reset on boot, the stamps and resets around a sleep --
+	// depends on where the workload is coming from, not only where it is going.
+	needsExisting := statusValue != nil
+	if s.notificationsClient != nil && (containersJSON != nil || failureReason != nil || failureMessage != nil) {
 		needsExisting = true
 	}
 
@@ -323,7 +399,10 @@ func (s *Server) UpdateWorkload(ctx context.Context, req *runnersv1.UpdateWorklo
 		existingWorkload = &workload
 	}
 
-	resetLastActivity := existingWorkload != nil && statusValue != nil && *statusValue == workloadStatusRunning && existingWorkload.Status == workloadStatusStarting
+	var transition workloadTransition
+	if existingWorkload != nil && statusValue != nil {
+		transition = transitionWorkload(existingWorkload.Status, *statusValue)
+	}
 
 	workload, err := s.updateWorkload(ctx, workloadUpdateInput{
 		ID:                id,
@@ -334,7 +413,10 @@ func (s *Server) UpdateWorkload(ctx context.Context, req *runnersv1.UpdateWorklo
 		InstanceID:        instanceID,
 		RemovedAt:         removedAt,
 		LastMeteringAt:    lastMeteringAt,
-		ResetLastActivity: resetLastActivity,
+		HibernatedAt:      hibernatedAt,
+		WokenAt:           wokenAt,
+		SnapshotSizeBytes: snapshotSizeBytes,
+		Transition:        transition,
 	})
 	if err != nil {
 		return nil, toStatusError(err)
@@ -427,21 +509,16 @@ func (s *Server) UpdateWorkloadStatus(ctx context.Context, req *runnersv1.Update
 		return nil, status.Errorf(codes.Internal, "marshal containers: %v", err)
 	}
 
-	var existingWorkload *workloadRecord
-	if statusValue == workloadStatusRunning {
-		workload, err := s.getWorkloadByID(ctx, id)
-		if err != nil {
-			return nil, toStatusError(err)
-		}
-		existingWorkload = &workload
+	existingWorkload, err := s.getWorkloadByID(ctx, id)
+	if err != nil {
+		return nil, toStatusError(err)
 	}
-	resetLastActivity := existingWorkload != nil && existingWorkload.Status == workloadStatusStarting
 
 	workload, err := s.updateWorkload(ctx, workloadUpdateInput{
-		ID:                id,
-		Status:            &statusValue,
-		ContainersJSON:    &containersJSON,
-		ResetLastActivity: resetLastActivity,
+		ID:             id,
+		Status:         &statusValue,
+		ContainersJSON: &containersJSON,
+		Transition:     transitionWorkload(existingWorkload.Status, statusValue),
 	})
 	if err != nil {
 		return nil, toStatusError(err)
@@ -861,10 +938,41 @@ func (s *Server) updateWorkload(ctx context.Context, input workloadUpdateInput) 
 	if input.RemovedAt == nil && input.Status != nil && isTerminalWorkloadStatus(*input.Status) {
 		clauses = append(clauses, "removed_at = COALESCE(removed_at, NOW())")
 	}
-	if input.LastMeteringAt != nil {
+	switch {
+	case input.LastMeteringAt != nil:
 		addUpdateClause(&clauses, &args, "last_metering_sampled_at", *input.LastMeteringAt)
+	case input.Transition.Woke:
+		// Compute billing resumes at the wake and never covers the sleep.
+		clauses = append(clauses, "last_metering_sampled_at = NOW()")
 	}
-	if input.ResetLastActivity {
+	// The hibernation fields: an explicit value always wins, otherwise the
+	// transition decides. Entering hibernated stamps hibernated_at; a wake
+	// clears what described the sleep and records when it ended.
+	switch {
+	case input.HibernatedAt != nil:
+		addUpdateClause(&clauses, &args, "hibernated_at", *input.HibernatedAt)
+	case input.Transition.EnteredHibernated:
+		clauses = append(clauses, "hibernated_at = NOW()")
+	case input.Transition.Woke:
+		clauses = append(clauses, "hibernated_at = NULL")
+	}
+	switch {
+	case input.WokenAt != nil:
+		addUpdateClause(&clauses, &args, "woken_at", *input.WokenAt)
+	case input.Transition.Woke:
+		clauses = append(clauses, "woken_at = NOW()")
+	}
+	switch {
+	case input.SnapshotSizeBytes != nil:
+		addUpdateClause(&clauses, &args, "snapshot_size_bytes", *input.SnapshotSizeBytes)
+	case input.Transition.Woke:
+		clauses = append(clauses, "snapshot_size_bytes = NULL")
+	}
+	if input.Transition.Woke {
+		// A workload is only woken for work, so its agent is processing again.
+		addUpdateClause(&clauses, &args, "agent_state", workloadAgentStateProcessing)
+	}
+	if input.Transition.ResetLastActivity {
 		clauses = append(clauses, "last_activity_at = NOW()")
 	}
 	query, args := buildUpdateQuery("workloads", workloadColumns, clauses, args, input.ID)
@@ -1284,6 +1392,11 @@ func (s *Server) listWorkloads(ctx context.Context, filter workloadListFilter, s
 		args = append(args, *filter.StartedBefore)
 	}
 	if filter.PendingSample {
+		// Every live record has something left to bill, a hibernated one
+		// included: its compute tail up to hibernated_at while that is still
+		// unsampled, and its snapshot storage for as long as it sleeps. The live
+		// half of the clause -- removed_at IS NULL -- is what returns hibernated
+		// workloads to the sampler; nothing narrower is wanted.
 		clauses = append(clauses, pendingSampleClause)
 	}
 
@@ -1467,6 +1580,9 @@ func scanWorkload(row pgx.Row) (workloadRecord, error) {
 		instanceID     pgtype.Text
 		removedAt      pgtype.Timestamptz
 		lastMeteringAt pgtype.Timestamptz
+		hibernatedAt   pgtype.Timestamptz
+		wokenAt        pgtype.Timestamptz
+		snapshotSize   pgtype.Int8
 		ownerKindRaw   any
 		ownerIDRaw     any
 	)
@@ -1490,6 +1606,9 @@ func scanWorkload(row pgx.Row) (workloadRecord, error) {
 		&workload.LastActivityAt,
 		&lastMeteringAt,
 		&removedAt,
+		&hibernatedAt,
+		&wokenAt,
+		&snapshotSize,
 		&ownerKindRaw,
 		&ownerIDRaw,
 		&workload.Meta.CreatedAt,
@@ -1541,6 +1660,18 @@ func scanWorkload(row pgx.Row) (workloadRecord, error) {
 	if lastMeteringAt.Valid {
 		value := lastMeteringAt.Time
 		workload.LastMeteringAt = &value
+	}
+	if hibernatedAt.Valid {
+		value := hibernatedAt.Time
+		workload.HibernatedAt = &value
+	}
+	if wokenAt.Valid {
+		value := wokenAt.Time
+		workload.WokenAt = &value
+	}
+	if snapshotSize.Valid {
+		value := snapshotSize.Int64
+		workload.SnapshotSizeBytes = &value
 	}
 	return workload, nil
 }
@@ -1598,6 +1729,16 @@ func toProtoWorkload(record workloadRecord) (*runnersv1.Workload, error) {
 	}
 	if record.LastMeteringAt != nil {
 		protoWorkload.LastMeteringSampledAt = timestamppb.New(*record.LastMeteringAt)
+	}
+	if record.HibernatedAt != nil {
+		protoWorkload.HibernatedAt = timestamppb.New(*record.HibernatedAt)
+	}
+	if record.WokenAt != nil {
+		protoWorkload.WokenAt = timestamppb.New(*record.WokenAt)
+	}
+	if record.SnapshotSizeBytes != nil {
+		value := *record.SnapshotSizeBytes
+		protoWorkload.SnapshotSizeBytes = &value
 	}
 	if record.FailureReason != nil {
 		failureReason, err := workloadFailureReasonFromString(*record.FailureReason)
@@ -1822,6 +1963,12 @@ func workloadStatusToString(status runnersv1.WorkloadStatus) (string, error) {
 		return workloadStatusStarting, nil
 	case runnersv1.WorkloadStatus_WORKLOAD_STATUS_RUNNING:
 		return workloadStatusRunning, nil
+	case runnersv1.WorkloadStatus_WORKLOAD_STATUS_HIBERNATING:
+		return workloadStatusHibernating, nil
+	case runnersv1.WorkloadStatus_WORKLOAD_STATUS_HIBERNATED:
+		return workloadStatusHibernated, nil
+	case runnersv1.WorkloadStatus_WORKLOAD_STATUS_WAKING:
+		return workloadStatusWaking, nil
 	case runnersv1.WorkloadStatus_WORKLOAD_STATUS_STOPPING:
 		return workloadStatusStopping, nil
 	case runnersv1.WorkloadStatus_WORKLOAD_STATUS_STOPPED:
@@ -1856,6 +2003,10 @@ func workloadFailureReasonToString(reason runnersv1.WorkloadFailureReason) (stri
 		return workloadFailureReasonCrashloop, nil
 	case runnersv1.WorkloadFailureReason_WORKLOAD_FAILURE_REASON_RUNTIME_LOST:
 		return workloadFailureReasonRuntimeLost, nil
+	case runnersv1.WorkloadFailureReason_WORKLOAD_FAILURE_REASON_WAKE_FAILED:
+		return workloadFailureReasonWakeFailed, nil
+	case runnersv1.WorkloadFailureReason_WORKLOAD_FAILURE_REASON_SNAPSHOT_LOST:
+		return workloadFailureReasonSnapshotLost, nil
 	default:
 		return "", fmt.Errorf("invalid workload failure reason: %s", reason.String())
 	}
@@ -1867,6 +2018,12 @@ func workloadStatusFromString(value string) (runnersv1.WorkloadStatus, error) {
 		return runnersv1.WorkloadStatus_WORKLOAD_STATUS_STARTING, nil
 	case workloadStatusRunning:
 		return runnersv1.WorkloadStatus_WORKLOAD_STATUS_RUNNING, nil
+	case workloadStatusHibernating:
+		return runnersv1.WorkloadStatus_WORKLOAD_STATUS_HIBERNATING, nil
+	case workloadStatusHibernated:
+		return runnersv1.WorkloadStatus_WORKLOAD_STATUS_HIBERNATED, nil
+	case workloadStatusWaking:
+		return runnersv1.WorkloadStatus_WORKLOAD_STATUS_WAKING, nil
 	case workloadStatusStopping:
 		return runnersv1.WorkloadStatus_WORKLOAD_STATUS_STOPPING, nil
 	case workloadStatusStopped:
@@ -1901,6 +2058,10 @@ func workloadFailureReasonFromString(value string) (runnersv1.WorkloadFailureRea
 		return runnersv1.WorkloadFailureReason_WORKLOAD_FAILURE_REASON_CRASHLOOP, nil
 	case workloadFailureReasonRuntimeLost:
 		return runnersv1.WorkloadFailureReason_WORKLOAD_FAILURE_REASON_RUNTIME_LOST, nil
+	case workloadFailureReasonWakeFailed:
+		return runnersv1.WorkloadFailureReason_WORKLOAD_FAILURE_REASON_WAKE_FAILED, nil
+	case workloadFailureReasonSnapshotLost:
+		return runnersv1.WorkloadFailureReason_WORKLOAD_FAILURE_REASON_SNAPSHOT_LOST, nil
 	default:
 		return runnersv1.WorkloadFailureReason_WORKLOAD_FAILURE_REASON_UNSPECIFIED, fmt.Errorf("invalid workload failure reason: %s", value)
 	}

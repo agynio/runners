@@ -16,10 +16,16 @@ import (
 // decides a workload should end and drives it -- so a runner claiming either
 // would let a node take a workload down that the Orchestrator intends to keep
 // running. What a runner can legitimately say is that a workload came up, that
-// it failed, or that it is gone.
+// it failed, that it is gone, or where it is on the way into or out of a
+// sleep. Hibernating, hibernated and waking are what the runner sees of a
+// pause the Orchestrator asked for, and a hibernation is complete when the
+// runner says so.
 var reportableStatuses = map[runnersv1.WorkloadStatus]struct{}{
-	runnersv1.WorkloadStatus_WORKLOAD_STATUS_RUNNING: {},
-	runnersv1.WorkloadStatus_WORKLOAD_STATUS_FAILED:  {},
+	runnersv1.WorkloadStatus_WORKLOAD_STATUS_RUNNING:     {},
+	runnersv1.WorkloadStatus_WORKLOAD_STATUS_FAILED:      {},
+	runnersv1.WorkloadStatus_WORKLOAD_STATUS_HIBERNATING: {},
+	runnersv1.WorkloadStatus_WORKLOAD_STATUS_HIBERNATED:  {},
+	runnersv1.WorkloadStatus_WORKLOAD_STATUS_WAKING:      {},
 }
 
 // ReportWorkloadState records the runtime state a runner observed for one of
@@ -72,18 +78,26 @@ func (s *Server) ReportWorkloadState(ctx context.Context, req *runnersv1.ReportW
 	if !isReportableStatus(reportedStatus) {
 		return nil, status.Errorf(codes.InvalidArgument, "status %s is not an observed runtime state", reportedStatus)
 	}
+	// The size of the persisted state describes a hibernated workload and
+	// nothing else; carried on any other status it would outlive the wake that
+	// is meant to clear it.
+	if req.SnapshotSizeBytes != nil && reportedStatus != runnersv1.WorkloadStatus_WORKLOAD_STATUS_HIBERNATED {
+		return nil, status.Error(codes.InvalidArgument, "snapshot_size_bytes is only reported with status hibernated")
+	}
 
 	if !reportSupersedes(req.GetObservedAt(), workload) {
 		return &runnersv1.ReportWorkloadStateResponse{Applied: false}, nil
 	}
 
-	// Deliberately the same path UpdateWorkload takes, so the notifications and
-	// the last_activity_at reset on starting -> running behave identically
-	// whether the runner reported the transition or the Orchestrator found it.
+	// Deliberately the same path UpdateWorkload takes, so the notifications,
+	// the last_activity_at reset on starting -> running, the hibernated_at
+	// stamp and the wake resets behave identically whether the runner reported
+	// the transition or the Orchestrator found it.
 	if _, err := s.UpdateWorkload(ctx, &runnersv1.UpdateWorkloadRequest{
-		Id:         workloadID.String(),
-		Status:     &reportedStatus,
-		Containers: req.GetContainers(),
+		Id:                workloadID.String(),
+		Status:            &reportedStatus,
+		Containers:        req.GetContainers(),
+		SnapshotSizeBytes: req.SnapshotSizeBytes,
 	}); err != nil {
 		return nil, err
 	}
