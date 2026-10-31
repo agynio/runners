@@ -119,3 +119,16 @@ func TestValidateCapabilitiesNormalizesAndRejectsDuplicates(t *testing.T) {
 		t.Fatal("expected invalid capability name rejection")
 	}
 }
+
+// hibernate is the name the Orchestrator reads to learn a runner implements
+// HibernateWorkload and WakeWorkload; nothing about the catalog singles it
+// out, it only has to pass as a name.
+func TestValidateCapabilitiesAcceptsHibernate(t *testing.T) {
+	got, err := validateCapabilities([]string{"docker", "hibernate"})
+	if err != nil {
+		t.Fatalf("validate capabilities: %v", err)
+	}
+	if len(got) != 2 || got[1] != "hibernate" {
+		t.Fatalf("expected hibernate to be kept, got %v", got)
+	}
+}
