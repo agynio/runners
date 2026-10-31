@@ -31,6 +31,8 @@
   still needs it on every other gateway path.
 */}}
 {{- $terminalProxyPaths := list "/agynio.api.runners.v1.RunnersService/GetWorkload" "/agynio.api.runners.v1.RunnersService/TouchWorkload" }}
+{{- $organizationsNamespace := .Values.authorizationPolicy.organizationsServiceAccount.namespace | default .Release.Namespace }}
+{{- $organizationsPrincipal := printf "cluster.local/ns/%s/sa/%s" $organizationsNamespace .Values.authorizationPolicy.organizationsServiceAccount.name }}
 {{- $identityOnlyPaths := list }}
 {{- range $gatewayPaths }}
 {{- if not (has . $terminalProxyPaths) }}
@@ -113,4 +115,17 @@ spec:
               {{ range $terminalProxyPaths }}
               - {{ . | quote }}
               {{ end }}
+    {{- /*
+      DeleteOrganizationResources is one step of the organization teardown. It
+      carries no identity a permission check could refuse, so who may reach it
+      at all is settled here: Organizations alone.
+    */}}
+    - from:
+        - source:
+            notPrincipals:
+              - {{ $organizationsPrincipal | quote }}
+      to:
+        - operation:
+            paths:
+              - "/agynio.api.runners.v1.RunnersService/DeleteOrganizationResources"
 {{- end }}
